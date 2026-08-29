@@ -4,6 +4,42 @@ Ordered tasks. Do them in sequence; each phase assumes the previous one is
 merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 `CLAUDE.md`.
 
+## Status — updated 2026-08-30
+
+**Foundation (phases 0–1) complete and pushed to `origin/master`.**
+**→ Next task: 2.1 cascade engine (Heavy).**
+
+Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
+dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
+v0.1.0 version bump `1872737`. Each done task is tagged ✅ below.
+
+**How to run / environment**
+- Node 20 via nvm — the machine's default `node` is CCP4's Node 16 and will
+  not work. In non-interactive shells prefix with:
+  `export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null`
+- Backend: `npm run pb` (PocketBase 0.40.1 binary in `./bin`; fetch with
+  `npm run pb:setup`). Frontend: `npm run dev` (Vite proxies `/api` + `/_`).
+- After any schema migration: `npm run types:pb` regenerates `src/types/pb.ts`.
+- Before every commit: `npm run check` **and** `npm run format:check`
+  (Prettier is not part of `check`).
+
+**PocketBase gotchas (already paid for once)**
+- Hook files must be named `*.pb.js`; a plain `.js` is silently ignored.
+- Hook handlers run in isolated VMs — share code via
+  `require(\`${__hooks}/x.js\`)`, not top-level functions.
+- A `required` json field rejects `{}`; `trips.default_dwell` is seeded from
+  the taxonomy on create.
+
+**Spec deviations recorded** — §8 fixture bug fixed (Gullfoss activity 120 min,
+not 180); `blocks.creator` added (needed to enforce private-block visibility);
+`trips` delete is owner-only.
+
+**Pending / not done**
+- **Release v0.1.0**: version bumped and pushed, but the git tag + GitHub
+  release step was blocked by the sandbox classifier. Finish manually:
+  `git tag -a v0.1.0 -m "v0.1.0 — foundation" && git push origin v0.1.0`,
+  then `gh release create v0.1.0 --title "v0.1.0 — Foundation" --notes "..."`.
+
 ## Model routing
 
 | Tier | Model | Thinking | Use for |
@@ -31,15 +67,15 @@ correctness. Revisit only if the thread's context gets too large to work in.
 
 ## Phase 0 — Scaffold
 
-**0.1 Repo and toolchain** · Cheap
+**0.1 Repo and toolchain** · Cheap · ✅ `48acf84`
 Vite + React + TS strict, Tailwind, ESLint, Prettier, Vitest, `npm run check`
 running tsc + lint + tests. Directory skeleton per `CLAUDE.md`.
 
-**0.2 PocketBase container** · Cheap
+**0.2 PocketBase container** · Cheap · ✅ `d210535`
 Dockerfile that builds the SPA and serves it from `pb_public`. `docker-compose`
 for local dev with a volume. Env template with all five variables.
 
-**0.3 Taxonomy constants** · Cheap
+**0.3 Taxonomy constants** · Cheap · ✅ `52db0c9`
 `src/lib/taxonomy.ts` — the closed enum from BUILD §7 with default dwells,
 icon names and labels. Plus `src/lib/osm-tags.ts`, the OSM tag → kind lookup
 table. Pure data, unit tested for completeness (every enum member has a dwell
@@ -49,19 +85,21 @@ and an icon).
 
 ## Phase 1 — Schema
 
-**1.1 Collections and API rules** · Standard
+**1.1 Collections and API rules** · Standard · ✅ `1679ad5`
 All collections from BUILD §2 as PocketBase migrations. Roles enforced through
 rules; private blocks readable only by their creator. Generate
 `src/types/pb.ts`.
 
-**1.2 Day ordering** · Standard
+**1.2 Day ordering** · Standard · ✅ `f480b33`
 Insert, delete and reorder days as transactional `order_index` operations. Date
 is derived everywhere — assert no absolute date is persisted. Inserting a day
 returns the list of blocks whose parent day now falls on a different date, for
 the warning dialog.
 
-**1.3 Auth and trip membership** · Standard
+**1.3 Auth and trip membership** · Standard · ✅ `f39cc3e`
 Login, trip list, create trip, invite by email, role assignment.
+Done as data layer + minimal UI (rebuilt in phase 4); invites are pending-by-
+email, materialised on registration via `pb_hooks/membership.pb.js`.
 
 ---
 
