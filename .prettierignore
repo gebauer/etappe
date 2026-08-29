@@ -1,0 +1,11 @@
+dist
+coverage
+node_modules
+pb_data
+pb_public
+package-lock.json
+
+# Hand-wrapped spec/docs — not prettier-managed
+BUILD.md
+WORK.md
+CLAUDE.md
