@@ -8,6 +8,7 @@ coverage
 !.env.example
 pb_data
 pb_public
+bin
 *.log
 .DS_Store
 .vscode/*
