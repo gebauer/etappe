@@ -3,9 +3,9 @@ services:
     build:
       context: .
       args:
-        PB_VERSION: "0.40.1"
+        PB_VERSION: '0.40.1'
     ports:
-      - "8090:8090"
+      - '8090:8090'
     env_file:
       # Optional locally; required in deployment. See .env.example.
       - path: .env
