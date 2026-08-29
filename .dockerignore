@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.git
+.env
+*.local
+pb_data
+pb_public
+npm-debug.log*

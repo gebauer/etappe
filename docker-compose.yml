@@ -1,0 +1,18 @@
+services:
+  pocketbase:
+    build:
+      context: .
+      args:
+        PB_VERSION: "0.40.1"
+    ports:
+      - "8090:8090"
+    env_file:
+      # Optional locally; required in deployment. See .env.example.
+      - path: .env
+        required: false
+    volumes:
+      - pb_data:/pb/pb_data
+    restart: unless-stopped
+
+volumes:
+  pb_data:
