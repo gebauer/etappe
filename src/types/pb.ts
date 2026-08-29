@@ -15,6 +15,7 @@ export const Collections = {
 	Blocks: "blocks",
 	Costs: "costs",
 	Days: "days",
+	Invites: "invites",
 	Legs: "legs",
 	Pois: "pois",
 	RouteCache: "route_cache",
@@ -198,6 +199,30 @@ export type DaysRecord = {
 	notes?: string
 	order_index: number
 	title?: string
+	trip: RecordIdString
+	updated: IsoAutoDateString
+}
+
+export const InvitesRoleOptions = {
+	"owner": "owner",
+	"editor": "editor",
+	"viewer": "viewer",
+} as const
+export type InvitesRoleOptions = typeof InvitesRoleOptions[keyof typeof InvitesRoleOptions]
+
+export const InvitesStatusOptions = {
+	"pending": "pending",
+	"accepted": "accepted",
+	"revoked": "revoked",
+} as const
+export type InvitesStatusOptions = typeof InvitesStatusOptions[keyof typeof InvitesStatusOptions]
+export type InvitesRecord = {
+	created: IsoAutoDateString
+	email: string
+	id: string
+	invited_by: RecordIdString
+	role: InvitesRoleOptions
+	status: InvitesStatusOptions
 	trip: RecordIdString
 	updated: IsoAutoDateString
 }
@@ -406,6 +431,7 @@ export type ActivitiesResponse<Texpand = unknown> = Required<ActivitiesRecord> &
 export type BlocksResponse<Texpand = unknown> = Required<BlocksRecord> & BaseSystemFields<Texpand>
 export type CostsResponse<Texpand = unknown> = Required<CostsRecord> & BaseSystemFields<Texpand>
 export type DaysResponse<Texpand = unknown> = Required<DaysRecord> & BaseSystemFields<Texpand>
+export type InvitesResponse<Texpand = unknown> = Required<InvitesRecord> & BaseSystemFields<Texpand>
 export type LegsResponse<Tgeometry = unknown, Texpand = unknown> = Required<LegsRecord<Tgeometry>> & BaseSystemFields<Texpand>
 export type PoisResponse<Texpand = unknown> = Required<PoisRecord> & BaseSystemFields<Texpand>
 export type RouteCacheResponse<Tgeometry = unknown, Texpand = unknown> = Required<RouteCacheRecord<Tgeometry>> & BaseSystemFields<Texpand>
@@ -426,6 +452,7 @@ export type CollectionRecords = {
 	blocks: BlocksRecord
 	costs: CostsRecord
 	days: DaysRecord
+	invites: InvitesRecord
 	legs: LegsRecord
 	pois: PoisRecord
 	route_cache: RouteCacheRecord
@@ -445,6 +472,7 @@ export type CollectionResponses = {
 	blocks: BlocksResponse
 	costs: CostsResponse
 	days: DaysResponse
+	invites: InvitesResponse
 	legs: LegsResponse
 	pois: PoisResponse
 	route_cache: RouteCacheResponse

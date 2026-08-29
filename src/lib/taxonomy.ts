@@ -67,3 +67,17 @@ export function defaultDwell(kind: Kind): number | null {
 export function iconFor(kind: Kind): string {
   return TAXONOMY[kind].icon;
 }
+
+/**
+ * Seed for `trips.default_dwell` (BUILD §2): the taxonomy default minutes per
+ * kind. Accommodation kinds (null dwell) are omitted — their dwell comes from
+ * activities, not a fixed default.
+ */
+export function defaultDwellSeed(): Record<string, number> {
+  const seed: Record<string, number> = {};
+  for (const kind of KINDS) {
+    const dwell = TAXONOMY[kind].dwell;
+    if (dwell !== null) seed[kind] = dwell;
+  }
+  return seed;
+}
