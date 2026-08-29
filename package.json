@@ -16,15 +16,18 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "types:pb": "pocketbase-typegen --db pb_data/data.db --out src/types/pb.ts",
     "test": "vitest run",
     "check": "tsc --noEmit && eslint . && vitest run --passWithNoTests"
   },
   "dependencies": {
+    "pocketbase": "^0.28.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
+    "pocketbase-typegen": "^1.5.0",
     "@types/node": "^20.17.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
