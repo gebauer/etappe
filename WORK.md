@@ -40,7 +40,19 @@ Each done task is tagged ✅ below. (Phases 0–1 are pushed to
 - Hook handlers run in isolated VMs — share code via
   `require(\`${__hooks}/x.js\`)`, not top-level functions.
 - A `required` json field rejects `{}`; `trips.default_dwell` is seeded from
-  the taxonomy on create.
+  the taxonomy on create. Likewise a `required` **number** field rejects `0` as
+  blank — so `order_index`/`car_buffer_pct` are NOT required (fixed in
+  `1788000003`). Any field whose 0/empty value is legitimate must not be
+  required.
+- API rules that test a join with `@collection.x.field` need the any-match
+  `?=`, not `=` (plain `=` matches nothing). Express a role check as explicit
+  alternatives — `(role ?= 'owner' || role ?= 'editor')` — not `!= 'viewer'`,
+  which does not correlate to the same joined row. Same-alias `?=` conditions
+  DO correlate to one row (verified: a viewer cannot write). See `1788000003`.
+- Changing collections via the admin API/UI while `--automigrate` is on writes
+  `*_updated_*.js` migration files into pb_hooks — handy in real use, but
+  experimenting through the API litters the tree. Prefer editing rules in a
+  migration.
 
 **Spec deviations recorded** — §8 fixture bug fixed (Gullfoss activity 120 min,
 not 180); `blocks.creator` added (needed to enforce private-block visibility);
