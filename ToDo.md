@@ -9,6 +9,9 @@ pick up before v1.
       accept or rename").
 - [ ] Confirmation (or undo) before deleting stops — row ✕, Delete key, and the
       inspector currently delete without asking.
-- [ ] Leg-direction arrows don't render — OpenFreeMap's font lacks the `▸`
-      glyph. Swap for a supported glyph or an SDF arrow icon.
+- [ ] Re-add leg-direction arrows as a sprite icon (`icon-image` + line
+      placement). The old text-glyph arrow (`text-field: '▸'`) was removed: the
+      basemap's glyph endpoint 404s on that range, and a failed symbol glyph
+      aborts the whole source's worker tile — which silently dropped the leg
+      lines themselves. Must not reintroduce a `text-field` on the legs source.
 - [ ] Code-split the map — MapLibre makes the main bundle large (>500 kB).

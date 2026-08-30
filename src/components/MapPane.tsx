@@ -136,7 +136,7 @@ export function MapPane({
     );
 
     map.on('load', () => {
-      map.addSource('legs', { type: 'geojson', data: fc });
+      map.addSource('legs', { type: 'geojson', data: fcRef.current });
       map.addLayer({
         id: 'legs-flat',
         type: 'line',
@@ -171,24 +171,10 @@ export function MapPane({
           'line-opacity': 0.9,
         },
       });
-      map.addLayer({
-        id: 'legs-arrows',
-        type: 'symbol',
-        source: 'legs',
-        layout: {
-          'symbol-placement': 'line',
-          'symbol-spacing': 90,
-          'text-field': '▸',
-          'text-size': 14,
-          'text-keep-upright': false,
-          'text-allow-overlap': true,
-        },
-        paint: {
-          'text-color': '#334155',
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1,
-        },
-      });
+      // No text-glyph direction arrows on the legs: the basemap's glyph
+      // endpoint 404s on the arrow range, and a failed symbol glyph aborts the
+      // whole source's tile in the worker — which silently drops the leg lines
+      // too. Direction arrows via a sprite icon are tracked in ToDo.md.
       loadedRef.current = true;
       maybeFit(map);
 
@@ -250,7 +236,6 @@ export function MapPane({
       map.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Push new data.
