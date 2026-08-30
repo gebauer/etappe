@@ -63,6 +63,11 @@ not 180); `blocks.creator` added (needed to enforce private-block visibility);
 `trips` delete is owner-only; no separate `fixtures/after-dark.json` — the
 after-dark case reuses `iceland-day1.json` under a 16:24 daylight stub (the
 whole point of injecting daylight), avoiding a drift-prone duplicate.
+`stops.access_lat`/`access_lon` (migration `1788000004`, not in BUILD §2) let
+a leg route to a nearby road/car park instead of a POI's own coordinates when
+the POI itself isn't reachable by car — fixes legs that stayed manual forever
+with no way to heal them (see ToDo.md). A leg with no route geometry now draws
+a straight dashed connector instead of no line.
 
 **Pending / not done**
 - **Release v0.1.0**: version bumped and pushed, but the git tag + GitHub
@@ -330,3 +335,9 @@ current task. Do not act on it in the same commit.
 - Stop deletion (row ✕ and the Delete key) has **no confirmation** — added
   unconfirmed for fast test cleanup. Add a confirm (or undo) before v1.
 - Bundle is large (MapLibre); consider code-splitting the map.
+- A stop's access point (added while fixing stuck-manual legs, see ToDo.md) is
+  only settable from a manual leg row. Surface it in the stop inspector too
+  (read + clear) so it's discoverable without hunting through the timeline.
+- The route hook still can't tell the client "routing genuinely failed" apart
+  from "no road nearby" (both 200 `routable:false`). Low priority now that
+  access points give a workaround, but worth a distinct error surface later.

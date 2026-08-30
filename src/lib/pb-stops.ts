@@ -17,10 +17,18 @@ import type { LatLon, RoutingProvider } from './routing';
 import { planStopMove } from './stop-move';
 import type { TripRecords } from './pb-trip-doc';
 
-function coordsOf(stops: StopsResponse[]): Map<string, LatLon | null> {
+/** Coordinates to route to/from for each stop: the stop's own location, or
+ * its `access_lat`/`access_lon` when set — a nearby road or car park for a
+ * POI that isn't itself reachable by car. The stop's map marker always shows
+ * the real location; only routing uses the access point. */
+export function coordsOf(stops: StopsResponse[]): Map<string, LatLon | null> {
   const map = new Map<string, LatLon | null>();
   for (const s of stops) {
-    map.set(s.id, s.lat && s.lon ? { lat: s.lat, lon: s.lon } : null);
+    const [lat, lon] =
+      s.access_lat && s.access_lon
+        ? [s.access_lat, s.access_lon]
+        : [s.lat, s.lon];
+    map.set(s.id, lat && lon ? { lat, lon } : null);
   }
   return map;
 }
@@ -148,6 +156,8 @@ export type StopPatch = Partial<
     | 'kind_confirmed'
     | 'lat'
     | 'lon'
+    | 'access_lat'
+    | 'access_lon'
     | 'address'
     | 'dwell_override'
     | 'anchor_time'
@@ -164,9 +174,10 @@ export async function updateStop(
   await pb.collection('stops').update(stopId, patch);
 }
 
-/** Update a stop and, when its coordinates changed, re-route the legs on either
- * side so a stop that gains coordinates (e.g. via the inspector) gets real
- * drive times. */
+/** Update a stop and, when its coordinates or access point changed, re-route
+ * the legs on either side so a stop that gains coordinates (e.g. via the
+ * inspector) or an access point (e.g. a car park for an off-road POI) gets
+ * real drive times. */
 export async function updateStopAndReroute(
   pb: TypedPocketBase,
   provider: RoutingProvider,
@@ -175,7 +186,12 @@ export async function updateStopAndReroute(
   patch: StopPatch,
 ): Promise<void> {
   await pb.collection('stops').update(stopId, patch);
-  if (patch.lat === undefined && patch.lon === undefined) return;
+  const touchesRouting =
+    patch.lat !== undefined ||
+    patch.lon !== undefined ||
+    patch.access_lat !== undefined ||
+    patch.access_lon !== undefined;
+  if (!touchesRouting) return;
 
   const stop = records.stops.find((s) => s.id === stopId);
   if (!stop) return;
@@ -184,9 +200,16 @@ export async function updateStopAndReroute(
     .sort((a, b) => a.order_index - b.order_index);
 
   const coords = coordsOf(dayStops);
+  const accessLat = patch.access_lat ?? stop.access_lat;
+  const accessLon = patch.access_lon ?? stop.access_lon;
   const lat = patch.lat ?? stop.lat;
   const lon = patch.lon ?? stop.lon;
-  coords.set(stopId, lat && lon ? { lat, lon } : null);
+  const [routeLat, routeLon] =
+    accessLat && accessLon ? [accessLat, accessLon] : [lat, lon];
+  coords.set(
+    stopId,
+    routeLat && routeLon ? { lat: routeLat, lon: routeLon } : null,
+  );
 
   const i = dayStops.findIndex((s) => s.id === stopId);
   const pairs: Array<[StopsResponse, StopsResponse]> = [];
@@ -222,6 +245,23 @@ export async function updateLeg(
   patch: LegPatch,
 ): Promise<void> {
   await pb.collection('legs').update(legId, patch);
+}
+
+/** Explicitly opt a car leg out of routing: keep the current duration (or a
+ * user-entered one) as a manual value and drop any ORS geometry, so the map
+ * falls back to a straight dashed connector instead of implying a real
+ * route. `⟳ route` (rerouteLeg) is the way back to auto. */
+export async function setLegManual(
+  pb: TypedPocketBase,
+  legId: string,
+  durationMin: number,
+): Promise<void> {
+  await pb.collection('legs').update(legId, {
+    routing_source: 'manual',
+    duration_min: durationMin,
+    distance_m: 0,
+    geometry: null,
+  });
 }
 
 /** Re-run routing for a single existing leg from its stops' current

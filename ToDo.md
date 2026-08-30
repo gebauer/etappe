@@ -9,9 +9,24 @@ pick up before v1.
       accept or rename").
 - [ ] Confirmation (or undo) before deleting stops — row ✕, Delete key, and the
       inspector currently delete without asking.
-- [ ] **Manual legs still not routing** — the ⟳ re-route button runs but some
-      legs stay manual (0 min, no line). Rerouting does not currently heal them;
-      needs investigation (ORS snapping? stale coords? provider error swallowed).
+- [x] **Manual legs still not routing** — root cause: `buildLegRecord`
+      collapses a genuine "no road nearby" (ORS 404) and an actual provider
+      failure (network/auth/rate-limit, hook 502) into the identical `manual`
+      state, so ⟳ route always looked like it "ran" either way with zero
+      feedback. Rather than only fixing the error reporting, added the
+      underlying workaround: stops can carry an `access_lat`/`access_lon`
+      (2026-08-30 migration `1788000004`) — routing prefers this over the
+      stop's own coordinates when set, so an off-road POI (trailhead, viewpoint)
+      can route via a nearby road/car park instead. Set it from a manual car
+      leg's "📍 stop name" button (click the map to place it); "✕ access·stop
+      name" clears it. Legs can also be flipped to manual explicitly ("✎
+      manual") with an editable duration input, and any leg with no route
+      geometry now draws a thin grey dashed straight connector on the map
+      instead of no line at all — see `src/lib/map-features.ts`. Still open:
+      the hook/client still don't distinguish a _genuine_ 404 from a swallowed
+      502/network error in the UI (both still read as "manual") — low priority
+      now that there's a real workaround, but worth doing if it causes
+      confusion again.
 - [ ] Re-add leg-direction arrows as a sprite icon (`icon-image` + line
       placement). The old text-glyph arrow (`text-field: '▸'`) was removed: the
       basemap's glyph endpoint 404s on that range, and a failed symbol glyph

@@ -10,6 +10,7 @@ import {
   updateStopAndReroute,
   updateLeg,
   rerouteLeg,
+  setLegManual,
   type StopPatch,
   type LegPatch,
 } from '../lib/pb-stops';
@@ -39,6 +40,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [placingAccessFor, setPlacingAccessFor] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [railW, setRailW] = useState(() => loadWidths().rail);
   const [rightW, setRightW] = useState(() => loadWidths().right);
@@ -137,6 +142,18 @@ export function TripEditor({ tripId }: { tripId: string }) {
   }
 
   function onMapClick(lat: number, lon: number) {
+    if (placingAccessFor) {
+      const stopId = placingAccessFor.id;
+      setPlacingAccessFor(null);
+      if (!records) return;
+      void run(() =>
+        updateStopAndReroute(pb, routing, records, stopId, {
+          access_lat: lat,
+          access_lon: lon,
+        }),
+      );
+      return;
+    }
     const dayId = focusDayId();
     if (!records || !dayId) return;
     void run(async () => {
@@ -173,6 +190,22 @@ export function TripEditor({ tripId }: { tripId: string }) {
       for (const id of ids) batch.collection('stops').delete(id);
       await batch.send();
     });
+  }
+
+  function startPlacingAccessPoint(stopId: string) {
+    const stop = records?.stops.find((s) => s.id === stopId);
+    if (!stop) return;
+    setPlacingAccessFor({ id: stopId, title: stop.title });
+  }
+
+  function clearAccessPoint(stopId: string) {
+    if (!records) return;
+    void run(() =>
+      updateStopAndReroute(pb, routing, records, stopId, {
+        access_lat: 0,
+        access_lon: 0,
+      }),
+    );
   }
 
   function handleUpdateStop(id: string, patch: StopPatch) {
@@ -239,6 +272,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
       }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape' && placingAccessFor)
+        return setPlacingAccessFor(null);
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
       if (e.key === 'Delete' || e.key === 'Backspace')
         return void (e.preventDefault(), deleteSelected());
@@ -260,7 +295,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records, selectedStopIds, selectedDayId]);
+  }, [records, selectedStopIds, selectedDayId, placingAccessFor]);
 
   if (!records) {
     return (
@@ -305,6 +340,20 @@ export function TripEditor({ tripId }: { tripId: string }) {
             : '1fr',
       }}
     >
+      {placingAccessFor && (
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-1.5 text-xs text-white shadow-lg">
+            Click the map for an access point for{' '}
+            <strong>{placingAccessFor.title}</strong>
+            <button
+              onClick={() => setPlacingAccessFor(null)}
+              className="rounded-full bg-white/10 px-2 py-0.5 hover:bg-white/20"
+            >
+              Cancel (Esc)
+            </button>
+          </div>
+        </div>
+      )}
       {bp.mid && (
         <div className="min-h-0 overflow-hidden border-r border-slate-200">
           {rail}
@@ -357,6 +406,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
           onRerouteLeg={(legId) =>
             run(() => rerouteLeg(pb, routing, records, legId))
           }
+          onSetManualLeg={(legId, durationMin) =>
+            run(() => setLegManual(pb, legId, durationMin))
+          }
+          onPlaceAccessPoint={startPlacingAccessPoint}
+          onClearAccessPoint={clearAccessPoint}
           onMoveStop={(stopId, targetDayId, targetIndex) =>
             run(() =>
               moveStop(pb, routing, records, stopId, targetDayId, targetIndex),

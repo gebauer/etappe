@@ -59,6 +59,17 @@ const SHADE_OPACITY = [
   1,
 ] as unknown as maplibregl.ExpressionSpecification;
 
+// Shared by every routed-leg layer so the manual dashed connector (drawn by
+// its own layer) never doubles up with the day-hue styling.
+const NOT_MANUAL = ['!=', ['get', 'manual'], true];
+const NOT_MANUAL_FILTER =
+  NOT_MANUAL as unknown as maplibregl.FilterSpecification;
+const AFTER_DUSK_AND_ROUTED = [
+  'all',
+  ['==', ['get', 'afterDusk'], true],
+  NOT_MANUAL,
+] as unknown as maplibregl.FilterSpecification;
+
 export type MarkerMode = 'auto' | 'icons' | 'thumbnails';
 
 export function MapPane({
@@ -141,6 +152,7 @@ export function MapPane({
         id: 'legs-flat',
         type: 'line',
         source: 'legs',
+        filter: NOT_MANUAL_FILTER,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': ['get', 'flat'],
@@ -152,6 +164,7 @@ export function MapPane({
         id: 'legs-shade',
         type: 'line',
         source: 'legs',
+        filter: NOT_MANUAL_FILTER,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': ['get', 'shade'],
@@ -163,12 +176,28 @@ export function MapPane({
         id: 'legs-dusk',
         type: 'line',
         source: 'legs',
-        filter: ['==', ['get', 'afterDusk'], true],
+        filter: AFTER_DUSK_AND_ROUTED,
         paint: {
           'line-color': ['get', 'shade'],
           'line-width': WIDTH,
           'line-dasharray': [2, 2],
           'line-opacity': 0.9,
+        },
+      });
+      // Legs with no route geometry (manual, or routing failed): a thin grey
+      // dashed line just shows the two stops are connected, deliberately not
+      // day-coloured so it reads as "not a computed route".
+      map.addLayer({
+        id: 'legs-manual',
+        type: 'line',
+        source: 'legs',
+        filter: ['==', ['get', 'manual'], true],
+        layout: { 'line-cap': 'round' },
+        paint: {
+          'line-color': '#94a3b8',
+          'line-width': 2,
+          'line-dasharray': [1, 2],
+          'line-opacity': 0.8,
         },
       });
       // No text-glyph direction arrows on the legs: the basemap's glyph

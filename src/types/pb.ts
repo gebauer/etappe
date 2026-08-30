@@ -360,6 +360,8 @@ export const StopsAnchorTypeOptions = {
 } as const
 export type StopsAnchorTypeOptions = typeof StopsAnchorTypeOptions[keyof typeof StopsAnchorTypeOptions]
 export type StopsRecord = {
+	access_lat?: number
+	access_lon?: number
 	address?: string
 	anchor_time?: string
 	anchor_type?: StopsAnchorTypeOptions

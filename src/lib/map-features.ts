@@ -1,8 +1,10 @@
 /**
  * Builds the GeoJSON the map's leg layers consume (BUILD §5): one LineString
- * per routed leg, carrying its flat day colour, alternating shade and an
- * after-dusk flag (leg arrival later than civil dusk). Pure and testable; legs
- * without geometry (unrouted) are skipped.
+ * per leg, carrying its flat day colour, alternating shade and an after-dusk
+ * flag (leg arrival later than civil dusk). A leg with no route geometry
+ * (manual, or routing failed) falls back to a straight line between its two
+ * stops, flagged `manual: true`, so the map still shows the connection
+ * without implying a real route was computed. Pure and testable.
  */
 
 import type { CascadeResult } from './cascade';
@@ -18,6 +20,7 @@ export interface LegFeature {
     flat: string;
     shade: string;
     afterDusk: boolean;
+    manual: boolean;
   };
 }
 
@@ -70,16 +73,37 @@ export function buildLegFeatures(
         (l) => l.from_stop === from.id && l.to_stop === to.id,
       );
       if (!leg) continue;
-      const geometry = asLineString(leg.geometry);
-      if (!geometry) continue;
 
       const arrival = arrivalByStop.get(to.id);
       const afterDusk = dusk != null && arrival != null && arrival > dusk;
-      features.push({
-        type: 'Feature',
-        geometry,
-        properties: { legId: leg.id, flat, shade: legColor(hue, i), afterDusk },
-      });
+      const shade = legColor(hue, i);
+
+      const geometry = asLineString(leg.geometry);
+      if (geometry) {
+        features.push({
+          type: 'Feature',
+          geometry,
+          properties: { legId: leg.id, flat, shade, afterDusk, manual: false },
+        });
+        continue;
+      }
+
+      // No route geometry: connect the two stops with a straight line rather
+      // than drawing nothing, but flag it so the map styles it as a manual
+      // connector, not a computed route.
+      if (from.lat && from.lon && to.lat && to.lon) {
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [from.lon, from.lat],
+              [to.lon, to.lat],
+            ],
+          },
+          properties: { legId: leg.id, flat, shade, afterDusk, manual: true },
+        });
+      }
     }
   });
 

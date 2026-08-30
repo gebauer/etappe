@@ -16,13 +16,13 @@ const records = {
   trip: { id: 't', start_date: '2026-09-12' },
   days: [{ id: 'd1', order_index: 0, kind: 'travel' }],
   stops: [
-    { id: 'A', day: 'd1', order_index: 0 },
-    { id: 'B', day: 'd1', order_index: 1 },
-    { id: 'C', day: 'd1', order_index: 2 },
+    { id: 'A', day: 'd1', order_index: 0, lat: 64, lon: -22 },
+    { id: 'B', day: 'd1', order_index: 1, lat: 63, lon: -21 },
+    { id: 'C', day: 'd1', order_index: 2, lat: 62, lon: -20 },
   ],
   legs: [
     { id: 'AB', from_stop: 'A', to_stop: 'B', geometry: line },
-    { id: 'BC', from_stop: 'B', to_stop: 'C', geometry: null }, // unrouted
+    { id: 'BC', from_stop: 'B', to_stop: 'C', geometry: null }, // manual, straight line
   ],
   activities: [],
 } as unknown as TripRecords;
@@ -46,18 +46,43 @@ const result = {
 } as unknown as CascadeResult;
 
 describe('buildLegFeatures', () => {
-  it('emits one feature per routed leg with day colours', () => {
+  it('emits a routed feature with day colours for a leg with geometry', () => {
     const fc = buildLegFeatures(records, result);
-    expect(fc.features).toHaveLength(1); // BC has no geometry
-    const f = fc.features[0]!;
-    expect(f.properties.legId).toBe('AB');
+    const f = fc.features.find((x) => x.properties.legId === 'AB')!;
+    expect(f.properties.manual).toBe(false);
     expect(f.properties.flat).toBe(flatColor(dayHue(0)));
     expect(f.properties.shade).toBe(legColor(dayHue(0), 0));
     expect(f.geometry.coordinates).toHaveLength(2);
   });
 
+  it('falls back to a straight manual connector when a leg has no geometry', () => {
+    const fc = buildLegFeatures(records, result);
+    expect(fc.features).toHaveLength(2);
+    const f = fc.features.find((x) => x.properties.legId === 'BC')!;
+    expect(f.properties.manual).toBe(true);
+    expect(f.geometry.coordinates).toEqual([
+      [-21, 63],
+      [-20, 62],
+    ]);
+  });
+
+  it('skips a manual leg when either endpoint has no coordinates', () => {
+    const noCoords = {
+      ...records,
+      stops: [
+        records.stops[0],
+        records.stops[1],
+        { ...records.stops[2], lat: 0, lon: 0 },
+      ],
+    } as unknown as TripRecords;
+    const fc = buildLegFeatures(noCoords, result);
+    expect(fc.features.map((f) => f.properties.legId)).toEqual(['AB']);
+  });
+
   it('flags a leg arriving after civil dusk', () => {
-    const f = buildLegFeatures(records, result).features[0]!;
+    const f = buildLegFeatures(records, result).features.find(
+      (x) => x.properties.legId === 'AB',
+    )!;
     expect(f.properties.afterDusk).toBe(true); // arrival at B (1300) > dusk (1230)
   });
 
@@ -66,9 +91,10 @@ describe('buildLegFeatures', () => {
       ...result,
       days: [{ ...result.days[0]!, daylight: null }],
     } as unknown as CascadeResult;
-    expect(
-      buildLegFeatures(records, noDay).features[0]!.properties.afterDusk,
-    ).toBe(false);
+    const f = buildLegFeatures(records, noDay).features.find(
+      (x) => x.properties.legId === 'AB',
+    )!;
+    expect(f.properties.afterDusk).toBe(false);
   });
 });
 
