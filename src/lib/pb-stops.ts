@@ -10,6 +10,8 @@ import {
   applyLegPlan,
   buildLegRecord,
   type LegLike,
+  type LegMode,
+  type Surface,
 } from './pb-legs';
 import type { LatLon, RoutingProvider } from './routing';
 import { planStopMove } from './stop-move';
@@ -220,4 +222,30 @@ export async function updateLeg(
   patch: LegPatch,
 ): Promise<void> {
   await pb.collection('legs').update(legId, patch);
+}
+
+/** Re-run routing for a single existing leg from its stops' current
+ * coordinates. Heals a leg left manual because routing was down or hadn't run
+ * when the stop was added. Returns true if the leg came back routed; a leg
+ * whose endpoint has no nearby road (e.g. a trailhead) stays manual. */
+export async function rerouteLeg(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  legId: string,
+): Promise<boolean> {
+  const leg = records.legs.find((l) => l.id === legId);
+  if (!leg) return false;
+  const record = await buildLegRecord(
+    provider,
+    {
+      from_stop: leg.from_stop,
+      to_stop: leg.to_stop,
+      mode: leg.mode as LegMode,
+      surface: (leg.surface ?? null) as Surface | null,
+    },
+    coordsOf(records.stops),
+  );
+  await pb.collection('legs').update(legId, record);
+  return record.routing_source !== 'manual';
 }

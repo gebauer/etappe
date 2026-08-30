@@ -9,6 +9,7 @@ import {
   updateStop,
   updateStopAndReroute,
   updateLeg,
+  rerouteLeg,
   type StopPatch,
   type LegPatch,
 } from '../lib/pb-stops';
@@ -352,6 +353,9 @@ export function TripEditor({ tripId }: { tripId: string }) {
           onUpdateStop={handleUpdateStop}
           onUpdateLeg={(legId, patch: LegPatch) =>
             run(() => updateLeg(pb, legId, patch))
+          }
+          onRerouteLeg={(legId) =>
+            run(() => rerouteLeg(pb, routing, records, legId))
           }
           onMoveStop={(stopId, targetDayId, targetIndex) =>
             run(() =>

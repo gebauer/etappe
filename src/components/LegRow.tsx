@@ -7,13 +7,15 @@ interface Props {
   leg?: LegsResponse;
   effectiveDuration?: number;
   onUpdate: (patch: LegPatch) => void;
+  onReroute: () => void;
 }
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
 }
 
-export function LegRow({ leg, effectiveDuration, onUpdate }: Props) {
+export function LegRow({ leg, effectiveDuration, onUpdate, onReroute }: Props) {
+  const isManualCar = leg?.mode === 'car' && leg.routing_source === 'manual';
   return (
     <div className="flex items-center gap-3 px-4 py-1 pl-20 text-xs text-slate-400">
       <span className="inline-block h-4 border-l border-dashed border-slate-300" />
@@ -21,6 +23,16 @@ export function LegRow({ leg, effectiveDuration, onUpdate }: Props) {
         {effectiveDuration != null ? formatDuration(effectiveDuration) : '—'}
       </span>
       <span>{leg?.mode ?? 'car'}</span>
+
+      {isManualCar && (
+        <button
+          onClick={onReroute}
+          title="Routing didn't run for this leg — re-run it now"
+          className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100"
+        >
+          ⟳ route
+        </button>
+      )}
 
       {leg?.mode === 'car' && (
         <>

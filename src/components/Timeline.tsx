@@ -23,6 +23,7 @@ interface Props {
   onDeleteStop: (stopId: string) => void;
   onUpdateStop: (stopId: string, patch: StopPatch) => void;
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
+  onRerouteLeg: (legId: string) => void;
   onMoveStop: (
     stopId: string,
     targetDayId: string,
@@ -49,6 +50,7 @@ export function Timeline({
   onDeleteStop,
   onUpdateStop,
   onUpdateLeg,
+  onRerouteLeg,
   onMoveStop,
   selectedStopIds,
   onSelectStop,
@@ -231,6 +233,7 @@ export function Timeline({
                           dayResult?.legs[i]?.effectiveDuration
                         }
                         onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
+                        onReroute={() => leg && onRerouteLeg(leg.id)}
                       />
                     )}
                   </Fragment>
