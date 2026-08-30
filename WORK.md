@@ -49,6 +49,10 @@ Each done task is tagged ✅ below. (Phases 0–1 are pushed to
   alternatives — `(role ?= 'owner' || role ?= 'editor')` — not `!= 'viewer'`,
   which does not correlate to the same joined row. Same-alias `?=` conditions
   DO correlate to one row (verified: a viewer cannot write). See `1788000003`.
+- MapLibre expressions: `feature-state` works only in **paint** properties, not
+  layout (so hover can't drive `icon-size`; use `icon-translate`). And a `zoom`
+  expression must be the top-level `step`/`interpolate`, never nested in a
+  `case`. Either mistake makes `addLayer` throw and the layer silently vanish.
 - Changing collections via the admin API/UI while `--automigrate` is on writes
   `*_updated_*.js` migration files into pb_hooks — handy in real use, but
   experimenting through the API litters the tree. Prefer editing rules in a
