@@ -564,26 +564,45 @@ const GLYPH_SIZE = 19;
 const PIN_CSS_W = PIN_W / 2;
 const PIN_CSS_H = PIN_H / 2;
 
-/** Draws the pin silhouette (hue tail + white ring head) with no glyph. */
+/** Draws the pin silhouette — solid hue fill, tail and head as one shape —
+ * with no glyph. */
 function drawPinBase(ctx: CanvasRenderingContext2D, hue: string) {
   const cx = PIN_W / 2;
+  ctx.fillStyle = hue;
   ctx.beginPath();
   ctx.moveTo(cx - HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
   ctx.lineTo(cx + HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
   ctx.lineTo(cx, PIN_H - 1);
   ctx.closePath();
-  ctx.fillStyle = hue;
   ctx.fill();
   ctx.beginPath();
   ctx.arc(cx, HEAD_CY, HEAD_R, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = hue;
-  ctx.stroke();
 }
 
-/** Draws a taxonomy sprite glyph centred in the pin's head. */
+/** Recolours whatever is drawn by `draw` to solid white, keeping its alpha
+ * shape — done on an isolated scratch canvas (globalCompositeOperation
+ * 'source-in' would otherwise erase the pin body already on `ctx`), then
+ * composited onto the pin at the head centre. Gives every glyph — sprite icon
+ * or emoji — the same white-cutout look regardless of its native colours. */
+function drawWhiteGlyph(
+  ctx: CanvasRenderingContext2D,
+  draw: (scratch: CanvasRenderingContext2D) => void,
+) {
+  const scratch = document.createElement('canvas');
+  scratch.width = GLYPH_SIZE;
+  scratch.height = GLYPH_SIZE;
+  const sctx = scratch.getContext('2d');
+  if (!sctx) return;
+  draw(sctx);
+  sctx.globalCompositeOperation = 'source-in';
+  sctx.fillStyle = '#ffffff';
+  sctx.fillRect(0, 0, GLYPH_SIZE, GLYPH_SIZE);
+  ctx.drawImage(scratch, PIN_W / 2 - GLYPH_SIZE / 2, HEAD_CY - GLYPH_SIZE / 2);
+}
+
+/** Draws a taxonomy sprite glyph, recoloured white, centred in the pin's
+ * head. */
 function drawAtlasGlyph(
   ctx: CanvasRenderingContext2D,
   atlas: { img: HTMLImageElement; json: Record<string, SpriteEntry> },
@@ -591,27 +610,31 @@ function drawAtlasGlyph(
 ) {
   const e = atlas.json[icon];
   if (!e) return;
-  const cx = PIN_W / 2;
-  ctx.drawImage(
-    atlas.img,
-    e.x,
-    e.y,
-    e.width,
-    e.height,
-    cx - GLYPH_SIZE / 2,
-    HEAD_CY - GLYPH_SIZE / 2,
-    GLYPH_SIZE,
-    GLYPH_SIZE,
-  );
+  drawWhiteGlyph(ctx, (sctx) => {
+    sctx.drawImage(
+      atlas.img,
+      e.x,
+      e.y,
+      e.width,
+      e.height,
+      0,
+      0,
+      GLYPH_SIZE,
+      GLYPH_SIZE,
+    );
+  });
 }
 
-/** Draws a plain glyph (e.g. an emoji) centred in the pin's head — used for
- * markers that aren't a taxonomy kind, like the access-point car. */
+/** Draws a plain glyph (e.g. an emoji), recoloured white, centred in the
+ * pin's head — used for markers that aren't a taxonomy kind, like the
+ * access-point car. */
 function drawEmojiGlyph(ctx: CanvasRenderingContext2D, emoji: string) {
-  ctx.font = `${GLYPH_SIZE}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, PIN_W / 2, HEAD_CY + 1);
+  drawWhiteGlyph(ctx, (sctx) => {
+    sctx.font = `${GLYPH_SIZE}px sans-serif`;
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    sctx.fillText(emoji, GLYPH_SIZE / 2, GLYPH_SIZE / 2 + 1);
+  });
 }
 
 /** Composite one marker image ("m:<icon>:<hue>") for the GL symbol layer.
