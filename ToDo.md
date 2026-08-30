@@ -17,9 +17,10 @@ pick up before v1.
       underlying workaround: stops can carry an `access_lat`/`access_lon`
       (2026-08-30 migration `1788000004`) — routing prefers this over the
       stop's own coordinates when set, so an off-road POI (trailhead, viewpoint)
-      can route via a nearby road/car park instead. Set it from a manual car
-      leg's "📍 stop name" button (click the map to place it); "✕ access·stop
-      name" clears it. Legs can also be flipped to manual explicitly ("✎
+      can route via a nearby road/car park instead. It's a property of the
+      POI, not the route: set/cleared from the stop's own inspector (next to
+      lat/lon), which arms click-the-map placement; a manual leg's "⟳ route"
+      button just points there. Legs can also be flipped to manual explicitly ("✎
       manual") with an editable duration input, and any leg with no route
       geometry now draws a thin grey dashed straight connector on the map
       instead of no line at all — see `src/lib/map-features.ts`. Still open:

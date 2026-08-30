@@ -335,9 +335,6 @@ current task. Do not act on it in the same commit.
 - Stop deletion (row ✕ and the Delete key) has **no confirmation** — added
   unconfirmed for fast test cleanup. Add a confirm (or undo) before v1.
 - Bundle is large (MapLibre); consider code-splitting the map.
-- A stop's access point (added while fixing stuck-manual legs, see ToDo.md) is
-  only settable from a manual leg row. Surface it in the stop inspector too
-  (read + clear) so it's discoverable without hunting through the timeline.
 - The route hook still can't tell the client "routing genuinely failed" apart
   from "no road nearby" (both 200 `routable:false`). Low priority now that
   access points give a workaround, but worth a distinct error surface later.
