@@ -405,14 +405,19 @@ async function ensureMarkerImages(
 
 const MARKER_LAYOUT = {
   'icon-image': ['get', 'iconImage'],
-  'icon-size': [
-    '*',
-    ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
-    ['case', ['boolean', ['feature-state', 'hover'], false], 1.35, 1],
-  ],
+  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
   'icon-allow-overlap': false,
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
+
+// Hover lift via icon-translate (a paint property — feature-state is only
+// allowed in paint, not layout, which is why icon-size can't use it).
+const HOVER_LIFT = [
+  'case',
+  ['boolean', ['feature-state', 'hover'], false],
+  ['literal', [0, -5]],
+  ['literal', [0, 0]],
+] as unknown as maplibregl.ExpressionSpecification;
 
 async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
   await ensureMarkerImages(map, fc);
@@ -429,6 +434,7 @@ async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
       source: 'stops',
       filter: ['==', ['get', 'isAccommodation'], true],
       layout: MARKER_LAYOUT,
+      paint: { 'icon-translate': HOVER_LIFT },
     });
   }
   if (!map.getLayer('stops-other')) {
@@ -438,7 +444,7 @@ async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
       source: 'stops',
       filter: ['==', ['get', 'isAccommodation'], false],
       layout: MARKER_LAYOUT,
-      paint: { 'icon-opacity': TIER_OPACITY },
+      paint: { 'icon-opacity': TIER_OPACITY, 'icon-translate': HOVER_LIFT },
     });
   }
 }
