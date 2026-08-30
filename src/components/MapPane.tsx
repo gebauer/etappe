@@ -101,7 +101,6 @@ export function MapPane({
   const fittedRef = useRef(false);
   const recordsRef = useRef(records);
   recordsRef.current = records;
-  const prevHoverRef = useRef<string | null>(null);
   const atlasRef = useRef<{
     img: HTMLImageElement;
     json: Record<string, SpriteEntry>;
@@ -273,22 +272,16 @@ export function MapPane({
     source?.setData(stopFc);
   }, [stopFc]);
 
-  // Reflect the externally hovered stop (e.g. hovering a timeline row) as a
-  // lifted marker via feature-state.
+  // Highlight the hovered stop with a ring (a filtered circle layer — reliable,
+  // unlike feature-state which several paint props reject).
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !map.getSource('stops')) return;
-    const prev = prevHoverRef.current;
-    if (prev && prev !== hoveredStopId) {
-      map.setFeatureState({ source: 'stops', id: prev }, { hover: false });
-    }
-    if (hoveredStopId) {
-      map.setFeatureState(
-        { source: 'stops', id: hoveredStopId },
-        { hover: true },
-      );
-    }
-    prevHoverRef.current = hoveredStopId ?? null;
+    if (!map || !loadedRef.current || !map.getLayer('stops-hover')) return;
+    map.setFilter('stops-hover', [
+      '==',
+      ['get', 'stopId'],
+      hoveredStopId ?? '',
+    ]);
   }, [hoveredStopId]);
 
   // Fit the map to a day's stops when that day is selected ("move on select").
@@ -432,16 +425,36 @@ const MARKER_LAYOUT = {
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
 
-// Hover lift via icon-translate (a paint property — feature-state is only
-// allowed in paint, not layout, which is why icon-size can't use it).
-const HOVER_LIFT = [
-  'case',
-  ['boolean', ['feature-state', 'hover'], false],
-  ['literal', [0, -5]],
-  ['literal', [0, 0]],
+const HOVER_RADIUS = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  5,
+  10,
+  10,
+  16,
+  14,
+  22,
 ] as unknown as maplibregl.ExpressionSpecification;
 
 function addMarkerLayers(map: maplibregl.Map) {
+  // Hover highlight: a ring under the markers, shown for the hovered stop via
+  // setFilter. A plain circle layer (no data-driven paint) — reliable.
+  if (!map.getLayer('stops-hover')) {
+    map.addLayer({
+      id: 'stops-hover',
+      type: 'circle',
+      source: 'stops',
+      filter: ['==', ['get', 'stopId'], ''],
+      paint: {
+        'circle-radius': HOVER_RADIUS,
+        'circle-color': '#0ea5e9',
+        'circle-opacity': 0.2,
+        'circle-stroke-color': '#0284c7',
+        'circle-stroke-width': 2,
+      },
+    });
+  }
   // Two layers because a zoom expression must be top-level, not nested in a
   // case: accommodation is always visible, other kinds fade in past z6.
   if (!map.getLayer('stops-accom')) {
@@ -451,7 +464,6 @@ function addMarkerLayers(map: maplibregl.Map) {
       source: 'stops',
       filter: ['==', ['get', 'isAccommodation'], true],
       layout: MARKER_LAYOUT,
-      paint: { 'icon-translate': HOVER_LIFT },
     });
   }
   if (!map.getLayer('stops-other')) {
@@ -461,7 +473,7 @@ function addMarkerLayers(map: maplibregl.Map) {
       source: 'stops',
       filter: ['==', ['get', 'isAccommodation'], false],
       layout: MARKER_LAYOUT,
-      paint: { 'icon-opacity': TIER_OPACITY, 'icon-translate': HOVER_LIFT },
+      paint: { 'icon-opacity': TIER_OPACITY },
     });
   }
 }
