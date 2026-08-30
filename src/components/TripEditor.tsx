@@ -209,7 +209,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
   }
 
   function handleUpdateStop(id: string, patch: StopPatch) {
-    const reroute = patch.lat !== undefined || patch.lon !== undefined;
+    const reroute =
+      patch.lat !== undefined ||
+      patch.lon !== undefined ||
+      patch.access_lat !== undefined ||
+      patch.access_lon !== undefined;
     void run(() =>
       reroute && records
         ? updateStopAndReroute(pb, routing, records, id, patch)
@@ -409,8 +413,6 @@ export function TripEditor({ tripId }: { tripId: string }) {
           onSetManualLeg={(legId, durationMin) =>
             run(() => setLegManual(pb, legId, durationMin))
           }
-          onPlaceAccessPoint={startPlacingAccessPoint}
-          onClearAccessPoint={clearAccessPoint}
           onMoveStop={(stopId, targetDayId, targetIndex) =>
             run(() =>
               moveStop(pb, routing, records, stopId, targetDayId, targetIndex),
@@ -437,6 +439,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onUpdateStop={handleUpdateStop}
             onDeleteStop={deleteOneStop}
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
+            onPlaceAccessPoint={startPlacingAccessPoint}
+            onClearAccessPoint={clearAccessPoint}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -462,6 +466,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onUpdateStop={handleUpdateStop}
             onDeleteStop={deleteOneStop}
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
+            onPlaceAccessPoint={startPlacingAccessPoint}
+            onClearAccessPoint={clearAccessPoint}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}

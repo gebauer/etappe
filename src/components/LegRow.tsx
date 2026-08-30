@@ -3,66 +3,24 @@ import { formatDuration } from '../lib/format';
 import type { LegsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
 
-export interface LegStopRef {
-  id: string;
-  title: string;
-  hasAccessPoint: boolean;
-}
-
 interface Props {
   leg?: LegsResponse;
-  from?: LegStopRef;
-  to?: LegStopRef;
   effectiveDuration?: number;
   onUpdate: (patch: LegPatch) => void;
   onReroute: () => void;
   onSetManual: (durationMin: number) => void;
-  onPlaceAccessPoint: (stopId: string) => void;
-  onClearAccessPoint: (stopId: string) => void;
 }
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
 }
 
-function AccessPointButton({
-  stop,
-  onPlace,
-  onClear,
-}: {
-  stop: LegStopRef;
-  onPlace: (stopId: string) => void;
-  onClear: (stopId: string) => void;
-}) {
-  return stop.hasAccessPoint ? (
-    <button
-      onClick={() => onClear(stop.id)}
-      title={`Clear the access point and route to ${stop.title} directly`}
-      className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-sky-700 hover:bg-sky-100"
-    >
-      ✕ access·{stop.title}
-    </button>
-  ) : (
-    <button
-      onClick={() => onPlace(stop.id)}
-      title={`Click a point on the map to route to/from ${stop.title} — a nearby road or car park`}
-      className="rounded border border-slate-200 px-1.5 py-0.5 text-slate-500 hover:bg-slate-50"
-    >
-      📍 {stop.title}
-    </button>
-  );
-}
-
 export function LegRow({
   leg,
-  from,
-  to,
   effectiveDuration,
   onUpdate,
   onReroute,
   onSetManual,
-  onPlaceAccessPoint,
-  onClearAccessPoint,
 }: Props) {
   const isCar = leg?.mode === 'car';
   const isManual = leg?.routing_source === 'manual';
@@ -94,7 +52,7 @@ export function LegRow({
       {isCar && isManual && (
         <button
           onClick={onReroute}
-          title="Routing didn't run for this leg — re-run it now"
+          title="Routing didn't run for this leg — re-run it now. If it's a POI a car can't reach, set an access point in the stop's inspector."
           className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100"
         >
           ⟳ route
@@ -108,20 +66,6 @@ export function LegRow({
         >
           ✎ manual
         </button>
-      )}
-      {isCar && isManual && from && (
-        <AccessPointButton
-          stop={from}
-          onPlace={onPlaceAccessPoint}
-          onClear={onClearAccessPoint}
-        />
-      )}
-      {isCar && isManual && to && (
-        <AccessPointButton
-          stop={to}
-          onPlace={onPlaceAccessPoint}
-          onClear={onClearAccessPoint}
-        />
       )}
 
       {leg?.mode === 'car' && (

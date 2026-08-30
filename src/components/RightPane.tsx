@@ -17,6 +17,8 @@ interface Props {
   onUpdateStop: (stopId: string, patch: StopPatch) => void;
   onDeleteStop: (stopId: string) => void;
   onZoomStop: (lat: number, lon: number) => void;
+  onPlaceAccessPoint: (stopId: string) => void;
+  onClearAccessPoint: (stopId: string) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
@@ -35,6 +37,8 @@ export function RightPane({
   onUpdateStop,
   onDeleteStop,
   onZoomStop,
+  onPlaceAccessPoint,
+  onClearAccessPoint,
   hoveredStopId,
   focusDayId,
   flyTo,
@@ -67,6 +71,8 @@ export function RightPane({
             onZoom={() =>
               onZoomStop(selectedStop.lat || 0, selectedStop.lon || 0)
             }
+            onPlaceAccessPoint={() => onPlaceAccessPoint(selectedStop.id)}
+            onClearAccessPoint={() => onClearAccessPoint(selectedStop.id)}
           />
         ) : selectedDay ? (
           <div className="text-sm text-slate-700">

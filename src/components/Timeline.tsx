@@ -25,8 +25,6 @@ interface Props {
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
   onRerouteLeg: (legId: string) => void;
   onSetManualLeg: (legId: string, durationMin: number) => void;
-  onPlaceAccessPoint: (stopId: string) => void;
-  onClearAccessPoint: (stopId: string) => void;
   onMoveStop: (
     stopId: string,
     targetDayId: string,
@@ -55,8 +53,6 @@ export function Timeline({
   onUpdateLeg,
   onRerouteLeg,
   onSetManualLeg,
-  onPlaceAccessPoint,
-  onClearAccessPoint,
   onMoveStop,
   selectedStopIds,
   onSelectStop,
@@ -238,29 +234,11 @@ export function Timeline({
                         effectiveDuration={
                           dayResult?.legs[i]?.effectiveDuration
                         }
-                        from={{
-                          id: stop.id,
-                          title: stop.title,
-                          hasAccessPoint: !!(
-                            stop.access_lat && stop.access_lon
-                          ),
-                        }}
-                        to={
-                          next && {
-                            id: next.id,
-                            title: next.title,
-                            hasAccessPoint: !!(
-                              next.access_lat && next.access_lon
-                            ),
-                          }
-                        }
                         onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
                         onReroute={() => leg && onRerouteLeg(leg.id)}
                         onSetManual={(durationMin) =>
                           leg && onSetManualLeg(leg.id, durationMin)
                         }
-                        onPlaceAccessPoint={onPlaceAccessPoint}
-                        onClearAccessPoint={onClearAccessPoint}
                       />
                     )}
                   </Fragment>

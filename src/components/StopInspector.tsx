@@ -18,13 +18,18 @@ export function StopInspector({
   onUpdate,
   onDelete,
   onZoom,
+  onPlaceAccessPoint,
+  onClearAccessPoint,
 }: {
   stop: StopsResponse;
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
   onZoom: () => void;
+  onPlaceAccessPoint: () => void;
+  onClearAccessPoint: () => void;
 }) {
   const hasCoords = !!stop.lat && !!stop.lon;
+  const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
   return (
     <div className="space-y-3">
       <label>
@@ -96,6 +101,32 @@ export function StopInspector({
         >
           ⤢
         </button>
+      </div>
+
+      <div>
+        <span className={label}>Access point</span>
+        <p className="mb-1 text-xs text-slate-400">
+          A nearby road or car park to route to/from instead, for a POI a car
+          can't reach directly (trailhead, viewpoint). Legs re-route
+          automatically when this changes.
+        </p>
+        {hasAccessPoint ? (
+          <div className="flex items-center justify-between gap-2 rounded border border-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-700">
+            <span>
+              {stop.access_lat!.toFixed(5)}, {stop.access_lon!.toFixed(5)}
+            </span>
+            <button onClick={onClearAccessPoint} className="underline">
+              clear
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onPlaceAccessPoint}
+            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            📍 Set on map
+          </button>
+        )}
       </div>
 
       <label>
