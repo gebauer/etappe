@@ -107,7 +107,7 @@ export function planDeleteStop(
 // --- async apply -----------------------------------------------------------
 
 /** Fields written to a legs record, with routing filled in for car legs. */
-async function buildLegRecord(
+export async function buildLegRecord(
   provider: RoutingProvider,
   leg: NewLeg,
   coords: Map<string, LatLon | null>,
@@ -148,6 +148,7 @@ export async function applyLegPlan(
   plan: LegPlan,
   coords: Map<string, LatLon | null>,
 ): Promise<string[]> {
+  if (plan.deleteLegIds.length === 0 && plan.create.length === 0) return [];
   const records = await Promise.all(
     plan.create.map((leg) => buildLegRecord(provider, leg, coords)),
   );

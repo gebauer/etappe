@@ -1,55 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { pb } from '../lib/pb';
-import { listDays, insertDay, deleteDay } from '../lib/pb-days';
+import { useTripEditor } from '../hooks/useTripEditor';
+import { insertDay, deleteDay } from '../lib/pb-days';
+import {
+  addStopAtEnd,
+  deleteStop,
+  updateStop,
+  updateLeg,
+  type StopPatch,
+  type LegPatch,
+} from '../lib/pb-stops';
+import { createPocketBaseRouting } from '../lib/routing';
 import { DayRail } from './DayRail';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
-import type { TripsResponse, DaysResponse } from '../types/pb';
-
-function isAbort(err: unknown): boolean {
-  return !!err && typeof err === 'object' && 'isAbort' in err && !!err.isAbort;
-}
 
 export function TripEditor({ tripId }: { tripId: string }) {
-  const [trip, setTrip] = useState<TripsResponse | null>(null);
-  const [days, setDays] = useState<DaysResponse[]>([]);
+  const { records, result, error, reload } = useTripEditor(tripId);
+  const routing = useMemo(() => createPocketBaseRouting(pb), []);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  async function load() {
+  async function run(fn: () => Promise<unknown>) {
     try {
-      const [t, d] = await Promise.all([
-        pb.collection('trips').getOne(tripId, { requestKey: null }),
-        listDays(pb, tripId),
-      ]);
-      setTrip(t);
-      setDays(d);
+      await fn();
+      await reload();
     } catch (err) {
-      if (isAbort(err)) return;
-      setError(err instanceof Error ? err.message : 'Failed to load trip.');
+      setActionError(err instanceof Error ? err.message : 'Action failed.');
     }
   }
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId]);
-
-  async function addDay() {
-    await insertDay(pb, tripId, days.length, { kind: 'travel' });
-    await load();
-  }
-
-  async function removeDay(id: string) {
-    await deleteDay(pb, tripId, id);
-    if (selectedDayId === id) setSelectedDayId(null);
-    await load();
-  }
-
-  if (!trip) {
+  if (!records) {
     return (
       <div className="p-6 text-sm text-slate-400">
         {error ?? 'Loading trip…'}
@@ -57,6 +41,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
     );
   }
 
+  const { trip, days, stops, legs } = records;
   const selectedDay = days.find((d) => d.id === selectedDayId) ?? null;
 
   const rail = (
@@ -68,8 +53,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
         setSelectedDayId(id);
         setShowRail(false);
       }}
-      onAddDay={addDay}
-      onDeleteDay={removeDay}
+      onAddDay={() =>
+        run(() => insertDay(pb, tripId, days.length, { kind: 'travel' }))
+      }
+      onDeleteDay={(id) => run(() => deleteDay(pb, tripId, id))}
     />
   );
 
@@ -79,12 +66,51 @@ export function TripEditor({ tripId }: { tripId: string }) {
         {rail}
       </div>
 
-      <Timeline
-        trip={trip}
-        days={days}
-        onToggleRail={() => setShowRail(true)}
-        onToggleRight={() => setShowRight(true)}
-      />
+      <div className="flex min-w-0 flex-col">
+        {actionError && (
+          <p className="bg-red-50 px-4 py-1 text-xs text-red-600">
+            {actionError}
+          </p>
+        )}
+        <Timeline
+          trip={trip}
+          days={days}
+          stops={stops}
+          legs={legs}
+          result={result}
+          onToggleRail={() => setShowRail(true)}
+          onToggleRight={() => setShowRight(true)}
+          onAddStop={(dayId) =>
+            run(() =>
+              addStopAtEnd(
+                pb,
+                routing,
+                dayId,
+                stops.filter((s) => s.day === dayId),
+              ),
+            )
+          }
+          onDeleteStop={(stopId) => {
+            const stop = stops.find((s) => s.id === stopId);
+            if (!stop) return;
+            void run(() =>
+              deleteStop(
+                pb,
+                routing,
+                stops.filter((s) => s.day === stop.day),
+                legs,
+                stopId,
+              ),
+            );
+          }}
+          onUpdateStop={(stopId, patch: StopPatch) =>
+            run(() => updateStop(pb, stopId, patch))
+          }
+          onUpdateLeg={(legId, patch: LegPatch) =>
+            run(() => updateLeg(pb, legId, patch))
+          }
+        />
+      </div>
 
       <aside className="hidden overflow-hidden border-l border-slate-200 min-[1280px]:block">
         <RightPane trip={trip} selectedDay={selectedDay} />
