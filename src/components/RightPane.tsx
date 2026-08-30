@@ -9,16 +9,37 @@ interface Props {
   result: CascadeResult | null;
   selectedDay: DaysResponse | null;
   onMapClick?: (lat: number, lon: number) => void;
+  onSelectStop?: (stopId: string) => void;
+  onHoverStop?: (stopId: string | null) => void;
+  hoveredStopId?: string | null;
+  focusDayId?: string | null;
 }
 
 /** Right pane: map on top, inspector below (BUILD §9). The block editor is
  * built in 7.1; for now the inspector shows the selected day's details. */
-export function RightPane({ records, result, selectedDay, onMapClick }: Props) {
+export function RightPane({
+  records,
+  result,
+  selectedDay,
+  onMapClick,
+  onSelectStop,
+  onHoverStop,
+  hoveredStopId,
+  focusDayId,
+}: Props) {
   const { trip } = records;
   return (
     <div className="flex h-full flex-col">
       <div className="h-1/2 border-b border-slate-200">
-        <MapPane records={records} result={result} onMapClick={onMapClick} />
+        <MapPane
+          records={records}
+          result={result}
+          onMapClick={onMapClick}
+          onSelectStop={onSelectStop}
+          onHoverStop={onHoverStop}
+          hoveredStopId={hoveredStopId}
+          focusDayId={focusDayId}
+        />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">

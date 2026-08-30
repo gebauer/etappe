@@ -27,6 +27,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(
     new Set(),
   );
+  const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -292,6 +293,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
           onSelectStop={toggleSelect}
           onOpenSearch={() => setShowSearch(true)}
           scrollToDayId={selectedDayId}
+          scrollToStopId={
+            selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
+          }
+          hoveredStopId={hoveredStopId}
+          onHoverStop={setHoveredStopId}
           onToggleRail={() => setShowRail(true)}
           onToggleRight={() => setShowRight(true)}
           onAddStop={(dayId) =>
@@ -343,6 +349,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
             result={result}
             selectedDay={selectedDay}
             onMapClick={onMapClick}
+            onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
+            onHoverStop={setHoveredStopId}
+            hoveredStopId={hoveredStopId}
+            focusDayId={selectedDayId}
           />
         </aside>
       )}
@@ -359,6 +369,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
             result={result}
             selectedDay={selectedDay}
             onMapClick={onMapClick}
+            onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
+            onHoverStop={setHoveredStopId}
+            hoveredStopId={hoveredStopId}
+            focusDayId={selectedDayId}
           />
         </Drawer>
       )}

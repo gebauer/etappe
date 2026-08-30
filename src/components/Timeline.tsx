@@ -32,6 +32,9 @@ interface Props {
   onSelectStop: (stopId: string, additive: boolean) => void;
   onOpenSearch: () => void;
   scrollToDayId: string | null;
+  scrollToStopId: string | null;
+  hoveredStopId: string | null;
+  onHoverStop: (stopId: string | null) => void;
 }
 
 export function Timeline({
@@ -51,6 +54,9 @@ export function Timeline({
   onSelectStop,
   onOpenSearch,
   scrollToDayId,
+  scrollToStopId,
+  hoveredStopId,
+  onHoverStop,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -60,6 +66,14 @@ export function Timeline({
     const el = scrollRef.current.querySelector(`[data-day="${scrollToDayId}"]`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [scrollToDayId]);
+
+  useEffect(() => {
+    if (!scrollToStopId || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(
+      `[data-stop="${scrollToStopId}"]`,
+    );
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [scrollToStopId]);
 
   function indexInDay(dayId: string, beforeStopId?: string): number {
     const list = stops
@@ -182,6 +196,7 @@ export function Timeline({
                 return (
                   <Fragment key={`${stop.id}:${stop.updated}`}>
                     <div
+                      data-stop={stop.id}
                       onDragOver={(e) => dragId && e.preventDefault()}
                       onDrop={() => dropBefore(stop.id, day.id)}
                       className={dragId === stop.id ? 'opacity-40' : ''}
@@ -191,7 +206,9 @@ export function Timeline({
                         timing={timingByStop.get(stop.id)}
                         warnings={stopWarnings.get(stop.id) ?? []}
                         selected={selectedStopIds.has(stop.id)}
+                        hovered={hoveredStopId === stop.id}
                         onSelect={(additive) => onSelectStop(stop.id, additive)}
+                        onHover={(h) => onHoverStop(h ? stop.id : null)}
                         dragHandle={
                           <span
                             draggable

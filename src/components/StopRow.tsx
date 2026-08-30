@@ -9,7 +9,9 @@ interface Props {
   warnings: Warning[];
   dragHandle?: ReactNode;
   selected?: boolean;
+  hovered?: boolean;
   onSelect?: (additive: boolean) => void;
+  onHover?: (hovering: boolean) => void;
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
 }
@@ -24,7 +26,9 @@ export function StopRow({
   warnings,
   dragHandle,
   selected,
+  hovered,
   onSelect,
+  onHover,
   onUpdate,
   onDelete,
 }: Props) {
@@ -33,8 +37,14 @@ export function StopRow({
   return (
     <div
       onClick={(e) => onSelect?.(e.metaKey || e.ctrlKey)}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
       className={`flex items-start gap-2 border-b border-slate-100 px-4 py-2 ${
-        selected ? 'bg-sky-50 ring-1 ring-inset ring-sky-300' : ''
+        selected
+          ? 'bg-sky-50 ring-1 ring-inset ring-sky-300'
+          : hovered
+            ? 'bg-slate-50'
+            : ''
       }`}
     >
       {dragHandle}

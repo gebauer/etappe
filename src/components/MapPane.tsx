@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
@@ -12,6 +12,19 @@ import type { CascadeResult } from '../lib/cascade';
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
   'https://tiles.openfreemap.org/styles/liberty';
+
+const STOP_LAYERS = ['stops-accom', 'stops-other'];
+
+// Non-accommodation markers fade in past z6 (the trip-overview zoom).
+const TIER_OPACITY = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  5,
+  0,
+  6,
+  1,
+] as unknown as maplibregl.ExpressionSpecification;
 
 // Line width grows with zoom; shared by every leg layer.
 const WIDTH = [
@@ -46,20 +59,35 @@ const SHADE_OPACITY = [
   1,
 ] as unknown as maplibregl.ExpressionSpecification;
 
+export type MarkerMode = 'auto' | 'icons' | 'thumbnails';
+
 export function MapPane({
   records,
   result,
   onMapClick,
+  onSelectStop,
+  onHoverStop,
+  hoveredStopId,
+  focusDayId,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
   onMapClick?: (lat: number, lon: number) => void;
+  onSelectStop?: (stopId: string) => void;
+  onHoverStop?: (stopId: string | null) => void;
+  hoveredStopId?: string | null;
+  focusDayId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
   const clickRef = useRef(onMapClick);
   clickRef.current = onMapClick;
+  const selectRef = useRef(onSelectStop);
+  selectRef.current = onSelectStop;
+  const hoverRef = useRef(onHoverStop);
+  hoverRef.current = onHoverStop;
+  const [markerMode, setMarkerMode] = useState<MarkerMode>('auto');
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
@@ -71,6 +99,9 @@ export function MapPane({
   const stopFcRef = useRef(stopFc);
   stopFcRef.current = stopFc;
   const fittedRef = useRef(false);
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  const prevHoverRef = useRef<string | null>(null);
 
   // Frame the whole trip once, when features first arrive. Not on every edit,
   // so the map stays where the user left it. (Fit-to-day is 5.4.)
@@ -158,7 +189,26 @@ export function MapPane({
       void addStopLayer(map, stopFc);
     });
 
-    map.on('click', (ev) => clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng));
+    const stopsUnder = (point: maplibregl.Point): string | null => {
+      const layers = STOP_LAYERS.filter((l) => map.getLayer(l));
+      if (layers.length === 0) return null;
+      const hits = map.queryRenderedFeatures(point, { layers });
+      return (hits[0]?.properties?.stopId as string | undefined) ?? null;
+    };
+
+    // Click a marker to select its stop; click empty map to drop a stop.
+    map.on('click', (ev) => {
+      const id = stopsUnder(ev.point);
+      if (id) selectRef.current?.(id);
+      else clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
+    });
+
+    map.on('mousemove', (ev) => {
+      const id = stopsUnder(ev.point);
+      map.getCanvas().style.cursor = id ? 'pointer' : '';
+      hoverRef.current?.(id);
+    });
+    map.on('mouseout', () => hoverRef.current?.(null));
 
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);
@@ -196,7 +246,65 @@ export function MapPane({
     })();
   }, [stopFc]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  // Reflect the externally hovered stop (e.g. hovering a timeline row) as a
+  // lifted marker via feature-state.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !map.getSource('stops')) return;
+    const prev = prevHoverRef.current;
+    if (prev && prev !== hoveredStopId) {
+      map.setFeatureState({ source: 'stops', id: prev }, { hover: false });
+    }
+    if (hoveredStopId) {
+      map.setFeatureState(
+        { source: 'stops', id: hoveredStopId },
+        { hover: true },
+      );
+    }
+    prevHoverRef.current = hoveredStopId ?? null;
+  }, [hoveredStopId]);
+
+  // Fit the map to a day's stops when that day is selected ("move on select").
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !focusDayId) return;
+    const bounds = new maplibregl.LngLatBounds();
+    for (const s of recordsRef.current.stops) {
+      if (s.day === focusDayId && s.lat && s.lon) bounds.extend([s.lon, s.lat]);
+    }
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 80, maxZoom: 12, duration: 500 });
+    }
+  }, [focusDayId]);
+
+  // The auto/icons/thumbnails control overrides the zoom tier for non-
+  // accommodation markers (thumbnails behaves as icons until photos exist).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !map.getLayer('stops-other')) return;
+    map.setPaintProperty(
+      'stops-other',
+      'icon-opacity',
+      markerMode === 'auto' ? TIER_OPACITY : 1,
+    );
+  }, [markerMode]);
+
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute left-2 top-2 flex overflow-hidden rounded border border-slate-300 bg-white text-xs shadow">
+        {(['auto', 'icons', 'thumbnails'] as MarkerMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMarkerMode(m)}
+            className={`px-2 py-1 ${markerMode === m ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function computeBounds(
@@ -297,7 +405,11 @@ async function ensureMarkerImages(
 
 const MARKER_LAYOUT = {
   'icon-image': ['get', 'iconImage'],
-  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
+  'icon-size': [
+    '*',
+    ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
+    ['case', ['boolean', ['feature-state', 'hover'], false], 1.35, 1],
+  ],
   'icon-allow-overlap': false,
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
@@ -305,7 +417,8 @@ const MARKER_LAYOUT = {
 async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
   await ensureMarkerImages(map, fc);
   if (!map.getSource('stops')) {
-    map.addSource('stops', { type: 'geojson', data: fc });
+    // promoteId lets setFeatureState key markers by stopId (hover linking).
+    map.addSource('stops', { type: 'geojson', data: fc, promoteId: 'stopId' });
   }
   // Two layers because a zoom expression must be top-level, not nested in a
   // case: accommodation is always visible, other kinds fade in past z7.
@@ -325,17 +438,7 @@ async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
       source: 'stops',
       filter: ['==', ['get', 'isAccommodation'], false],
       layout: MARKER_LAYOUT,
-      paint: {
-        'icon-opacity': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          5,
-          0,
-          6,
-          1,
-        ] as unknown as maplibregl.ExpressionSpecification,
-      },
+      paint: { 'icon-opacity': TIER_OPACITY },
     });
   }
 }
