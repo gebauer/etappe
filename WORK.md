@@ -6,12 +6,13 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phases 0–6 complete. Capture, ranked placement, wishlist, nearby, share target all in.**
-**→ Next task: 6.5 Merge prompt (Cheap).**
+**Phase 6 complete.** Capture, ranked placement, wishlist, nearby, share
+target and merge-on-capture all in.
+**→ Next task: 7.1 Inspector and block editor (Standard).**
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
-v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79` · 6.2 `36971fa` · 6.3 `677ebf1` · 6.4 `98f53ef` (map-markers split `2d02145`).
+v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79` · 6.2 `36971fa` · 6.3 `677ebf1` · 6.4 `98f53ef` (map-markers split `2d02145`) · 6.5 `ad266d4`.
 Each done task is tagged ✅ below. (Phases 0–1 are pushed to
 `origin/master`; phases 2–3 and later fixes are local until the next push.)
 
@@ -257,8 +258,12 @@ once on mount (no `/trip/:id` URLs exist anywhere else in the app either, so
 adding one just for this single path wasn't worth it) and hands the guess to
 TripEditor.
 
-**6.5 Merge prompt** · Cheap
+**6.5 Merge prompt** · Cheap · ✅ `ad266d4`
 Detect a stop within 100 m on create and offer merge instead of duplicate.
+
+Every capture path funnels through one `beginCapture()` in TripEditor, so
+this one check covers search, paste, map click, wishlist promotion and
+nearby ghost pins alike rather than needing a check per path.
 
 ---
 
