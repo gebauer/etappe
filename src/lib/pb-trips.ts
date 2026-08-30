@@ -17,7 +17,11 @@ export interface NewTripInput {
 /** Trips the current user belongs to. The API rules already scope this to
  * their memberships, so no explicit filter is needed. */
 export async function listMyTrips(): Promise<TripsResponse[]> {
-  return pb.collection('trips').getFullList({ sort: '-created' });
+  // requestKey: null opts out of auto-cancellation, which otherwise aborts the
+  // first fetch when React 18 StrictMode runs the effect twice in dev.
+  return pb
+    .collection('trips')
+    .getFullList({ sort: '-created', requestKey: null });
 }
 
 export async function createTrip(input: NewTripInput): Promise<TripsResponse> {
@@ -61,6 +65,7 @@ export async function listMembers(
   return pb.collection('trip_members').getFullList({
     filter: pb.filter('trip = {:trip}', { trip: tripId }),
     sort: 'created',
+    requestKey: null,
   });
 }
 

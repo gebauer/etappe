@@ -13,6 +13,10 @@ export function TripList() {
     try {
       setTrips(await listMyTrips());
     } catch (err) {
+      // Ignore auto-cancelled requests (benign under StrictMode double-render).
+      if (err && typeof err === 'object' && 'isAbort' in err && err.isAbort) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to load trips.');
     }
   }
