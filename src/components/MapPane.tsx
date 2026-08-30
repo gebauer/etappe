@@ -102,6 +102,10 @@ export function MapPane({
   const recordsRef = useRef(records);
   recordsRef.current = records;
   const prevHoverRef = useRef<string | null>(null);
+  const atlasRef = useRef<{
+    img: HTMLImageElement;
+    json: Record<string, SpriteEntry>;
+  } | null>(null);
 
   // Frame the whole trip once, when features first arrive. Not on every edit,
   // so the map stays where the user left it. (Fit-to-day is 5.4.)
@@ -186,7 +190,33 @@ export function MapPane({
       });
       loadedRef.current = true;
       maybeFit(map);
-      void addStopLayer(map, stopFc);
+
+      // Composite each marker image on demand (day hue ring + kind glyph) when
+      // the symbol layer first references it — robust to timing/failures.
+      map.on('styleimagemissing', (e) => {
+        const atlas = atlasRef.current;
+        if (!atlas || !e.id.startsWith('m:') || map.hasImage(e.id)) return;
+        try {
+          compositeMarker(map, atlas, e.id);
+        } catch (err) {
+          console.error('marker composite failed for', e.id, err);
+        }
+      });
+
+      loadAtlas()
+        .then((atlas) => {
+          atlasRef.current = atlas;
+          if (!map.getSource('stops')) {
+            map.addSource('stops', {
+              type: 'geojson',
+              data: stopFcRef.current,
+              promoteId: 'stopId',
+            });
+          }
+          addMarkerLayers(map);
+          maybeFit(map);
+        })
+        .catch((err) => console.error('sprite atlas failed to load', err));
     });
 
     const stopsUnder = (point: maplibregl.Point): string | null => {
@@ -234,16 +264,13 @@ export function MapPane({
     }
   }, [fc]);
 
-  // Push new stop markers (composite any new icon/hue images first).
+  // Push new stop markers; missing images composite via styleimagemissing.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    void (async () => {
-      await ensureMarkerImages(map, stopFc);
-      const source = map.getSource('stops') as
-        maplibregl.GeoJSONSource | undefined;
-      source?.setData(stopFc);
-    })();
+    const source = map.getSource('stops') as
+      maplibregl.GeoJSONSource | undefined;
+    source?.setData(stopFc);
   }, [stopFc]);
 
   // Reflect the externally hovered stop (e.g. hovering a timeline row) as a
@@ -357,50 +384,45 @@ function loadAtlas() {
   return atlasPromise;
 }
 
-/** Composite a white ring in the day hue with the black kind glyph, once per
- * (icon, hue). This is the marker pipeline the future album reuses. */
-async function ensureMarkerImages(
+/** Composite one marker image ("m:<icon>:<hue>"): a white ring in the day hue
+ * with the black kind glyph. Called on demand via styleimagemissing. */
+function compositeMarker(
   map: maplibregl.Map,
-  fc: StopFeatureCollection,
+  atlas: { img: HTMLImageElement; json: Record<string, SpriteEntry> },
+  id: string,
 ) {
-  const needed = fc.features.filter(
-    (f) => !map.hasImage(f.properties.iconImage),
-  );
-  if (needed.length === 0) return;
-  const atlas = await loadAtlas();
+  const parts = id.split(':'); // ["m", icon, "#rrggbb"]
+  const icon = parts[1] ?? 'marker';
+  const hue = parts[2] ?? '#64748b';
   const S = 56; // device px (displayed at ~28 with pixelRatio 2)
-  for (const f of needed) {
-    const key = f.properties.iconImage;
-    if (map.hasImage(key)) continue;
-    const canvas = document.createElement('canvas');
-    canvas.width = S;
-    canvas.height = S;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) continue;
-    ctx.beginPath();
-    ctx.arc(S / 2, S / 2, S / 2 - 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = f.properties.hue;
-    ctx.stroke();
-    const e = atlas.json[f.properties.icon];
-    if (e) {
-      const t = S * 0.6;
-      ctx.drawImage(
-        atlas.img,
-        e.x,
-        e.y,
-        e.width,
-        e.height,
-        (S - t) / 2,
-        (S - t) / 2,
-        t,
-        t,
-      );
-    }
-    map.addImage(key, ctx.getImageData(0, 0, S, S), { pixelRatio: 2 });
+  const canvas = document.createElement('canvas');
+  canvas.width = S;
+  canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, S / 2 - 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = hue;
+  ctx.stroke();
+  const e = atlas.json[icon];
+  if (e) {
+    const t = S * 0.6;
+    ctx.drawImage(
+      atlas.img,
+      e.x,
+      e.y,
+      e.width,
+      e.height,
+      (S - t) / 2,
+      (S - t) / 2,
+      t,
+      t,
+    );
   }
+  map.addImage(id, ctx.getImageData(0, 0, S, S), { pixelRatio: 2 });
 }
 
 const MARKER_LAYOUT = {
@@ -419,14 +441,9 @@ const HOVER_LIFT = [
   ['literal', [0, 0]],
 ] as unknown as maplibregl.ExpressionSpecification;
 
-async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
-  await ensureMarkerImages(map, fc);
-  if (!map.getSource('stops')) {
-    // promoteId lets setFeatureState key markers by stopId (hover linking).
-    map.addSource('stops', { type: 'geojson', data: fc, promoteId: 'stopId' });
-  }
+function addMarkerLayers(map: maplibregl.Map) {
   // Two layers because a zoom expression must be top-level, not nested in a
-  // case: accommodation is always visible, other kinds fade in past z7.
+  // case: accommodation is always visible, other kinds fade in past z6.
   if (!map.getLayer('stops-accom')) {
     map.addLayer({
       id: 'stops-accom',
