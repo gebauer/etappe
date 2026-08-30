@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatDayDate } from '../lib/format';
 import type { CascadeResult, Warning } from '../lib/cascade';
 import type {
@@ -31,6 +31,7 @@ interface Props {
   selectedStopIds: Set<string>;
   onSelectStop: (stopId: string, additive: boolean) => void;
   onOpenSearch: () => void;
+  scrollToDayId: string | null;
 }
 
 export function Timeline({
@@ -49,8 +50,16 @@ export function Timeline({
   selectedStopIds,
   onSelectStop,
   onOpenSearch,
+  scrollToDayId,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!scrollToDayId || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(`[data-day="${scrollToDayId}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [scrollToDayId]);
 
   function indexInDay(dayId: string, beforeStopId?: string): number {
     const list = stops
@@ -74,7 +83,7 @@ export function Timeline({
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-slate-50">
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-slate-50">
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
         <button
           onClick={onToggleRail}
@@ -108,7 +117,7 @@ export function Timeline({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {days.length === 0 && (
           <p className="px-4 py-10 text-center text-sm text-slate-400">
             No days yet — add one from the rail to start planning.
@@ -138,7 +147,7 @@ export function Timeline({
           }
 
           return (
-            <section key={day.id}>
+            <section key={day.id} data-day={day.id}>
               <header
                 onDragOver={(e) => dragId && e.preventDefault()}
                 onDrop={() => dropOnDay(day.id)}

@@ -242,6 +242,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
     <div
       className="grid h-full"
       style={{
+        gridTemplateRows: 'minmax(0, 1fr)',
         gridTemplateColumns: bp.wide
           ? `${railW}px 6px minmax(0,1fr) 6px ${rightW}px`
           : bp.mid
@@ -250,7 +251,9 @@ export function TripEditor({ tripId }: { tripId: string }) {
       }}
     >
       {bp.mid && (
-        <div className="overflow-hidden border-r border-slate-200">{rail}</div>
+        <div className="min-h-0 overflow-hidden border-r border-slate-200">
+          {rail}
+        </div>
       )}
       {bp.mid && (
         <ResizeDivider
@@ -258,7 +261,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
         />
       )}
 
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
         {actionError && (
           <p className="bg-red-50 px-4 py-1 text-xs text-red-600">
             {actionError}
@@ -273,6 +276,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
           selectedStopIds={selectedStopIds}
           onSelectStop={toggleSelect}
           onOpenSearch={() => setShowSearch(true)}
+          scrollToDayId={selectedDayId}
           onToggleRail={() => setShowRail(true)}
           onToggleRight={() => setShowRight(true)}
           onAddStop={(dayId) =>
@@ -318,7 +322,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
         />
       )}
       {bp.wide && (
-        <aside className="overflow-hidden border-l border-slate-200">
+        <aside className="min-h-0 overflow-hidden border-l border-slate-200">
           <RightPane
             records={records}
             result={result}
