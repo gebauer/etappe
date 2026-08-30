@@ -381,3 +381,10 @@ current task. Do not act on it in the same commit.
   describes dragging a wishlist item directly onto the timeline. Not built —
   click-to-place via the ranked picker covers the same need and works across
   days, which a single timeline drop target wouldn't.
+- Nearby ghost pins got category colours and Wikimedia photo thumbnails
+  (user request, following up on 6.4) — see the commit adding `categoryColor`
+  and `wikimedia.ts`. Deliberately scoped to Nearby only: no attribution is
+  stored, and nothing carries over when a ghost pin is promoted to a stop.
+  Real itinerary stops showing photos is still phase 7.2 (Photo pipeline),
+  unbuilt — the `auto/icons/thumbnails` map control has been sitting ready
+  for it since phase 5.3.
