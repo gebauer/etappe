@@ -71,3 +71,49 @@ describe('buildLegFeatures', () => {
     ).toBe(false);
   });
 });
+
+import { buildStopFeatures } from './map-features';
+
+describe('buildStopFeatures', () => {
+  const recs = {
+    trip: { id: 't', start_date: '2026-09-12' },
+    days: [{ id: 'd1', order_index: 0, kind: 'travel' }],
+    stops: [
+      {
+        id: 'A',
+        day: 'd1',
+        order_index: 0,
+        kind: 'waterfall',
+        lat: 64,
+        lon: -20,
+      },
+      {
+        id: 'B',
+        day: 'd1',
+        order_index: 1,
+        kind: 'hotel',
+        lat: 63,
+        lon: -21,
+        is_accommodation: true,
+        anchor_time: '18:00',
+      },
+      { id: 'C', day: 'd1', order_index: 2, kind: 'town', lat: 0, lon: 0 }, // no coords
+    ],
+    legs: [],
+    activities: [],
+  } as unknown as TripRecords;
+
+  it('emits a marker per stop with coordinates', () => {
+    const fc = buildStopFeatures(recs);
+    expect(fc.features.map((f) => f.properties.stopId)).toEqual(['A', 'B']);
+  });
+
+  it('maps the kind icon and ranks accommodation first', () => {
+    const [a, b] = buildStopFeatures(recs).features;
+    expect(a!.properties.icon).toBe('waterfall');
+    expect(b!.properties.icon).toBe('lodging'); // hotel -> lodging
+    expect(b!.properties.isAccommodation).toBe(true);
+    expect(b!.properties.sortKey).toBe(0); // accommodation ranks first
+    expect(a!.properties.sortKey).toBe(2); // plain stop
+  });
+});

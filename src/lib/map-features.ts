@@ -8,6 +8,7 @@
 import type { CascadeResult } from './cascade';
 import type { TripRecords } from './pb-trip-doc';
 import { dayHue, flatColor, legColor } from './map-colors';
+import { TAXONOMY, type Kind } from './taxonomy';
 
 export interface LegFeature {
   type: 'Feature';
@@ -78,6 +79,60 @@ export function buildLegFeatures(
         type: 'Feature',
         geometry,
         properties: { legId: leg.id, flat, shade: legColor(hue, i), afterDusk },
+      });
+    }
+  });
+
+  return { type: 'FeatureCollection', features };
+}
+
+// --- stop markers (BUILD §5) -----------------------------------------------
+
+export interface StopFeature {
+  type: 'Feature';
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: {
+    stopId: string;
+    icon: string;
+    hue: string;
+    iconImage: string;
+    isAccommodation: boolean;
+    anchored: boolean;
+    sortKey: number;
+  };
+}
+
+export interface StopFeatureCollection {
+  type: 'FeatureCollection';
+  features: StopFeature[];
+}
+
+/** One Point per stop with coordinates, carrying its kind icon, day-hue ring
+ * colour and a collision sort key (accommodation first, then anchored). The
+ * iconImage key names the composited circle+icon the map builds on demand. */
+export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
+  const features: StopFeature[] = [];
+  const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
+
+  days.forEach((day, dayIndex) => {
+    const hue = flatColor(dayHue(dayIndex));
+    for (const s of records.stops.filter((x) => x.day === day.id)) {
+      if (!s.lat || !s.lon) continue;
+      const icon = TAXONOMY[s.kind as Kind]?.icon ?? 'marker';
+      const isAccommodation = !!s.is_accommodation;
+      const anchored = !!s.anchor_time;
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+        properties: {
+          stopId: s.id,
+          icon,
+          hue,
+          iconImage: `m:${icon}:${hue}`,
+          isAccommodation,
+          anchored,
+          sortKey: isAccommodation ? 0 : anchored ? 1 : 2,
+        },
       });
     }
   });

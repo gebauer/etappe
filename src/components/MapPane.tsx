@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { buildLegFeatures } from '../lib/map-features';
+import {
+  buildLegFeatures,
+  buildStopFeatures,
+  type StopFeatureCollection,
+} from '../lib/map-features';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
 
@@ -61,6 +65,7 @@ export function MapPane({
     () => buildLegFeatures(records, result),
     [records, result],
   );
+  const stopFc = useMemo(() => buildStopFeatures(records), [records]);
 
   // Init once.
   useEffect(() => {
@@ -134,6 +139,7 @@ export function MapPane({
       });
       loadedRef.current = true;
       fitToFeatures(map, fc);
+      void addStopLayer(map, stopFc);
     });
 
     map.on('click', (ev) => clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng));
@@ -162,6 +168,18 @@ export function MapPane({
     }
   }, [fc]);
 
+  // Push new stop markers (composite any new icon/hue images first).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    void (async () => {
+      await ensureMarkerImages(map, stopFc);
+      const source = map.getSource('stops') as
+        maplibregl.GeoJSONSource | undefined;
+      source?.setData(stopFc);
+    })();
+  }, [stopFc]);
+
   return <div ref={containerRef} className="h-full w-full" />;
 }
 
@@ -180,5 +198,122 @@ function fitToFeatures(
   }
   if (!bounds.isEmpty()) {
     map.fitBounds(bounds, { padding: 40, maxZoom: 12, duration: 400 });
+  }
+}
+
+// --- stop marker images (offscreen-canvas composite of ring + kind icon) ---
+
+interface SpriteEntry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pixelRatio: number;
+}
+
+let atlasPromise: Promise<{
+  img: HTMLImageElement;
+  json: Record<string, SpriteEntry>;
+}> | null = null;
+
+function loadAtlas() {
+  if (!atlasPromise) {
+    atlasPromise = Promise.all([
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = '/sprites/sprite@2x.png';
+      }),
+      fetch('/sprites/sprite@2x.json').then(
+        (r) => r.json() as Promise<Record<string, SpriteEntry>>,
+      ),
+    ]).then(([img, json]) => ({ img, json }));
+  }
+  return atlasPromise;
+}
+
+/** Composite a white ring in the day hue with the black kind glyph, once per
+ * (icon, hue). This is the marker pipeline the future album reuses. */
+async function ensureMarkerImages(
+  map: maplibregl.Map,
+  fc: StopFeatureCollection,
+) {
+  const needed = fc.features.filter(
+    (f) => !map.hasImage(f.properties.iconImage),
+  );
+  if (needed.length === 0) return;
+  const atlas = await loadAtlas();
+  const S = 44; // device px (displayed at ~22 with pixelRatio 2)
+  for (const f of needed) {
+    const key = f.properties.iconImage;
+    if (map.hasImage(key)) continue;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+    ctx.beginPath();
+    ctx.arc(S / 2, S / 2, S / 2 - 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = f.properties.hue;
+    ctx.stroke();
+    const e = atlas.json[f.properties.icon];
+    if (e) {
+      const t = S * 0.55;
+      ctx.drawImage(
+        atlas.img,
+        e.x,
+        e.y,
+        e.width,
+        e.height,
+        (S - t) / 2,
+        (S - t) / 2,
+        t,
+        t,
+      );
+    }
+    map.addImage(key, ctx.getImageData(0, 0, S, S), { pixelRatio: 2 });
+  }
+}
+
+async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
+  await ensureMarkerImages(map, fc);
+  if (!map.getSource('stops')) {
+    map.addSource('stops', { type: 'geojson', data: fc });
+  }
+  if (!map.getLayer('stops-markers')) {
+    map.addLayer({
+      id: 'stops-markers',
+      type: 'symbol',
+      source: 'stops',
+      layout: {
+        'icon-image': ['get', 'iconImage'],
+        'icon-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          5,
+          0.7,
+          10,
+          1,
+          14,
+          1.2,
+        ],
+        'icon-allow-overlap': false,
+        'symbol-sort-key': ['get', 'sortKey'],
+      },
+      paint: {
+        // Below z7 only accommodation shows; other kinds fade in by z7.5.
+        'icon-opacity': [
+          'case',
+          ['get', 'isAccommodation'],
+          1,
+          ['interpolate', ['linear'], ['zoom'], 6.5, 0, 7.5, 1],
+        ],
+      },
+    });
   }
 }
