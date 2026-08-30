@@ -143,6 +143,10 @@ export type StopPatch = Partial<
     StopsResponse,
     | 'title'
     | 'kind'
+    | 'kind_confirmed'
+    | 'lat'
+    | 'lon'
+    | 'address'
     | 'dwell_override'
     | 'anchor_time'
     | 'anchor_type'

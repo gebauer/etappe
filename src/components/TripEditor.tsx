@@ -164,6 +164,21 @@ export function TripEditor({ tripId }: { tripId: string }) {
     });
   }
 
+  // Delete a single stop with proper leg re-merge (row ✕ and inspector).
+  function deleteOneStop(stopId: string) {
+    const stop = records?.stops.find((s) => s.id === stopId);
+    if (!records || !stop) return;
+    void run(() =>
+      deleteStop(
+        pb,
+        routing,
+        records.stops.filter((s) => s.day === stop.day),
+        records.legs,
+        stopId,
+      ),
+    );
+  }
+
   function doMoveSelected(dir: -1 | 1) {
     if (!records || selectedStopIds.size !== 1) return;
     const id = [...selectedStopIds][0]!;
@@ -237,6 +252,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
 
   const { trip, days, stops, legs } = records;
   const selectedDay = days.find((d) => d.id === selectedDayId) ?? null;
+  const selectedStop =
+    selectedStopIds.size === 1
+      ? (stops.find((s) => s.id === [...selectedStopIds][0]) ?? null)
+      : null;
 
   const rail = (
     <DayRail
@@ -310,19 +329,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
               ),
             )
           }
-          onDeleteStop={(stopId) => {
-            const stop = stops.find((s) => s.id === stopId);
-            if (!stop) return;
-            void run(() =>
-              deleteStop(
-                pb,
-                routing,
-                stops.filter((s) => s.day === stop.day),
-                legs,
-                stopId,
-              ),
-            );
-          }}
+          onDeleteStop={deleteOneStop}
           onUpdateStop={(stopId, patch: StopPatch) =>
             run(() => updateStop(pb, stopId, patch))
           }
@@ -348,9 +355,12 @@ export function TripEditor({ tripId }: { tripId: string }) {
             records={records}
             result={result}
             selectedDay={selectedDay}
+            selectedStop={selectedStop}
             onMapClick={onMapClick}
             onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
             onHoverStop={setHoveredStopId}
+            onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
+            onDeleteStop={deleteOneStop}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
           />
@@ -368,9 +378,12 @@ export function TripEditor({ tripId }: { tripId: string }) {
             records={records}
             result={result}
             selectedDay={selectedDay}
+            selectedStop={selectedStop}
             onMapClick={onMapClick}
             onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
             onHoverStop={setHoveredStopId}
+            onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
+            onDeleteStop={deleteOneStop}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
           />

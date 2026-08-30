@@ -1,16 +1,21 @@
 import { MapPane } from './MapPane';
+import { StopInspector } from './StopInspector';
 import { formatDayDate } from '../lib/format';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
-import type { DaysResponse } from '../types/pb';
+import type { DaysResponse, StopsResponse } from '../types/pb';
+import type { StopPatch } from '../lib/pb-stops';
 
 interface Props {
   records: TripRecords;
   result: CascadeResult | null;
   selectedDay: DaysResponse | null;
+  selectedStop: StopsResponse | null;
   onMapClick?: (lat: number, lon: number) => void;
   onSelectStop?: (stopId: string) => void;
   onHoverStop?: (stopId: string | null) => void;
+  onUpdateStop: (stopId: string, patch: StopPatch) => void;
+  onDeleteStop: (stopId: string) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
 }
@@ -21,9 +26,12 @@ export function RightPane({
   records,
   result,
   selectedDay,
+  selectedStop,
   onMapClick,
   onSelectStop,
   onHoverStop,
+  onUpdateStop,
+  onDeleteStop,
   hoveredStopId,
   focusDayId,
 }: Props) {
@@ -42,11 +50,18 @@ export function RightPane({
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Inspector
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {selectedStop ? 'Stop' : 'Inspector'}
         </h2>
-        {selectedDay ? (
-          <div className="mt-2 text-sm text-slate-700">
+        {selectedStop ? (
+          <StopInspector
+            key={`${selectedStop.id}:${selectedStop.updated}`}
+            stop={selectedStop}
+            onUpdate={(patch) => onUpdateStop(selectedStop.id, patch)}
+            onDelete={() => onDeleteStop(selectedStop.id)}
+          />
+        ) : selectedDay ? (
+          <div className="text-sm text-slate-700">
             <p className="font-medium text-slate-900">
               {selectedDay.title || 'Untitled day'}
             </p>
@@ -56,8 +71,8 @@ export function RightPane({
             </p>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-400">
-            Select a day or stop to see its details.
+          <p className="text-sm text-slate-400">
+            Select a stop (in the timeline or on the map) to edit it.
           </p>
         )}
       </div>
