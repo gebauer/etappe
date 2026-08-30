@@ -6,12 +6,24 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-30
 
-**Foundation (phases 0–1) complete and pushed to `origin/master`.**
-**→ Next task: 2.1 cascade engine (Heavy).**
+**Phases 0–1 (foundation) and phase 2 (cascade engine) complete.**
+**→ Next task: 3.1 ORS hook and cache (Standard).**
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
-v0.1.0 version bump `1872737`. Each done task is tagged ✅ below.
+v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b`.
+Each done task is tagged ✅ below. (Phases 0–1 are pushed to
+`origin/master`; phase 2 commits are local until the next push.)
+
+**Cascade shape (phase 2), for the consumers still to come:**
+- Engine input is a normalised `CascadeTrip` (src/lib/cascade.ts), not PB
+  records. Daylight is injected (`DaylightProvider`); the SunCalc-backed
+  provider is `createSunCalcDaylight(timezone)` in src/lib/daylight.ts.
+- `fixtures/iceland-day1.json` is the **import format** (§8). The pure
+  `importToCascade(doc, resolveRoute, settings)` adapter (src/lib/import-
+  cascade.ts) maps import → `CascadeTrip`; `resolveRoute` is the routing seam
+  phase 3 (ORS + cache) and phase 8 (importer) plug into. Leg durations are
+  NOT in the fixture — they come from routing (stubbed to §12 in tests).
 
 **How to run / environment**
 - Node 20 via nvm — the machine's default `node` is CCP4's Node 16 and will
@@ -32,7 +44,9 @@ v0.1.0 version bump `1872737`. Each done task is tagged ✅ below.
 
 **Spec deviations recorded** — §8 fixture bug fixed (Gullfoss activity 120 min,
 not 180); `blocks.creator` added (needed to enforce private-block visibility);
-`trips` delete is owner-only.
+`trips` delete is owner-only; no separate `fixtures/after-dark.json` — the
+after-dark case reuses `iceland-day1.json` under a 16:24 daylight stub (the
+whole point of injecting daylight), avoiding a drift-prone duplicate.
 
 **Pending / not done**
 - **Release v0.1.0**: version bumped and pushed, but the git tag + GitHub
@@ -105,7 +119,7 @@ email, materialised on registration via `pb_hooks/membership.pb.js`.
 
 ## Phase 2 — Cascade engine
 
-**2.1 Engine** · **Heavy**
+**2.1 Engine** · **Heavy** · ✅ `0958663`
 `src/lib/cascade.ts` per BUILD §3. Pure. Anchors, dwell resolution, buffers and
 surface multipliers, all six warning codes. Downstream anchors re-baseline
 rather than propagating error.
@@ -114,7 +128,7 @@ This is the task where a wrong abstraction is expensive: the editor, share
 view, PDF and import preview all consume its output. Get the input and output
 types right before writing the body.
 
-**2.2 Fixture and tests** · Standard
+**2.2 Fixture and tests** · Standard · ✅ `656449b`
 `fixtures/iceland-day1.json` matching BUILD §12 exactly — the happy path, no
 warnings. Then one fixture per warning code in isolation, including
 `fixtures/after-dark.json` with a stubbed 16:24 sunset. Edge cases: empty day,
@@ -123,7 +137,7 @@ rest day, day with no anchor, unreachable anchor, polar day with no sunset.
 Verify the §12 table, the §8 JSON snippet and the fixture agree before writing
 assertions. These three drifted apart once already.
 
-**2.3 Daylight provider** · Cheap
+**2.3 Daylight provider** · Cheap · ✅ `a417bc3`
 `DaylightProvider` interface, a SunCalc implementation for the app and a fixed
 stub for tests. Handle the no-sunset and no-sunrise cases explicitly. The
 cascade engine receives the provider; it never imports SunCalc.
