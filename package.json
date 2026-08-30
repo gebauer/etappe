@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "pb": "./bin/pocketbase serve --dir=pb_data --hooksDir=pb_hooks --migrationsDir=pb_migrations",
+    "pb": "bash scripts/pb.sh",
     "pb:setup": "bash scripts/get-pocketbase.sh",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
