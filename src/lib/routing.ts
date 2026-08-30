@@ -13,6 +13,7 @@ export interface LatLon {
 }
 
 export interface RouteResult {
+  routable: boolean;
   duration_min: number;
   distance_m: number;
   geometry: unknown; // GeoJSON LineString

@@ -133,6 +133,7 @@ export async function buildLegRecord(
   if (!isRoutable(leg.mode) || !from || !to) return manual;
   try {
     const r = await provider.route(from, to);
+    if (!r.routable) return manual; // no road nearby — keep it manual
     return {
       ...base,
       duration_min: r.duration_min,

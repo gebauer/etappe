@@ -56,6 +56,7 @@ routerAdd(
     }
     if (cached) {
       return e.json(200, {
+        routable: true,
         duration_min: cached.get('duration_min'),
         distance_m: cached.get('distance_m'),
         geometry: cached.get('geometry'),
@@ -81,12 +82,15 @@ routerAdd(
         }),
         timeout: 20,
       });
+      // 404 = no routable point / no route for these coordinates (e.g. a POI
+      // not near a road). That is an expected outcome, not a failure.
+      if (res.statusCode === 404) return null;
       if (res.statusCode < 200 || res.statusCode >= 300) {
         throw new Error('ORS error ' + res.statusCode);
       }
       const feature = res.json && res.json.features && res.json.features[0];
       if (!feature || !feature.properties || !feature.properties.summary) {
-        throw new Error('ORS returned no route');
+        return null;
       }
       return {
         durationSec: feature.properties.summary.duration,
@@ -108,11 +112,12 @@ routerAdd(
         method: 'GET',
         timeout: 20,
       });
+      if (res.statusCode === 404) return null;
       if (res.statusCode < 200 || res.statusCode >= 300) {
         throw new Error('OSRM error ' + res.statusCode);
       }
       const route = res.json && res.json.routes && res.json.routes[0];
-      if (!route) throw new Error('OSRM returned no route');
+      if (!route) return null;
       return {
         durationSec: route.duration,
         distanceM: route.distance,
@@ -125,6 +130,18 @@ routerAdd(
       out = backend === 'osrm' ? routeOSRM() : routeORS();
     } catch (err) {
       return e.json(502, { message: 'Routing unavailable: ' + String(err) });
+    }
+
+    // No route for these coordinates — expected (POI off-road); the client
+    // falls back to a manual leg without treating it as an error.
+    if (!out) {
+      return e.json(200, {
+        routable: false,
+        duration_min: 0,
+        distance_m: 0,
+        geometry: null,
+        cached: false,
+      });
     }
 
     const durationMin = Math.round(out.durationSec / 60);
@@ -145,6 +162,7 @@ routerAdd(
     }
 
     return e.json(200, {
+      routable: true,
       duration_min: durationMin,
       distance_m: distanceM,
       geometry: geometry,
