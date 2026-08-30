@@ -500,17 +500,24 @@ export function MapPane({
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
 
+    // Layers are added asynchronously after the sprite atlas fetch resolves
+    // (see the init effect), so there's a real window — especially under
+    // StrictMode's dev-only double-mount — where loadedRef is already true
+    // but stops-accom/stops-other don't exist yet. Skip the filter update
+    // rather than crash; the next selection change re-runs this once they do.
     const selId = selectedStop?.id ?? '';
-    map.setFilter('stops-accom', [
-      'all',
-      ['==', ['get', 'isAccommodation'], true],
-      ['!=', ['get', 'stopId'], selId],
-    ] as unknown as maplibregl.FilterSpecification);
-    map.setFilter('stops-other', [
-      'all',
-      ['==', ['get', 'isAccommodation'], false],
-      ['!=', ['get', 'stopId'], selId],
-    ] as unknown as maplibregl.FilterSpecification);
+    if (map.getLayer('stops-accom') && map.getLayer('stops-other')) {
+      map.setFilter('stops-accom', [
+        'all',
+        ['==', ['get', 'isAccommodation'], true],
+        ['!=', ['get', 'stopId'], selId],
+      ] as unknown as maplibregl.FilterSpecification);
+      map.setFilter('stops-other', [
+        'all',
+        ['==', ['get', 'isAccommodation'], false],
+        ['!=', ['get', 'stopId'], selId],
+      ] as unknown as maplibregl.FilterSpecification);
+    }
 
     if (draggingRef.current) return;
 

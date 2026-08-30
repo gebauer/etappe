@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { pb } from '../lib/pb';
+import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { insertDay, deleteDay } from '../lib/pb-days';
 import {
@@ -122,7 +122,14 @@ export function TripEditor({
   // order_index), so it gets its own small fetch rather than riding along
   // with useTripEditor's reload.
   const reloadWishlist = useCallback(() => {
-    void listWishlist(pb, tripId).then(setWishlist);
+    listWishlist(pb, tripId)
+      .then(setWishlist)
+      .catch((err) => {
+        if (isAbortError(err)) return; // benign under StrictMode double-render
+        setActionError(
+          err instanceof Error ? err.message : 'Failed to load wishlist.',
+        );
+      });
   }, [tripId]);
   useEffect(() => {
     reloadWishlist();

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { listMyTrips, createTrip } from '../lib/pb-trips';
+import { isAbortError } from '../lib/pb';
 import type { TripsResponse } from '../types/pb';
 
 export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
@@ -13,10 +14,7 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
     try {
       setTrips(await listMyTrips());
     } catch (err) {
-      // Ignore auto-cancelled requests (benign under StrictMode double-render).
-      if (err && typeof err === 'object' && 'isAbort' in err && err.isAbort) {
-        return;
-      }
+      if (isAbortError(err)) return; // benign under StrictMode double-render
       setError(err instanceof Error ? err.message : 'Failed to load trips.');
     }
   }

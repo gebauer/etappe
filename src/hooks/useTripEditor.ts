@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { pb } from '../lib/pb';
+import { pb, isAbortError } from '../lib/pb';
 import { loadTripRecords, buildCascadeTrip } from '../lib/pb-trip-doc';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import { cascade, type CascadeResult } from '../lib/cascade';
 import { createSunCalcDaylight } from '../lib/daylight';
-
-function isAbort(err: unknown): boolean {
-  return !!err && typeof err === 'object' && 'isAbort' in err && !!err.isAbort;
-}
 
 export interface TripEditorState {
   records: TripRecords | null;
@@ -34,7 +30,7 @@ export function useTripEditor(tripId: string): TripEditorState {
         ),
       );
     } catch (err) {
-      if (isAbort(err)) return;
+      if (isAbortError(err)) return;
       setError(err instanceof Error ? err.message : 'Failed to load trip.');
     }
   }, [tripId]);
