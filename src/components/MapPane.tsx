@@ -66,6 +66,22 @@ export function MapPane({
     [records, result],
   );
   const stopFc = useMemo(() => buildStopFeatures(records), [records]);
+  const fcRef = useRef(fc);
+  fcRef.current = fc;
+  const stopFcRef = useRef(stopFc);
+  stopFcRef.current = stopFc;
+  const fittedRef = useRef(false);
+
+  // Frame the whole trip once, when features first arrive. Not on every edit,
+  // so the map stays where the user left it. (Fit-to-day is 5.4.)
+  function maybeFit(map: maplibregl.Map) {
+    if (fittedRef.current) return;
+    const bounds = computeBounds(fcRef.current, stopFcRef.current);
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 60, maxZoom: 12, duration: 400 });
+      fittedRef.current = true;
+    }
+  }
 
   // Init once.
   useEffect(() => {
@@ -138,7 +154,7 @@ export function MapPane({
         },
       });
       loadedRef.current = true;
-      fitToFeatures(map, fc);
+      maybeFit(map);
       void addStopLayer(map, stopFc);
     });
 
@@ -164,7 +180,7 @@ export function MapPane({
       maplibregl.GeoJSONSource | undefined;
     if (source) {
       source.setData(fc);
-      fitToFeatures(map, fc);
+      maybeFit(map);
     }
   }, [fc]);
 
@@ -183,22 +199,22 @@ export function MapPane({
   return <div ref={containerRef} className="h-full w-full" />;
 }
 
-function fitToFeatures(
-  map: maplibregl.Map,
-  fc: ReturnType<typeof buildLegFeatures>,
-) {
-  if (fc.features.length === 0) return;
+function computeBounds(
+  legFc: ReturnType<typeof buildLegFeatures>,
+  stopFc: StopFeatureCollection,
+): maplibregl.LngLatBounds {
   const bounds = new maplibregl.LngLatBounds();
-  for (const f of fc.features) {
+  for (const f of legFc.features) {
     for (const [lon, lat] of f.geometry.coordinates) {
       if (typeof lon === 'number' && typeof lat === 'number') {
         bounds.extend([lon, lat]);
       }
     }
   }
-  if (!bounds.isEmpty()) {
-    map.fitBounds(bounds, { padding: 40, maxZoom: 12, duration: 400 });
+  for (const f of stopFc.features) {
+    bounds.extend(f.geometry.coordinates);
   }
+  return bounds;
 }
 
 // --- stop marker images (offscreen-canvas composite of ring + kind icon) ---
@@ -244,7 +260,7 @@ async function ensureMarkerImages(
   );
   if (needed.length === 0) return;
   const atlas = await loadAtlas();
-  const S = 44; // device px (displayed at ~22 with pixelRatio 2)
+  const S = 56; // device px (displayed at ~28 with pixelRatio 2)
   for (const f of needed) {
     const key = f.properties.iconImage;
     if (map.hasImage(key)) continue;
@@ -262,7 +278,7 @@ async function ensureMarkerImages(
     ctx.stroke();
     const e = atlas.json[f.properties.icon];
     if (e) {
-      const t = S * 0.55;
+      const t = S * 0.6;
       ctx.drawImage(
         atlas.img,
         e.x,
@@ -281,7 +297,7 @@ async function ensureMarkerImages(
 
 const MARKER_LAYOUT = {
   'icon-image': ['get', 'iconImage'],
-  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 10, 1, 14, 1.2],
+  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
   'icon-allow-overlap': false,
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
@@ -314,9 +330,9 @@ async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
           'interpolate',
           ['linear'],
           ['zoom'],
-          6.5,
+          5,
           0,
-          7.5,
+          6,
           1,
         ] as unknown as maplibregl.ExpressionSpecification,
       },
