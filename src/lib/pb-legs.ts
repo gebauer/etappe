@@ -119,25 +119,30 @@ export async function buildLegRecord(
     surface: leg.surface,
     seasonal_warning: leg.surface === 'froad',
   };
+  const manual = {
+    ...base,
+    duration_min: 0,
+    distance_m: 0,
+    routing_source: 'manual',
+  };
   const from = coords.get(leg.from_stop);
   const to = coords.get(leg.to_stop);
-  if (!isRoutable(leg.mode) || !from || !to) {
-    // Non-car legs (and legs missing coordinates) keep a manual duration.
+  // Non-car legs, legs missing coordinates, and legs the router can't solve
+  // (e.g. a POI not near a road) fall back to a manual, editable duration
+  // rather than failing the whole operation.
+  if (!isRoutable(leg.mode) || !from || !to) return manual;
+  try {
+    const r = await provider.route(from, to);
     return {
       ...base,
-      duration_min: 0,
-      distance_m: 0,
-      routing_source: 'manual',
+      duration_min: r.duration_min,
+      distance_m: r.distance_m,
+      geometry: r.geometry,
+      routing_source: 'ors',
     };
+  } catch {
+    return manual;
   }
-  const r = await provider.route(from, to);
-  return {
-    ...base,
-    duration_min: r.duration_min,
-    distance_m: r.distance_m,
-    geometry: r.geometry,
-    routing_source: 'ors',
-  };
 }
 
 /** Apply a leg plan: route the new car legs, then commit deletes and creates

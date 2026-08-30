@@ -279,40 +279,46 @@ async function ensureMarkerImages(
   }
 }
 
+const MARKER_LAYOUT = {
+  'icon-image': ['get', 'iconImage'],
+  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 10, 1, 14, 1.2],
+  'icon-allow-overlap': false,
+  'symbol-sort-key': ['get', 'sortKey'],
+} as unknown as maplibregl.SymbolLayerSpecification['layout'];
+
 async function addStopLayer(map: maplibregl.Map, fc: StopFeatureCollection) {
   await ensureMarkerImages(map, fc);
   if (!map.getSource('stops')) {
     map.addSource('stops', { type: 'geojson', data: fc });
   }
-  if (!map.getLayer('stops-markers')) {
+  // Two layers because a zoom expression must be top-level, not nested in a
+  // case: accommodation is always visible, other kinds fade in past z7.
+  if (!map.getLayer('stops-accom')) {
     map.addLayer({
-      id: 'stops-markers',
+      id: 'stops-accom',
       type: 'symbol',
       source: 'stops',
-      layout: {
-        'icon-image': ['get', 'iconImage'],
-        'icon-size': [
+      filter: ['==', ['get', 'isAccommodation'], true],
+      layout: MARKER_LAYOUT,
+    });
+  }
+  if (!map.getLayer('stops-other')) {
+    map.addLayer({
+      id: 'stops-other',
+      type: 'symbol',
+      source: 'stops',
+      filter: ['==', ['get', 'isAccommodation'], false],
+      layout: MARKER_LAYOUT,
+      paint: {
+        'icon-opacity': [
           'interpolate',
           ['linear'],
           ['zoom'],
-          5,
-          0.7,
-          10,
+          6.5,
+          0,
+          7.5,
           1,
-          14,
-          1.2,
-        ],
-        'icon-allow-overlap': false,
-        'symbol-sort-key': ['get', 'sortKey'],
-      },
-      paint: {
-        // Below z7 only accommodation shows; other kinds fade in by z7.5.
-        'icon-opacity': [
-          'case',
-          ['get', 'isAccommodation'],
-          1,
-          ['interpolate', ['linear'], ['zoom'], 6.5, 0, 7.5, 1],
-        ],
+        ] as unknown as maplibregl.ExpressionSpecification,
       },
     });
   }
