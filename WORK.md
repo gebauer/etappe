@@ -322,3 +322,7 @@ the deployed instance.
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
+
+- Stop deletion (row ✕ and the Delete key) has **no confirmation** — added
+  unconfirmed for fast test cleanup. Add a confirm (or undo) before v1.
+- Bundle is large (MapLibre); consider code-splitting the map.

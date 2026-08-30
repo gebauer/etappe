@@ -150,6 +150,19 @@ export function TripEditor({ tripId }: { tripId: string }) {
     });
   }
 
+  // Quick bulk delete for the selected stops (no confirmation yet — see the
+  // "Noticed" note in WORK.md). Legs cascade away with the stops.
+  function deleteSelected() {
+    if (!records || selectedStopIds.size === 0) return;
+    const ids = [...selectedStopIds];
+    setSelectedStopIds(new Set());
+    void run(async () => {
+      const batch = pb.createBatch();
+      for (const id of ids) batch.collection('stops').delete(id);
+      await batch.send();
+    });
+  }
+
   function doMoveSelected(dir: -1 | 1) {
     if (!records || selectedStopIds.size !== 1) return;
     const id = [...selectedStopIds][0]!;
@@ -191,6 +204,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
+      if (e.key === 'Delete' || e.key === 'Backspace')
+        return void (e.preventDefault(), deleteSelected());
       if (e.altKey && e.key === 'ArrowUp')
         return void (e.preventDefault(), doMoveSelected(-1));
       if (e.altKey && e.key === 'ArrowDown')

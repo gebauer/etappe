@@ -104,7 +104,7 @@ export function Timeline({
         <span
           className="hidden cursor-help text-xs text-slate-400 min-[900px]:inline"
           title={
-            'Keyboard:\nn  new stop\nd  new day\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
+            'Keyboard:\nn  new stop\nd  new day\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nDel  delete selected stop(s)\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
           }
         >
           ⌨
