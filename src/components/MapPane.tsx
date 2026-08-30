@@ -114,6 +114,7 @@ export function MapPane({
   const selectedStopIdRef = useRef<string | null>(selectedStop?.id ?? null);
   selectedStopIdRef.current = selectedStop?.id ?? null;
   const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const poiMarkerStopIdRef = useRef<string | null>(null);
   const accessMarkerRef = useRef<maplibregl.Marker | null>(null);
   const draggingRef = useRef(false);
   const [markerMode, setMarkerMode] = useState<MarkerMode>('auto');
@@ -344,20 +345,54 @@ export function MapPane({
     }
   }, [focusDayId]);
 
-  // Draggable markers for the selected stop only: dragging every marker at
+  // Draggable marker for the selected stop only: dragging every marker at
   // once would mean ditching the fast symbol-layer rendering BUILD §5 chose
-  // for potentially many stops. A real maplibregl.Marker (DOM) is fine for
-  // just the one currently selected. Dropping calls back with the new point;
-  // the caller re-routes automatically, which is the same "did it resolve?"
-  // feedback the click-to-place flow already gives — no live snap-to-road.
+  // for potentially many stops. It's the stop's real pin (same shape/icon/
+  // hue as the GL layer, built from the same atlas) so dragging it reads as
+  // moving the actual marker, not a generic overlay — the GL layer hides
+  // this one stop's icon underneath while its DOM twin is shown. Its access
+  // point, once set, gets a second draggable pin with a car glyph instead.
+  // Dropping calls back with the new point; the caller re-routes
+  // automatically, the same "did it resolve?" feedback the click-to-place
+  // flow already gives — no live snap-to-road.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || draggingRef.current) return;
+    if (!map || !loadedRef.current) return;
+
+    const selId = selectedStop?.id ?? '';
+    map.setFilter('stops-accom', [
+      'all',
+      ['==', ['get', 'isAccommodation'], true],
+      ['!=', ['get', 'stopId'], selId],
+    ] as unknown as maplibregl.FilterSpecification);
+    map.setFilter('stops-other', [
+      'all',
+      ['==', ['get', 'isAccommodation'], false],
+      ['!=', ['get', 'stopId'], selId],
+    ] as unknown as maplibregl.FilterSpecification);
+
+    if (draggingRef.current) return;
 
     if (selectedStop?.lat && selectedStop?.lon) {
-      if (!poiMarkerRef.current) {
+      if (
+        !poiMarkerRef.current ||
+        poiMarkerStopIdRef.current !== selectedStop.id
+      ) {
+        poiMarkerRef.current?.remove();
+        const feature = stopFcRef.current.features.find(
+          (f) => f.properties.stopId === selectedStop.id,
+        );
+        const atlas = atlasRef.current;
+        const element = buildPinElement(
+          feature?.properties.hue ?? '#0284c7',
+          (ctx) => {
+            if (atlas && feature)
+              drawAtlasGlyph(ctx, atlas, feature.properties.icon);
+          },
+        );
         const marker = new maplibregl.Marker({
-          color: '#0284c7',
+          element,
+          anchor: 'bottom',
           draggable: true,
         })
           .setLngLat([selectedStop.lon, selectedStop.lat])
@@ -372,19 +407,24 @@ export function MapPane({
           if (id) dragStopRef.current?.(id, lat, lng);
         });
         poiMarkerRef.current = marker;
+        poiMarkerStopIdRef.current = selectedStop.id;
       } else {
         poiMarkerRef.current.setLngLat([selectedStop.lon, selectedStop.lat]);
       }
     } else {
       poiMarkerRef.current?.remove();
       poiMarkerRef.current = null;
+      poiMarkerStopIdRef.current = null;
     }
 
     if (selectedStop?.access_lat && selectedStop?.access_lon) {
       if (!accessMarkerRef.current) {
+        const element = buildPinElement('#f59e0b', (ctx) =>
+          drawEmojiGlyph(ctx, '🚗'),
+        );
         const marker = new maplibregl.Marker({
-          color: '#f59e0b',
-          scale: 0.85,
+          element,
+          anchor: 'bottom',
           draggable: true,
         })
           .setLngLat([selectedStop.access_lon, selectedStop.access_lat])
@@ -497,8 +537,70 @@ function loadAtlas() {
   return atlasPromise;
 }
 
-/** Composite one marker image ("m:<icon>:<hue>"): a white ring in the day hue
- * with the black kind glyph. Called on demand via styleimagemissing. */
+// Pin geometry, shared by the GL symbol images (compositeMarker) and the DOM
+// drag markers (buildPinElement) so both read as the same shape. Device px at
+// pixelRatio 2. The tip — not the centre — is the exact coordinate, which is
+// the point of a pin over a badge: dragging has an unambiguous anchor pixel.
+const PIN_W = 44;
+const PIN_H = 60;
+const HEAD_R = 15;
+const HEAD_CY = 17;
+const GLYPH_SIZE = 19;
+const PIN_CSS_W = PIN_W / 2;
+const PIN_CSS_H = PIN_H / 2;
+
+/** Draws the pin silhouette (hue tail + white ring head) with no glyph. */
+function drawPinBase(ctx: CanvasRenderingContext2D, hue: string) {
+  const cx = PIN_W / 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
+  ctx.lineTo(cx + HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
+  ctx.lineTo(cx, PIN_H - 1);
+  ctx.closePath();
+  ctx.fillStyle = hue;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, HEAD_CY, HEAD_R, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = hue;
+  ctx.stroke();
+}
+
+/** Draws a taxonomy sprite glyph centred in the pin's head. */
+function drawAtlasGlyph(
+  ctx: CanvasRenderingContext2D,
+  atlas: { img: HTMLImageElement; json: Record<string, SpriteEntry> },
+  icon: string,
+) {
+  const e = atlas.json[icon];
+  if (!e) return;
+  const cx = PIN_W / 2;
+  ctx.drawImage(
+    atlas.img,
+    e.x,
+    e.y,
+    e.width,
+    e.height,
+    cx - GLYPH_SIZE / 2,
+    HEAD_CY - GLYPH_SIZE / 2,
+    GLYPH_SIZE,
+    GLYPH_SIZE,
+  );
+}
+
+/** Draws a plain glyph (e.g. an emoji) centred in the pin's head — used for
+ * markers that aren't a taxonomy kind, like the access-point car. */
+function drawEmojiGlyph(ctx: CanvasRenderingContext2D, emoji: string) {
+  ctx.font = `${GLYPH_SIZE}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, PIN_W / 2, HEAD_CY + 1);
+}
+
+/** Composite one marker image ("m:<icon>:<hue>") for the GL symbol layer.
+ * Called on demand via styleimagemissing. */
 function compositeMarker(
   map: maplibregl.Map,
   atlas: { img: HTMLImageElement; json: Record<string, SpriteEntry> },
@@ -507,39 +609,40 @@ function compositeMarker(
   const parts = id.split(':'); // ["m", icon, "#rrggbb"]
   const icon = parts[1] ?? 'marker';
   const hue = parts[2] ?? '#64748b';
-  const S = 56; // device px (displayed at ~28 with pixelRatio 2)
   const canvas = document.createElement('canvas');
-  canvas.width = S;
-  canvas.height = S;
+  canvas.width = PIN_W;
+  canvas.height = PIN_H;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  ctx.beginPath();
-  ctx.arc(S / 2, S / 2, S / 2 - 3, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = hue;
-  ctx.stroke();
-  const e = atlas.json[icon];
-  if (e) {
-    const t = S * 0.6;
-    ctx.drawImage(
-      atlas.img,
-      e.x,
-      e.y,
-      e.width,
-      e.height,
-      (S - t) / 2,
-      (S - t) / 2,
-      t,
-      t,
-    );
+  drawPinBase(ctx, hue);
+  drawAtlasGlyph(ctx, atlas, icon);
+  map.addImage(id, ctx.getImageData(0, 0, PIN_W, PIN_H), { pixelRatio: 2 });
+}
+
+/** Builds a standalone pin canvas for a draggable DOM marker — same shape as
+ * the GL-rendered pins, so dragging the selected stop's marker looks like
+ * dragging its real icon rather than a generic overlay. */
+function buildPinElement(
+  hue: string,
+  drawGlyph: (ctx: CanvasRenderingContext2D) => void,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = PIN_W;
+  canvas.height = PIN_H;
+  canvas.style.width = `${PIN_CSS_W}px`;
+  canvas.style.height = `${PIN_CSS_H}px`;
+  canvas.style.cursor = 'grab';
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    drawPinBase(ctx, hue);
+    drawGlyph(ctx);
   }
-  map.addImage(id, ctx.getImageData(0, 0, S, S), { pixelRatio: 2 });
+  return canvas;
 }
 
 const MARKER_LAYOUT = {
   'icon-image': ['get', 'iconImage'],
+  'icon-anchor': 'bottom',
   'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
   'icon-allow-overlap': false,
   'symbol-sort-key': ['get', 'sortKey'],
