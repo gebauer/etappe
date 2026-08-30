@@ -14,6 +14,7 @@ import {
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
+import { addLinkBlock } from '../lib/pb-capture';
 import { DayRail } from './DayRail';
 import { SearchPalette } from './SearchPalette';
 import { Timeline } from './Timeline';
@@ -110,11 +111,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
     );
   }
 
-  function addPlaceStop(place: PlaceResult, lat = place.lat, lon = place.lon) {
+  function addPlaceStop(place: PlaceResult, sourceUrl?: string) {
     const dayId = focusDayId();
     if (!records || !dayId) return;
-    void run(() =>
-      addStopAtEnd(
+    void run(async () => {
+      const stopId = await addStopAtEnd(
         pb,
         routing,
         dayId,
@@ -122,12 +123,15 @@ export function TripEditor({ tripId }: { tripId: string }) {
         {
           title: place.name,
           kind: place.kind,
-          lat,
-          lon,
+          lat: place.lat,
+          lon: place.lon,
           kind_confirmed: false,
         },
-      ),
-    );
+      );
+      // Keep the pasted URL as a link block on the new stop (BUILD §6).
+      if (sourceUrl)
+        await addLinkBlock(pb, tripId, stopId, sourceUrl, place.name);
+    });
   }
 
   function onMapClick(lat: number, lon: number) {
@@ -400,9 +404,9 @@ export function TripEditor({ tripId }: { tripId: string }) {
       )}
       {showSearch && (
         <SearchPalette
-          onPick={(place) => {
+          onPick={(place, sourceUrl) => {
             setShowSearch(false);
-            addPlaceStop(place);
+            addPlaceStop(place, sourceUrl);
           }}
           onClose={() => setShowSearch(false)}
         />
