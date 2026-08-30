@@ -6,12 +6,12 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-30
 
-**Phases 0–3 complete (foundation, cascade engine, routing).**
-**→ Next task: 4.1 Three-pane desktop layout (Standard).**
+**Phases 0–4 complete (foundation, cascade, routing, desktop shell).**
+**→ Next task: 5.1 Sprite build (Cheap).**
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
-v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85`.
+v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459`.
 Each done task is tagged ✅ below. (Phases 0–1 are pushed to
 `origin/master`; phases 2–3 and later fixes are local until the next push.)
 
@@ -172,20 +172,20 @@ merges and re-routes. Non-car legs are never routed.
 
 ## Phase 4 — Desktop shell
 
-**4.1 Three-pane layout** · Standard
+**4.1 Three-pane layout** · Standard · ✅ `f4145de`
 BUILD §9. Day rail, continuous-scroll timeline with day headers, right pane
 split into map and inspector. Breakpoints at 1280 and 900.
 
-**4.2 Timeline rows** · Standard
+**4.2 Timeline rows** · Standard · ✅ `51c5769`
 Stop and leg rows. Muted computed times, full-contrast anchors with a pin.
 Block indicator icons. Inline editing of title, dwell, anchor, surface and
 buffer, all recomputing through the cascade engine live.
 
-**4.3 Drag and drop** · Standard
+**4.3 Drag and drop** · Standard · ✅ `c5cd6c6`
 Reorder within a day, drag across day headers, drag a wishlist POI onto a slot.
 Every drop triggers leg re-routing.
 
-**4.4 Keyboard** · Cheap
+**4.4 Keyboard** · Cheap · ✅ `1000459`
 The shortcut set from BUILD §9, plus multi-select and bulk time shift.
 
 ---
