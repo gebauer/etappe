@@ -27,6 +27,18 @@ export interface NewDayInput {
   notes?: string;
 }
 
+/** All of a trip's days, ordered. */
+export async function listDays(
+  pb: TypedPocketBase,
+  tripId: string,
+): Promise<DaysResponse[]> {
+  return pb.collection('days').getFullList({
+    filter: pb.filter('trip = {:trip}', { trip: tripId }),
+    sort: 'order_index',
+    requestKey: null,
+  });
+}
+
 async function fetchDayOrders(
   pb: TypedPocketBase,
   tripId: string,

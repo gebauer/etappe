@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { listMyTrips, createTrip } from '../lib/pb-trips';
 import type { TripsResponse } from '../types/pb';
 
-export function TripList() {
+export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
   const [trips, setTrips] = useState<TripsResponse[]>([]);
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -84,11 +84,16 @@ export function TripList() {
           </li>
         )}
         {trips.map((trip) => (
-          <li key={trip.id} className="flex justify-between px-4 py-3">
-            <span className="font-medium text-slate-900">{trip.title}</span>
-            <span className="text-sm text-slate-500">
-              {trip.start_date.slice(0, 10)}
-            </span>
+          <li key={trip.id}>
+            <button
+              onClick={() => onOpen(trip.id)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
+            >
+              <span className="font-medium text-slate-900">{trip.title}</span>
+              <span className="text-sm text-slate-500">
+                {trip.start_date.slice(0, 10)}
+              </span>
+            </button>
           </li>
         ))}
       </ul>
