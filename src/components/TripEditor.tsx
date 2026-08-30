@@ -35,6 +35,19 @@ import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
 import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
+import { MergePrompt } from './MergePrompt';
+import { findNearbyStop } from '../lib/merge';
+import type { StopsResponse } from '../types/pb';
+
+/** What every capture path (search, paste, map click, wishlist promotion,
+ * nearby) ends up as before it's ranked (WORK 6.3) or merge-checked
+ * (WORK 6.5). wishlistId is set only when promoting a wishlist item, so its
+ * source can be marked scheduled once the capture resolves. */
+type CaptureCandidate = PlacementCandidate & {
+  kind: string;
+  sourceUrl?: string;
+  wishlistId?: string;
+};
 
 export function TripEditor({
   tripId,
@@ -70,14 +83,12 @@ export function TripEditor({
     id: string;
     title: string;
   } | null>(null);
-  const [pendingPlacement, setPendingPlacement] = useState<
-    | (PlacementCandidate & {
-        kind: string;
-        sourceUrl?: string;
-        wishlistId?: string;
-      })
-    | null
-  >(null);
+  const [pendingPlacement, setPendingPlacement] =
+    useState<CaptureCandidate | null>(null);
+  const [mergeCheck, setMergeCheck] = useState<{
+    candidate: CaptureCandidate;
+    existingStop: StopsResponse;
+  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [railW, setRailW] = useState(() => loadWidths().rail);
   const [rightW, setRightW] = useState(() => loadWidths().right);
@@ -175,11 +186,20 @@ export function TripEditor({
     );
   }
 
-  // Capture with coordinates goes through the placement picker (WORK 6.3)
-  // instead of always landing at the end of whatever day is focused —
-  // ranked across every gap in the trip, not just one day.
+  // Every capture with coordinates funnels through here (WORK 6.5): a stop
+  // within 100m of an existing one prompts to merge instead of silently
+  // duplicating it. Only past that check does it reach the placement picker
+  // (WORK 6.3), ranked across every gap in the trip, not just one day.
+  function beginCapture(candidate: CaptureCandidate) {
+    const existingStop =
+      records &&
+      findNearbyStop({ lat: candidate.lat, lon: candidate.lon }, records.stops);
+    if (existingStop) setMergeCheck({ candidate, existingStop });
+    else setPendingPlacement(candidate);
+  }
+
   function addPlaceStop(place: PlaceResult, sourceUrl?: string) {
-    setPendingPlacement({
+    beginCapture({
       name: place.name,
       kind: place.kind,
       lat: place.lat,
@@ -208,7 +228,7 @@ export function TripEditor({
       } catch {
         place = null;
       }
-      setPendingPlacement({
+      beginCapture({
         name: place?.name ?? 'Dropped pin',
         kind: place?.kind ?? 'uncategorized',
         lat,
@@ -284,7 +304,7 @@ export function TripEditor({
   // arrives with a wishlistId so commitPlacement can mark it scheduled.
   function placeWishlistItem(item: PoisResponse) {
     if (!item.lat || !item.lon) return;
-    setPendingPlacement({
+    beginCapture({
       name: item.title,
       kind: item.kind ?? 'uncategorized',
       lat: item.lat,
@@ -295,12 +315,46 @@ export function TripEditor({
   }
 
   function selectNearby(poi: NearbyPoi) {
-    setPendingPlacement({
+    beginCapture({
       name: poi.name,
       kind: poi.kind,
       lat: poi.lat,
       lon: poi.lon,
     });
+  }
+
+  // The merge prompt's resolution: adopt the existing stop (carrying over
+  // the candidate's link and, for a wishlist promotion, marking it
+  // scheduled — the same side effects commitPlacement would have applied to
+  // a newly created stop), override and create a separate stop anyway, or
+  // cancel the capture entirely.
+  function useExistingStop() {
+    const check = mergeCheck;
+    setMergeCheck(null);
+    if (!check) return;
+    setSelectedStopIds(new Set([check.existingStop.id]));
+    if (!check.candidate.sourceUrl && !check.candidate.wishlistId) return;
+    void run(async () => {
+      if (check.candidate.sourceUrl) {
+        await addLinkBlock(
+          pb,
+          tripId,
+          check.existingStop.id,
+          check.candidate.sourceUrl,
+          check.candidate.name,
+        );
+      }
+      if (check.candidate.wishlistId) {
+        await markWishlistScheduled(pb, check.candidate.wishlistId);
+        reloadWishlist();
+      }
+    });
+  }
+
+  function createSeparateStop() {
+    const check = mergeCheck;
+    setMergeCheck(null);
+    if (check) setPendingPlacement(check.candidate);
   }
 
   // Quick bulk delete for the selected stops (no confirmation yet — see the
@@ -417,6 +471,7 @@ export function TripEditor({
       }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
       if (e.key === 'Escape' && placingAccessFor)
@@ -448,6 +503,7 @@ export function TripEditor({
     selectedDayId,
     placingAccessFor,
     pendingPlacement,
+    mergeCheck,
   ]);
 
   if (!records) {
@@ -669,6 +725,15 @@ export function TripEditor({
           provider={routing}
           onPick={commitPlacement}
           onCancel={() => setPendingPlacement(null)}
+        />
+      )}
+      {mergeCheck && (
+        <MergePrompt
+          candidateName={mergeCheck.candidate.name}
+          existingStop={mergeCheck.existingStop}
+          onUseExisting={useExistingStop}
+          onCreateNew={createSeparateStop}
+          onCancel={() => setMergeCheck(null)}
         />
       )}
     </div>

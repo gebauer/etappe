@@ -8,13 +8,14 @@
  * Scoped to `tourism`/`historic`, plus a curated `natural` subset matching
  * the taxonomy's own outdoor kinds (waterfall, volcano, ...) — not the
  * unfiltered tag, which is dominated by trees and water polygons. Results
- * within 100m of an existing stop are dropped (same threshold WORK.md's
- * still-unbuilt 6.5 merge prompt uses) so the corridor doesn't just
- * re-suggest what's already on the itinerary.
+ * within 100m of an existing stop are dropped (same threshold and
+ * haversineMeters as 6.5's merge prompt, ./merge.ts) so the corridor doesn't
+ * just re-suggest what's already on the itinerary.
  */
 
 import { z } from 'zod';
 import { mapOsmTags } from './osm-tags';
+import { haversineMeters } from './geo';
 import type { Kind } from './taxonomy';
 import type { LatLon } from './routing';
 
@@ -38,18 +39,6 @@ export interface NearbyPoi {
   kind: Kind;
   lat: number;
   lon: number;
-}
-
-/** Meters between two points (haversine, Earth radius 6371km). */
-export function haversineMeters(a: LatLon, b: LatLon): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
 }
 
 export function buildOverpassQuery(
