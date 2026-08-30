@@ -19,6 +19,8 @@ interface Props {
   onZoomStop: (lat: number, lon: number) => void;
   onPlaceAccessPoint: (stopId: string) => void;
   onClearAccessPoint: (stopId: string) => void;
+  onDragStop: (stopId: string, lat: number, lon: number) => void;
+  onDragAccessPoint: (stopId: string, lat: number, lon: number) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
@@ -39,6 +41,8 @@ export function RightPane({
   onZoomStop,
   onPlaceAccessPoint,
   onClearAccessPoint,
+  onDragStop,
+  onDragAccessPoint,
   hoveredStopId,
   focusDayId,
   flyTo,
@@ -56,6 +60,9 @@ export function RightPane({
           hoveredStopId={hoveredStopId}
           focusDayId={focusDayId}
           flyTo={flyTo}
+          selectedStop={selectedStop}
+          onDragStop={onDragStop}
+          onDragAccessPoint={onDragAccessPoint}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">

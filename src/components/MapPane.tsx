@@ -8,6 +8,7 @@ import {
 } from '../lib/map-features';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
+import type { StopsResponse } from '../types/pb';
 
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
@@ -81,6 +82,9 @@ export function MapPane({
   hoveredStopId,
   focusDayId,
   flyTo,
+  selectedStop,
+  onDragStop,
+  onDragAccessPoint,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -90,6 +94,9 @@ export function MapPane({
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
+  selectedStop?: StopsResponse | null;
+  onDragStop?: (stopId: string, lat: number, lon: number) => void;
+  onDragAccessPoint?: (stopId: string, lat: number, lon: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -100,6 +107,15 @@ export function MapPane({
   selectRef.current = onSelectStop;
   const hoverRef = useRef(onHoverStop);
   hoverRef.current = onHoverStop;
+  const dragStopRef = useRef(onDragStop);
+  dragStopRef.current = onDragStop;
+  const dragAccessRef = useRef(onDragAccessPoint);
+  dragAccessRef.current = onDragAccessPoint;
+  const selectedStopIdRef = useRef<string | null>(selectedStop?.id ?? null);
+  selectedStopIdRef.current = selectedStop?.id ?? null;
+  const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const accessMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const draggingRef = useRef(false);
   const [markerMode, setMarkerMode] = useState<MarkerMode>('auto');
 
   const fc = useMemo(
@@ -262,6 +278,10 @@ export function MapPane({
     return () => {
       ro.disconnect();
       loadedRef.current = false;
+      poiMarkerRef.current?.remove();
+      poiMarkerRef.current = null;
+      accessMarkerRef.current?.remove();
+      accessMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -323,6 +343,79 @@ export function MapPane({
       map.fitBounds(bounds, { padding: 80, maxZoom: 12, duration: 500 });
     }
   }, [focusDayId]);
+
+  // Draggable markers for the selected stop only: dragging every marker at
+  // once would mean ditching the fast symbol-layer rendering BUILD §5 chose
+  // for potentially many stops. A real maplibregl.Marker (DOM) is fine for
+  // just the one currently selected. Dropping calls back with the new point;
+  // the caller re-routes automatically, which is the same "did it resolve?"
+  // feedback the click-to-place flow already gives — no live snap-to-road.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || draggingRef.current) return;
+
+    if (selectedStop?.lat && selectedStop?.lon) {
+      if (!poiMarkerRef.current) {
+        const marker = new maplibregl.Marker({
+          color: '#0284c7',
+          draggable: true,
+        })
+          .setLngLat([selectedStop.lon, selectedStop.lat])
+          .addTo(map);
+        marker.on('dragstart', () => {
+          draggingRef.current = true;
+        });
+        marker.on('dragend', () => {
+          draggingRef.current = false;
+          const id = selectedStopIdRef.current;
+          const { lat, lng } = marker.getLngLat();
+          if (id) dragStopRef.current?.(id, lat, lng);
+        });
+        poiMarkerRef.current = marker;
+      } else {
+        poiMarkerRef.current.setLngLat([selectedStop.lon, selectedStop.lat]);
+      }
+    } else {
+      poiMarkerRef.current?.remove();
+      poiMarkerRef.current = null;
+    }
+
+    if (selectedStop?.access_lat && selectedStop?.access_lon) {
+      if (!accessMarkerRef.current) {
+        const marker = new maplibregl.Marker({
+          color: '#f59e0b',
+          scale: 0.85,
+          draggable: true,
+        })
+          .setLngLat([selectedStop.access_lon, selectedStop.access_lat])
+          .addTo(map);
+        marker.on('dragstart', () => {
+          draggingRef.current = true;
+        });
+        marker.on('dragend', () => {
+          draggingRef.current = false;
+          const id = selectedStopIdRef.current;
+          const { lat, lng } = marker.getLngLat();
+          if (id) dragAccessRef.current?.(id, lat, lng);
+        });
+        accessMarkerRef.current = marker;
+      } else {
+        accessMarkerRef.current.setLngLat([
+          selectedStop.access_lon,
+          selectedStop.access_lat,
+        ]);
+      }
+    } else {
+      accessMarkerRef.current?.remove();
+      accessMarkerRef.current = null;
+    }
+  }, [
+    selectedStop?.id,
+    selectedStop?.lat,
+    selectedStop?.lon,
+    selectedStop?.access_lat,
+    selectedStop?.access_lon,
+  ]);
 
   // The auto/icons/thumbnails control overrides the zoom tier for non-
   // accommodation markers (thumbnails behaves as icons until photos exist).

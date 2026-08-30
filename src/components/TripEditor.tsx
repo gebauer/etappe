@@ -208,6 +208,23 @@ export function TripEditor({ tripId }: { tripId: string }) {
     );
   }
 
+  function dragStop(stopId: string, lat: number, lon: number) {
+    if (!records) return;
+    void run(() =>
+      updateStopAndReroute(pb, routing, records, stopId, { lat, lon }),
+    );
+  }
+
+  function dragAccessPoint(stopId: string, lat: number, lon: number) {
+    if (!records) return;
+    void run(() =>
+      updateStopAndReroute(pb, routing, records, stopId, {
+        access_lat: lat,
+        access_lon: lon,
+      }),
+    );
+  }
+
   function handleUpdateStop(id: string, patch: StopPatch) {
     const reroute =
       patch.lat !== undefined ||
@@ -441,6 +458,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             onPlaceAccessPoint={startPlacingAccessPoint}
             onClearAccessPoint={clearAccessPoint}
+            onDragStop={dragStop}
+            onDragAccessPoint={dragAccessPoint}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -468,6 +487,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             onPlaceAccessPoint={startPlacingAccessPoint}
             onClearAccessPoint={clearAccessPoint}
+            onDragStop={dragStop}
+            onDragAccessPoint={dragAccessPoint}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
