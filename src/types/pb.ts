@@ -115,7 +115,7 @@ export type ActivitiesRecord = {
 	id: string
 	kind: ActivitiesKindOptions
 	notes?: string
-	order_index: number
+	order_index?: number
 	stop: RecordIdString
 	title: string
 	updated: IsoAutoDateString
@@ -197,7 +197,7 @@ export type DaysRecord = {
 	id: string
 	kind: DaysKindOptions
 	notes?: string
-	order_index: number
+	order_index?: number
 	title?: string
 	trip: RecordIdString
 	updated: IsoAutoDateString
@@ -372,7 +372,7 @@ export type StopsRecord = {
 	kind_confirmed?: boolean
 	lat?: number
 	lon?: number
-	order_index: number
+	order_index?: number
 	title: string
 	updated: IsoAutoDateString
 }
@@ -393,7 +393,7 @@ export type TripMembersRecord = {
 }
 
 export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown> = {
-	car_buffer_pct: number
+	car_buffer_pct?: number
 	created: IsoAutoDateString
 	currency: string
 	default_dwell: null | Tdefault_dwell
