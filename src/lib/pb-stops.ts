@@ -66,6 +66,70 @@ export async function addStopAtEnd(
   return created.id;
 }
 
+/** Create a new stop and insert it at `targetIndex` within `targetDayId`
+ * (WORK 6.3 — the placement picker's commit step). The stop is created first
+ * at the day's current end, then "moved" into its real position via the same
+ * planStopMove drag-and-drop already uses, so there's no separate
+ * insert-at-arbitrary-index reindex logic to keep in sync with it. */
+export async function addStopAt(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  targetDayId: string,
+  targetIndex: number,
+  data: NewStopData = {},
+): Promise<string> {
+  const dayStops = records.stops.filter((s) => s.day === targetDayId);
+  const created = await pb.collection('stops').create({
+    day: targetDayId,
+    order_index: dayStops.length,
+    title: data.title ?? 'New stop',
+    kind: data.kind ?? 'uncategorized',
+    kind_confirmed: data.kind_confirmed ?? false,
+    lat: data.lat ?? 0,
+    lon: data.lon ?? 0,
+  });
+
+  const positions = [
+    ...records.stops.map((s) => ({
+      id: s.id,
+      day: s.day,
+      order_index: s.order_index,
+    })),
+    { id: created.id, day: targetDayId, order_index: dayStops.length },
+  ];
+  const pairs = records.legs.map((l) => ({
+    id: l.id,
+    from_stop: l.from_stop,
+    to_stop: l.to_stop,
+  }));
+  const { stopUpdates, legPlan } = planStopMove(
+    positions,
+    pairs,
+    created.id,
+    targetDayId,
+    targetIndex,
+  );
+
+  if (stopUpdates.length > 0) {
+    const batch = pb.createBatch();
+    for (const u of stopUpdates) {
+      batch.collection('stops').update(u.id, {
+        day: u.day,
+        order_index: u.order_index,
+      });
+    }
+    await batch.send();
+  }
+  await applyLegPlan(
+    pb,
+    provider,
+    legPlan,
+    coordsOf([...records.stops, created]),
+  );
+  return created.id;
+}
+
 /** Delete a stop; its legs cascade-delete, and the two neighbours (if any) are
  * re-merged into a single re-routed leg. */
 export async function deleteStop(

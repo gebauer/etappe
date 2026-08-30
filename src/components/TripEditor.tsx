@@ -4,6 +4,7 @@ import { useTripEditor } from '../hooks/useTripEditor';
 import { insertDay, deleteDay } from '../lib/pb-days';
 import {
   addStopAtEnd,
+  addStopAt,
   deleteStop,
   moveStop,
   updateStop,
@@ -18,11 +19,13 @@ import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock } from '../lib/pb-capture';
+import type { PlacementOption } from '../lib/placement';
 import { DayRail } from './DayRail';
 import { SearchPalette } from './SearchPalette';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
+import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 
 export function TripEditor({ tripId }: { tripId: string }) {
   const { records, result, error, reload } = useTripEditor(tripId);
@@ -44,6 +47,9 @@ export function TripEditor({ tripId }: { tripId: string }) {
     id: string;
     title: string;
   } | null>(null);
+  const [pendingPlacement, setPendingPlacement] = useState<
+    (PlacementCandidate & { kind: string; sourceUrl?: string }) | null
+  >(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [railW, setRailW] = useState(() => loadWidths().rail);
   const [rightW, setRightW] = useState(() => loadWidths().right);
@@ -118,26 +124,16 @@ export function TripEditor({ tripId }: { tripId: string }) {
     );
   }
 
+  // Capture with coordinates goes through the placement picker (WORK 6.3)
+  // instead of always landing at the end of whatever day is focused —
+  // ranked across every gap in the trip, not just one day.
   function addPlaceStop(place: PlaceResult, sourceUrl?: string) {
-    const dayId = focusDayId();
-    if (!records || !dayId) return;
-    void run(async () => {
-      const stopId = await addStopAtEnd(
-        pb,
-        routing,
-        dayId,
-        records.stops.filter((s) => s.day === dayId),
-        {
-          title: place.name,
-          kind: place.kind,
-          lat: place.lat,
-          lon: place.lon,
-          kind_confirmed: false,
-        },
-      );
-      // Keep the pasted URL as a link block on the new stop (BUILD §6).
-      if (sourceUrl)
-        await addLinkBlock(pb, tripId, stopId, sourceUrl, place.name);
+    setPendingPlacement({
+      name: place.name,
+      kind: place.kind,
+      lat: place.lat,
+      lon: place.lon,
+      sourceUrl,
     });
   }
 
@@ -154,28 +150,57 @@ export function TripEditor({ tripId }: { tripId: string }) {
       );
       return;
     }
-    const dayId = focusDayId();
-    if (!records || !dayId) return;
-    void run(async () => {
+    void (async () => {
       let place: PlaceResult | null = null;
       try {
         place = await photonReverse(lat, lon);
       } catch {
         place = null;
       }
-      await addStopAtEnd(
+      setPendingPlacement({
+        name: place?.name ?? 'Dropped pin',
+        kind: place?.kind ?? 'uncategorized',
+        lat,
+        lon,
+      });
+    })();
+  }
+
+  function commitPlacement(option: PlacementOption) {
+    const candidate = pendingPlacement;
+    setPendingPlacement(null);
+    if (!records || !candidate) return;
+    const dayStops = records.stops
+      .filter((s) => s.day === option.dayId)
+      .sort((a, b) => a.order_index - b.order_index);
+    const targetIndex = option.nextStopId
+      ? dayStops.findIndex((s) => s.id === option.nextStopId)
+      : dayStops.length;
+    void run(async () => {
+      const stopId = await addStopAt(
         pb,
         routing,
-        dayId,
-        records.stops.filter((s) => s.day === dayId),
+        records,
+        option.dayId,
+        targetIndex,
         {
-          title: place?.name ?? 'Dropped pin',
-          kind: place?.kind ?? 'uncategorized',
-          lat,
-          lon,
+          title: candidate.name,
+          kind: candidate.kind,
+          lat: candidate.lat,
+          lon: candidate.lon,
           kind_confirmed: false,
         },
       );
+      // Keep the pasted URL as a link block on the new stop (BUILD §6).
+      if (candidate.sourceUrl) {
+        await addLinkBlock(
+          pb,
+          tripId,
+          stopId,
+          candidate.sourceUrl,
+          candidate.name,
+        );
+      }
     });
   }
 
@@ -293,6 +318,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
       }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape' && pendingPlacement)
+        return setPendingPlacement(null);
       if (e.key === 'Escape' && placingAccessFor)
         return setPlacingAccessFor(null);
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
@@ -316,7 +343,13 @@ export function TripEditor({ tripId }: { tripId: string }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records, selectedStopIds, selectedDayId, placingAccessFor]);
+  }, [
+    records,
+    selectedStopIds,
+    selectedDayId,
+    placingAccessFor,
+    pendingPlacement,
+  ]);
 
   if (!records) {
     return (
@@ -502,6 +535,15 @@ export function TripEditor({ tripId }: { tripId: string }) {
             addPlaceStop(place, sourceUrl);
           }}
           onClose={() => setShowSearch(false)}
+        />
+      )}
+      {pendingPlacement && records && (
+        <PlacementPicker
+          candidate={pendingPlacement}
+          records={records}
+          provider={routing}
+          onPick={commitPlacement}
+          onCancel={() => setPendingPlacement(null)}
         />
       )}
     </div>
