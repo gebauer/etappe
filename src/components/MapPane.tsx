@@ -725,22 +725,33 @@ const HOVER_RADIUS = [
 // engine, not a zoom floor, is what decides whether there's room for a given
 // label, so pull this down and let it do that job at any reasonable zoom.
 const LABEL_MINZOOM = 5;
+// Mirrors MARKER_LAYOUT's icon-size curve (1 -> 1.3 -> 1.6), scaled by 10, so
+// text-size and the pin's rendered height stay in constant proportion across
+// zoom (pin height / text size = PIN_CSS_H / 10 = 3, always). That's what
+// makes a single fixed text-offset below correct at every zoom instead of
+// only the one it happened to be tuned against — a mismatch here is exactly
+// what let the label sit low enough to cover the icon instead of clearing it.
 const LABEL_SIZE = [
   'interpolate',
   ['linear'],
   ['zoom'],
-  LABEL_MINZOOM,
-  9,
-  14,
+  5,
+  10,
+  10,
   13,
+  14,
+  16,
 ] as unknown as maplibregl.ExpressionSpecification;
+// >= 3em clears the pin's full height at any zoom (see LABEL_SIZE); the
+// extra 0.6 is breathing room between the label and the pin's tip.
+const LABEL_OFFSET = [0, -3.6];
 
 const LABEL_LAYOUT = {
   'text-field': ['get', 'title'],
   'text-font': ['Noto Sans Regular'],
   'text-size': LABEL_SIZE,
   'text-anchor': 'bottom',
-  'text-offset': [0, -3.2],
+  'text-offset': LABEL_OFFSET,
   // The collision engine is the "only if there's enough space" behaviour:
   // it hides whichever labels don't fit rather than overlapping them.
   'text-allow-overlap': false,
@@ -756,7 +767,7 @@ const PINNED_LABEL_LAYOUT = {
   'text-font': ['Noto Sans Regular'],
   'text-size': LABEL_SIZE,
   'text-anchor': 'bottom',
-  'text-offset': [0, -3.2],
+  'text-offset': LABEL_OFFSET,
   'text-allow-overlap': true,
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
