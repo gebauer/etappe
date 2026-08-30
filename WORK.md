@@ -6,12 +6,12 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-30
 
-**Phases 0–4 complete (foundation, cascade, routing, desktop shell).**
-**→ Next task: 5.1 Sprite build (Cheap).**
+**Phases 0–5 complete + 6.1. Map fully interactive.**
+**→ Next task: 6.2 Paste sniffer (Standard).**
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
-v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459`.
+v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79`.
 Each done task is tagged ✅ below. (Phases 0–1 are pushed to
 `origin/master`; phases 2–3 and later fixes are local until the next push.)
 
@@ -192,11 +192,11 @@ The shortcut set from BUILD §9, plus multi-select and bulk time shift.
 
 ## Phase 5 — Map
 
-**5.1 Sprite build** · Cheap
+**5.1 Sprite build** · Cheap · ✅ `514d410`
 Build script rasterising the Maki and Temaki subset for the taxonomy into a
 MapLibre spritesheet. Fails the build if any enum member lacks an icon.
 
-**5.2 Leg layers** · **Heavy**
+**5.2 Leg layers** · **Heavy** · ✅ `cc5e5ea`
 BUILD §5. OKLCH shade derivation per day hue, alternating by leg index, two
 line layers crossfading on opacity between z8 and z10, direction arrows,
 dashed overlay for after-dusk legs.
@@ -205,12 +205,12 @@ Heavy because the zoom-dependent styling has several ways to look almost right
 — colour interpolation muddying, both layers visible at once, arrows fighting
 the crossfade — and each is tedious to unpick later.
 
-**5.3 Marker tiers** · **Heavy**
+**5.3 Marker tiers** · **Heavy** · ✅ `8a7653f`
 Three zoom tiers, symbol layer with `map.addImage`, offscreen-canvas compositing
 of crop, ring and badge, IndexedDB cache keyed by file hash, collision via
 `symbol-sort-key`. Not DOM markers — see BUILD §5 for why.
 
-**5.4 Map interaction** · Standard
+**5.4 Map interaction** · Standard · ✅ `f0478c4`
 Hover linking both directions, click to select, fit to day bounds, the
 auto/icons/thumbnails control.
 
@@ -218,7 +218,7 @@ auto/icons/thumbnails control.
 
 ## Phase 6 — Capture
 
-**6.1 Search and map click** · Standard
+**6.1 Search and map click** · Standard · ✅ `4e18a79`
 Photon typeahead behind `⌘K`; reverse geocode on map click. OSM tags mapped to
 kind via the phase 0 table, `kind_confirmed` false.
 
