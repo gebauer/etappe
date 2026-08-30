@@ -39,6 +39,9 @@ export interface NearbyPoi {
   kind: Kind;
   lat: number;
   lon: number;
+  /** OSM `wikidata` tag (a Qxxxxx id), when present — lets the map look up a
+   * Wikimedia Commons thumbnail (WORK 6.4 follow-up, ./wikimedia.ts). */
+  wikidataId?: string;
 }
 
 export function buildOverpassQuery(
@@ -87,6 +90,7 @@ export function parseOverpass(
       kind: mapOsmTags(tags) ?? 'uncategorized',
       lat: el.lat,
       lon: el.lon,
+      wikidataId: tags.wikidata || undefined,
     });
   }
   return results;

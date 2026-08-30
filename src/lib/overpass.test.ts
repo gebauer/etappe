@@ -25,7 +25,7 @@ describe('parseOverpass', () => {
         id: 1,
         lat: 64.1,
         lon: -21.9,
-        tags: { tourism: 'viewpoint', name: 'Kerið' },
+        tags: { tourism: 'viewpoint', name: 'Kerið', wikidata: 'Q1533555' },
       },
       {
         type: 'node',
@@ -57,6 +57,16 @@ describe('parseOverpass', () => {
   it('maps OSM tags to a taxonomy kind, defaulting to uncategorized', () => {
     const results = parseOverpass(response, []);
     expect(results.find((r) => r.name === 'Kerið')?.kind).toBe('viewpoint');
+  });
+
+  it('carries the wikidata tag when present, omits it otherwise', () => {
+    const results = parseOverpass(response, []);
+    expect(results.find((r) => r.name === 'Kerið')?.wikidataId).toBe(
+      'Q1533555',
+    );
+    expect(
+      results.find((r) => r.name === 'Close one')?.wikidataId,
+    ).toBeUndefined();
   });
 
   it('excludes results within the exclusion radius of an existing stop', () => {

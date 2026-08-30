@@ -17,9 +17,12 @@ import {
   buildPinElement,
   drawAtlasGlyph,
   drawEmojiGlyph,
+  compositePhotoCircle,
   type SpriteEntry,
 } from '../lib/map-markers';
 import { queryNearby, type NearbyPoi } from '../lib/overpass';
+import { categoryColor } from '../lib/map-colors';
+import { loadThumbnailUrl } from '../lib/wikimedia';
 
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
@@ -69,6 +72,20 @@ const AFTER_DUSK_AND_ROUTED = [
   'all',
   ['==', ['get', 'afterDusk'], true],
   NOT_MANUAL,
+] as unknown as maplibregl.FilterSpecification;
+
+// A nearby POI renders as a plain colour circle or a Wikimedia photo, never
+// both — one GeoJSON feature can't paint on a circle layer and a symbol
+// layer at once, so it's split across nearby-ghost/nearby-photo by this.
+const HAS_PHOTO = [
+  '==',
+  ['get', 'hasPhoto'],
+  true,
+] as unknown as maplibregl.FilterSpecification;
+const NOT_HAS_PHOTO = [
+  '!=',
+  ['get', 'hasPhoto'],
+  true,
 ] as unknown as maplibregl.FilterSpecification;
 
 export type MarkerMode = 'auto' | 'icons' | 'thumbnails';
@@ -123,6 +140,7 @@ export function MapPane({
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
+  const [nearbyPhotoIds, setNearbyPhotoIds] = useState<Set<string>>(new Set());
   const nearbyRef = useRef(nearbyPois);
   nearbyRef.current = nearbyPois;
   const selectNearbyRef = useRef(onSelectNearby);
@@ -143,10 +161,17 @@ export function MapPane({
       features: nearbyPois.map((p) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
-        properties: { osmId: p.osmId, name: p.name, kind: p.kind },
+        properties: {
+          osmId: p.osmId,
+          name: p.name,
+          kind: p.kind,
+          color: categoryColor(p.kind),
+          hasPhoto: nearbyPhotoIds.has(p.osmId),
+          photoImage: `photo:${p.osmId}`,
+        },
       })),
     }),
-    [nearbyPois],
+    [nearbyPois, nearbyPhotoIds],
   );
   const nearbyFcRef = useRef(nearbyFc);
   nearbyFcRef.current = nearbyFc;
@@ -244,21 +269,36 @@ export function MapPane({
       // whole source's tile in the worker — which silently drops the leg lines
       // too. Direction arrows via a sprite icon are tracked in ToDo.md.
 
-      // Nearby ghost pins (WORK 6.4): plain grey circles, deliberately not
-      // full pins — "not yet part of your plan" should read as visually
-      // distinct from a real stop, not just a different colour of the same
-      // shape.
+      // Nearby ghost pins (WORK 6.4): small circles, deliberately not full
+      // pins — "not yet part of your plan" should read as visually distinct
+      // from a real stop, not just a different colour of the same shape.
+      // Colour-coded by taxonomy category (a waterfall and a restaurant
+      // shouldn't look identical) rather than flat grey. A POI with a
+      // Wikimedia thumbnail (below) renders on a second, symbol layer
+      // instead — one feature can't be both a circle and a symbol paint.
       map.addSource('nearby', { type: 'geojson', data: nearbyFcRef.current });
       map.addLayer({
         id: 'nearby-ghost',
         type: 'circle',
         source: 'nearby',
+        filter: NOT_HAS_PHOTO,
         paint: {
           'circle-radius': 6,
-          'circle-color': '#94a3b8',
+          'circle-color': ['get', 'color'],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 1.5,
           'circle-opacity': 0.85,
+        },
+      });
+      map.addLayer({
+        id: 'nearby-photo',
+        type: 'symbol',
+        source: 'nearby',
+        filter: HAS_PHOTO,
+        layout: {
+          'icon-image': ['get', 'photoImage'],
+          'icon-size': 1,
+          'icon-allow-overlap': true,
         },
       });
 
@@ -313,10 +353,11 @@ export function MapPane({
     };
 
     const nearbyUnder = (point: maplibregl.Point): string | null => {
-      if (!map.getLayer('nearby-ghost')) return null;
-      const hits = map.queryRenderedFeatures(point, {
-        layers: ['nearby-ghost'],
-      });
+      const layers = ['nearby-ghost', 'nearby-photo'].filter((l) =>
+        map.getLayer(l),
+      );
+      if (layers.length === 0) return null;
+      const hits = map.queryRenderedFeatures(point, { layers });
       return (hits[0]?.properties?.osmId as string | undefined) ?? null;
     };
 
@@ -426,6 +467,53 @@ export function MapPane({
       cancelled = true;
     };
   }, [nearbyEnabled, nearbyRadiusKm, focusDayId]);
+
+  // For each nearby POI with a wikidata tag, look up its P18 image and
+  // composite a circular thumbnail (WORK 6.4 follow-up) — a preview, not
+  // BUILD §7.2's photo pipeline: nothing is stored, and a promoted stop
+  // doesn't carry the photo over. loadThumbnailUrl is cached, so re-running
+  // this for a POI already resolved (or already known to have none) is
+  // cheap. A tainted canvas (an image that loaded without CORS permission)
+  // throws on getImageData — caught per-POI so one bad image doesn't stop
+  // the rest.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    let cancelled = false;
+    for (const poi of nearbyPois) {
+      if (
+        !poi.wikidataId ||
+        nearbyPhotoIds.has(poi.osmId) ||
+        map.hasImage(`photo:${poi.osmId}`)
+      ) {
+        continue;
+      }
+      void loadThumbnailUrl(poi.wikidataId).then((url) => {
+        if (cancelled || !url) return;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          if (cancelled) return;
+          try {
+            const imageData = compositePhotoCircle(img);
+            if (!imageData) return;
+            if (!map.hasImage(`photo:${poi.osmId}`)) {
+              map.addImage(`photo:${poi.osmId}`, imageData, {
+                pixelRatio: 2,
+              });
+            }
+            setNearbyPhotoIds((prev) => new Set(prev).add(poi.osmId));
+          } catch (err) {
+            console.error('photo composite failed for', poi.osmId, err);
+          }
+        };
+        img.src = url;
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [nearbyPois, nearbyPhotoIds]);
 
   // Highlight the hovered stop with a ring (a filtered circle layer — reliable,
   // unlike feature-state which several paint props reject).

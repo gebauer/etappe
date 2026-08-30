@@ -313,3 +313,41 @@ export function addMarkerLayers(map: maplibregl.Map) {
     });
   }
 }
+
+// Device px; the nearby-photo layer has no zoom-scaled icon-size curve (it's
+// a small fixed accent, not the main marker), so one size is enough.
+const PHOTO_SIZE = 40;
+
+/** Composites a loaded image into a circular thumbnail with a white ring,
+ * for the nearby-photo symbol layer (WORK 6.4 follow-up — Wikimedia
+ * thumbnails on ghost pins that have one). Cover-fits so non-square source
+ * images don't distort. Returns null only on a missing canvas context;
+ * getImageData itself throws (caught by the caller) if the image loaded
+ * without CORS permission and tainted the canvas. */
+export function compositePhotoCircle(img: HTMLImageElement): ImageData | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = PHOTO_SIZE;
+  canvas.height = PHOTO_SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const r = PHOTO_SIZE / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(r, r, r - 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  const scale = Math.max(
+    PHOTO_SIZE / img.naturalWidth,
+    PHOTO_SIZE / img.naturalHeight,
+  );
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  ctx.drawImage(img, (PHOTO_SIZE - w) / 2, (PHOTO_SIZE - h) / 2, w, h);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(r, r, r - 1.5, 0, Math.PI * 2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+  return ctx.getImageData(0, 0, PHOTO_SIZE, PHOTO_SIZE);
+}

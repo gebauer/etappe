@@ -5,6 +5,7 @@ import {
   flatColor,
   legShades,
   legColor,
+  categoryColor,
   DAY_HUES,
 } from './map-colors';
 
@@ -44,5 +45,21 @@ describe('leg shades', () => {
 
   it('flat tone is distinct from the shades', () => {
     expect(flatColor(250)).not.toBe(legShades(250).dark);
+  });
+});
+
+describe('categoryColor', () => {
+  it('groups related kinds under the same colour', () => {
+    expect(categoryColor('waterfall')).toBe(categoryColor('hike'));
+    expect(categoryColor('hotel')).toBe(categoryColor('campsite'));
+  });
+
+  it('distinguishes unrelated buckets', () => {
+    expect(categoryColor('restaurant')).not.toBe(categoryColor('museum'));
+  });
+
+  it('falls back to a flat grey for unlisted kinds', () => {
+    expect(categoryColor('uncategorized')).toBe('#94a3b8');
+    expect(categoryColor('parking')).toBe('#94a3b8');
   });
 });
