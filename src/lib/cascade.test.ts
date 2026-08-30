@@ -317,4 +317,62 @@ describe('edge cases', () => {
       cascade(t, noDaylight).warnings.some((w) => w.code === 'AFTER_DARK'),
     ).toBe(false);
   });
+
+  it('computes a rest day like any other', () => {
+    const t = trip({
+      days: [
+        {
+          id: 'd',
+          order_index: 0,
+          kind: 'rest',
+          stops: [
+            stop('a', {
+              anchor_time: '09:00',
+              anchor_type: 'arrival',
+              dwell_override: 30,
+            }),
+            stop('b', { is_accommodation: true }),
+          ],
+          legs: [leg({ mode: 'walk', duration_min: 15 })],
+        },
+      ],
+    });
+    const { days, warnings } = cascade(t, noDaylight);
+    expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('09:45');
+    expect(warnings).toEqual([]);
+  });
+
+  it('flags an unreachable anchor and still baselines the rest to it', () => {
+    const t = trip({
+      days: [
+        {
+          id: 'd',
+          order_index: 0,
+          kind: 'travel',
+          stops: [
+            stop('a', {
+              anchor_time: '09:00',
+              anchor_type: 'arrival',
+              dwell_override: 30,
+            }),
+            // Needs 600 min of driving to reach b, but b is anchored 10 min later.
+            stop('b', {
+              anchor_time: '09:40',
+              anchor_type: 'arrival',
+              is_accommodation: true,
+            }),
+          ],
+          legs: [leg({ mode: 'car', surface: 'paved', duration_min: 600 })],
+        },
+      ],
+    });
+    const { days, warnings } = cascade(t, noDaylight);
+    expect(warnings).toContainEqual({
+      code: 'MISSED_ANCHOR',
+      dayId: 'd',
+      stopId: 'b',
+      deficitMin: 680, // 09:30 + 690 = 21:00 computed vs 09:40 anchor
+    });
+    expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('09:40');
+  });
 });

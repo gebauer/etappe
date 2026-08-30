@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "title": "Iceland ring road",
+  "start_date": "2026-09-12",
+  "timezone": "Atlantic/Reykjavik",
+  "days": [
+    {
+      "index": 1,
+      "title": "KEF to Skálholt",
+      "kind": "travel",
+      "stops": [
+        {
+          "title": "Keflavík airport",
+          "kind": "airport",
+          "place_hint": "Keflavík International Airport, Iceland",
+          "lat": 63.985,
+          "lon": -22.605,
+          "anchor_time": "10:25",
+          "anchor_type": "arrival",
+          "dwell_min": 65,
+          "notes": "Pick up 4x4",
+          "activities": [],
+          "links": [
+            {
+              "url": "https://www.example.com/rental-booking",
+              "title": "Rental booking",
+              "visibility": "private"
+            }
+          ]
+        },
+        {
+          "title": "Gullfoss",
+          "kind": "waterfall",
+          "place_hint": "Gullfoss waterfall, Iceland",
+          "activities": [
+            {
+              "title": "Walk around the falls",
+              "duration_min": 120,
+              "url": "https://www.komoot.com/tour/12345"
+            }
+          ]
+        },
+        {
+          "title": "Hótel Skálholt",
+          "kind": "hotel",
+          "is_accommodation": true,
+          "place_hint": "Skálholt, Iceland"
+        }
+      ],
+      "legs": [
+        { "from": 0, "to": 1, "mode": "car", "surface": "paved" },
+        { "from": 1, "to": 2, "mode": "car", "surface": "gravel" }
+      ]
+    }
+  ]
+}
