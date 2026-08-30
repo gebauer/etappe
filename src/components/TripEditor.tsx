@@ -28,6 +28,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
     new Set(),
   );
   const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
+  const [flyTo, setFlyTo] = useState<{
+    lat: number;
+    lon: number;
+    nonce: number;
+  } | null>(null);
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -361,8 +366,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onHoverStop={setHoveredStopId}
             onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
             onDeleteStop={deleteOneStop}
+            onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
+            flyTo={flyTo}
           />
         </aside>
       )}
@@ -384,8 +391,10 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onHoverStop={setHoveredStopId}
             onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
             onDeleteStop={deleteOneStop}
+            onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
+            flyTo={flyTo}
           />
         </Drawer>
       )}

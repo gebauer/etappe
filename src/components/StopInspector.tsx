@@ -17,11 +17,14 @@ export function StopInspector({
   stop,
   onUpdate,
   onDelete,
+  onZoom,
 }: {
   stop: StopsResponse;
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
+  onZoom: () => void;
 }) {
+  const hasCoords = !!stop.lat && !!stop.lon;
   return (
     <div className="space-y-3">
       <label>
@@ -62,8 +65,8 @@ export function StopInspector({
         )}
       </label>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label>
+      <div className="flex items-end gap-2">
+        <label className="flex-1">
           <span className={label}>Latitude</span>
           <input
             type="number"
@@ -74,7 +77,7 @@ export function StopInspector({
             className={field}
           />
         </label>
-        <label>
+        <label className="flex-1">
           <span className={label}>Longitude</span>
           <input
             type="number"
@@ -85,6 +88,14 @@ export function StopInspector({
             className={field}
           />
         </label>
+        <button
+          onClick={onZoom}
+          disabled={!hasCoords}
+          title="Zoom the map to this point"
+          className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-40"
+        >
+          ⤢
+        </button>
       </div>
 
       <label>

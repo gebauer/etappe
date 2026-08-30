@@ -16,8 +16,10 @@ interface Props {
   onHoverStop?: (stopId: string | null) => void;
   onUpdateStop: (stopId: string, patch: StopPatch) => void;
   onDeleteStop: (stopId: string) => void;
+  onZoomStop: (lat: number, lon: number) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
+  flyTo?: { lat: number; lon: number; nonce: number } | null;
 }
 
 /** Right pane: map on top, inspector below (BUILD §9). The block editor is
@@ -32,8 +34,10 @@ export function RightPane({
   onHoverStop,
   onUpdateStop,
   onDeleteStop,
+  onZoomStop,
   hoveredStopId,
   focusDayId,
+  flyTo,
 }: Props) {
   const { trip } = records;
   return (
@@ -47,6 +51,7 @@ export function RightPane({
           onHoverStop={onHoverStop}
           hoveredStopId={hoveredStopId}
           focusDayId={focusDayId}
+          flyTo={flyTo}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">
@@ -59,6 +64,9 @@ export function RightPane({
             stop={selectedStop}
             onUpdate={(patch) => onUpdateStop(selectedStop.id, patch)}
             onDelete={() => onDeleteStop(selectedStop.id)}
+            onZoom={() =>
+              onZoomStop(selectedStop.lat || 0, selectedStop.lon || 0)
+            }
           />
         ) : selectedDay ? (
           <div className="text-sm text-slate-700">

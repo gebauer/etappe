@@ -69,6 +69,7 @@ export function MapPane({
   onHoverStop,
   hoveredStopId,
   focusDayId,
+  flyTo,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -77,6 +78,7 @@ export function MapPane({
   onHoverStop?: (stopId: string | null) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
+  flyTo?: { lat: number; lon: number; nonce: number } | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -283,6 +285,17 @@ export function MapPane({
       hoveredStopId ?? '',
     ]);
   }, [hoveredStopId]);
+
+  // Fly to a point on demand (inspector zoom button).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !flyTo) return;
+    map.flyTo({
+      center: [flyTo.lon, flyTo.lat],
+      zoom: Math.max(map.getZoom(), 13),
+      duration: 600,
+    });
+  }, [flyTo]);
 
   // Fit the map to a day's stops when that day is selected ("move on select").
   useEffect(() => {
