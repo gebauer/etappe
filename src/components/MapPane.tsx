@@ -360,6 +360,29 @@ export function MapPane({
     }
   }, [focusDayId]);
 
+  // Always show the focused day's first and last stop, even if the collision
+  // engine would otherwise hide them — the start/end of the day you're
+  // looking at shouldn't disappear just because the route is dense.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !map.getLayer('stops-label-pinned')) {
+      return;
+    }
+    const dayStops = focusDayId
+      ? recordsRef.current.stops
+          .filter((s) => s.day === focusDayId)
+          .sort((a, b) => a.order_index - b.order_index)
+      : [];
+    const ids = [...new Set([dayStops[0]?.id, dayStops.at(-1)?.id])].filter(
+      (id): id is string => !!id,
+    );
+    map.setFilter('stops-label-pinned', [
+      'in',
+      ['get', 'stopId'],
+      ['literal', ids],
+    ] as unknown as maplibregl.FilterSpecification);
+  }, [focusDayId, stopFc]);
+
   // Draggable marker for the selected stop only: dragging every marker at
   // once would mean ditching the fast symbol-layer rendering BUILD §5 chose
   // for potentially many stops. It's the stop's real pin (same shape/icon/
@@ -698,17 +721,16 @@ const HOVER_RADIUS = [
   22,
 ] as unknown as maplibregl.ExpressionSpecification;
 
-// Names only once zoomed in past the trip-overview zoom — at z5-8 there's
-// rarely room for them anyway. text-size grows roughly with icon-size so the
-// fixed text-offset below keeps clearing the pin at every zoom. Below
-// minzoom, MapLibre doesn't even lay the glyphs out.
-const LABEL_MINZOOM = 9;
+// Eligible from just above the initial trip-overview zoom — the collision
+// engine, not a zoom floor, is what decides whether there's room for a given
+// label, so pull this down and let it do that job at any reasonable zoom.
+const LABEL_MINZOOM = 5;
 const LABEL_SIZE = [
   'interpolate',
   ['linear'],
   ['zoom'],
   LABEL_MINZOOM,
-  10,
+  9,
   14,
   13,
 ] as unknown as maplibregl.ExpressionSpecification;
@@ -723,6 +745,19 @@ const LABEL_LAYOUT = {
   // it hides whichever labels don't fit rather than overlapping them.
   'text-allow-overlap': false,
   'text-optional': true,
+  'symbol-sort-key': ['get', 'sortKey'],
+} as unknown as maplibregl.SymbolLayerSpecification['layout'];
+
+// A day's first and last stop always get their label, bypassing collision,
+// while that day is focused (day-rail click) — the pinned filter starts
+// empty and is set by the "focused day" effect below.
+const PINNED_LABEL_LAYOUT = {
+  'text-field': ['get', 'title'],
+  'text-font': ['Noto Sans Regular'],
+  'text-size': LABEL_SIZE,
+  'text-anchor': 'bottom',
+  'text-offset': [0, -3.2],
+  'text-allow-overlap': true,
   'symbol-sort-key': ['get', 'sortKey'],
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
 
@@ -772,6 +807,20 @@ function addMarkerLayers(map: maplibregl.Map) {
       source: 'stops-labels',
       minzoom: LABEL_MINZOOM,
       layout: LABEL_LAYOUT,
+      paint: {
+        'text-color': '#1e293b',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.2,
+      },
+    });
+  }
+  if (!map.getLayer('stops-label-pinned')) {
+    map.addLayer({
+      id: 'stops-label-pinned',
+      type: 'symbol',
+      source: 'stops-labels',
+      filter: ['==', ['get', 'stopId'], ''],
+      layout: PINNED_LABEL_LAYOUT,
       paint: {
         'text-color': '#1e293b',
         'text-halo-color': '#ffffff',
