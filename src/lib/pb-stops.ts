@@ -162,6 +162,54 @@ export async function updateStop(
   await pb.collection('stops').update(stopId, patch);
 }
 
+/** Update a stop and, when its coordinates changed, re-route the legs on either
+ * side so a stop that gains coordinates (e.g. via the inspector) gets real
+ * drive times. */
+export async function updateStopAndReroute(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  stopId: string,
+  patch: StopPatch,
+): Promise<void> {
+  await pb.collection('stops').update(stopId, patch);
+  if (patch.lat === undefined && patch.lon === undefined) return;
+
+  const stop = records.stops.find((s) => s.id === stopId);
+  if (!stop) return;
+  const dayStops = records.stops
+    .filter((s) => s.day === stop.day)
+    .sort((a, b) => a.order_index - b.order_index);
+
+  const coords = coordsOf(dayStops);
+  const lat = patch.lat ?? stop.lat;
+  const lon = patch.lon ?? stop.lon;
+  coords.set(stopId, lat && lon ? { lat, lon } : null);
+
+  const i = dayStops.findIndex((s) => s.id === stopId);
+  const pairs: Array<[StopsResponse, StopsResponse]> = [];
+  if (i > 0) pairs.push([dayStops[i - 1]!, stop]);
+  if (i < dayStops.length - 1) pairs.push([stop, dayStops[i + 1]!]);
+
+  for (const [from, to] of pairs) {
+    const leg = records.legs.find(
+      (l) => l.from_stop === from.id && l.to_stop === to.id,
+    );
+    if (!leg) continue;
+    const record = await buildLegRecord(
+      provider,
+      {
+        from_stop: from.id,
+        to_stop: to.id,
+        mode: leg.mode,
+        surface: leg.surface ?? null,
+      },
+      coords,
+    );
+    await pb.collection('legs').update(leg.id, record);
+  }
+}
+
 export type LegPatch = Partial<
   Pick<LegsResponse, 'surface' | 'buffer_override_pct' | 'duration_min'>
 >;

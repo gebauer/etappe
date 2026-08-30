@@ -7,6 +7,7 @@ import {
   deleteStop,
   moveStop,
   updateStop,
+  updateStopAndReroute,
   updateLeg,
   type StopPatch,
   type LegPatch,
@@ -171,6 +172,15 @@ export function TripEditor({ tripId }: { tripId: string }) {
       for (const id of ids) batch.collection('stops').delete(id);
       await batch.send();
     });
+  }
+
+  function handleUpdateStop(id: string, patch: StopPatch) {
+    const reroute = patch.lat !== undefined || patch.lon !== undefined;
+    void run(() =>
+      reroute && records
+        ? updateStopAndReroute(pb, routing, records, id, patch)
+        : updateStop(pb, id, patch),
+    );
   }
 
   // Delete a single stop with proper leg re-merge (row ✕ and inspector).
@@ -339,9 +349,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
             )
           }
           onDeleteStop={deleteOneStop}
-          onUpdateStop={(stopId, patch: StopPatch) =>
-            run(() => updateStop(pb, stopId, patch))
-          }
+          onUpdateStop={handleUpdateStop}
           onUpdateLeg={(legId, patch: LegPatch) =>
             run(() => updateLeg(pb, legId, patch))
           }
@@ -368,7 +376,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onMapClick={onMapClick}
             onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
             onHoverStop={setHoveredStopId}
-            onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
+            onUpdateStop={handleUpdateStop}
             onDeleteStop={deleteOneStop}
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             hoveredStopId={hoveredStopId}
@@ -393,7 +401,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onMapClick={onMapClick}
             onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
             onHoverStop={setHoveredStopId}
-            onUpdateStop={(id, patch) => run(() => updateStop(pb, id, patch))}
+            onUpdateStop={handleUpdateStop}
             onDeleteStop={deleteOneStop}
             onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
             hoveredStopId={hoveredStopId}
