@@ -13,7 +13,9 @@ import {
 } from '../lib/pb-stops';
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
+import { photonReverse, type PlaceResult } from '../lib/photon';
 import { DayRail } from './DayRail';
+import { SearchPalette } from './SearchPalette';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
@@ -27,6 +29,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
   );
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function run(fn: () => Promise<unknown>) {
@@ -48,24 +51,76 @@ export function TripEditor({ tripId }: { tripId: string }) {
     });
   }
 
-  function doAddStopToFocus() {
-    if (!records) return;
-    let dayId = selectedDayId;
-    if (!dayId && selectedStopIds.size > 0) {
+  // The day new stops land in: the selected day, else the selected stop's day,
+  // else the last day.
+  function focusDayId(): string | null {
+    if (!records) return null;
+    if (selectedDayId) return selectedDayId;
+    if (selectedStopIds.size > 0) {
       const first = [...selectedStopIds][0]!;
-      dayId = records.stops.find((s) => s.id === first)?.day ?? null;
+      const d = records.stops.find((s) => s.id === first)?.day;
+      if (d) return d;
     }
-    if (!dayId) dayId = records.days[records.days.length - 1]?.id ?? null;
-    if (!dayId) return;
-    const target = dayId;
+    return records.days[records.days.length - 1]?.id ?? null;
+  }
+
+  function doAddStopToFocus() {
+    const dayId = focusDayId();
+    if (!records || !dayId) return;
     void run(() =>
       addStopAtEnd(
         pb,
         routing,
-        target,
-        records.stops.filter((s) => s.day === target),
+        dayId,
+        records.stops.filter((s) => s.day === dayId),
       ),
     );
+  }
+
+  function addPlaceStop(place: PlaceResult, lat = place.lat, lon = place.lon) {
+    const dayId = focusDayId();
+    if (!records || !dayId) return;
+    void run(() =>
+      addStopAtEnd(
+        pb,
+        routing,
+        dayId,
+        records.stops.filter((s) => s.day === dayId),
+        {
+          title: place.name,
+          kind: place.kind,
+          lat,
+          lon,
+          kind_confirmed: false,
+        },
+      ),
+    );
+  }
+
+  function onMapClick(lat: number, lon: number) {
+    const dayId = focusDayId();
+    if (!records || !dayId) return;
+    void run(async () => {
+      let place: PlaceResult | null = null;
+      try {
+        place = await photonReverse(lat, lon);
+      } catch {
+        place = null;
+      }
+      await addStopAtEnd(
+        pb,
+        routing,
+        dayId,
+        records.stops.filter((s) => s.day === dayId),
+        {
+          title: place?.name ?? 'Dropped pin',
+          kind: place?.kind ?? 'uncategorized',
+          lat,
+          lon,
+          kind_confirmed: false,
+        },
+      );
+    });
   }
 
   function doMoveSelected(dir: -1 | 1) {
@@ -101,6 +156,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setShowSearch(true);
+        return;
+      }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
@@ -171,6 +231,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
           result={result}
           selectedStopIds={selectedStopIds}
           onSelectStop={toggleSelect}
+          onOpenSearch={() => setShowSearch(true)}
           onToggleRail={() => setShowRail(true)}
           onToggleRight={() => setShowRight(true)}
           onAddStop={(dayId) =>
@@ -215,6 +276,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
           records={records}
           result={result}
           selectedDay={selectedDay}
+          onMapClick={onMapClick}
         />
       </aside>
 
@@ -229,8 +291,18 @@ export function TripEditor({ tripId }: { tripId: string }) {
             records={records}
             result={result}
             selectedDay={selectedDay}
+            onMapClick={onMapClick}
           />
         </Drawer>
+      )}
+      {showSearch && (
+        <SearchPalette
+          onPick={(place) => {
+            setShowSearch(false);
+            addPlaceStop(place);
+          }}
+          onClose={() => setShowSearch(false)}
+        />
       )}
     </div>
   );

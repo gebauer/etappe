@@ -30,6 +30,7 @@ interface Props {
   ) => void;
   selectedStopIds: Set<string>;
   onSelectStop: (stopId: string, additive: boolean) => void;
+  onOpenSearch: () => void;
 }
 
 export function Timeline({
@@ -47,6 +48,7 @@ export function Timeline({
   onMoveStop,
   selectedStopIds,
   onSelectStop,
+  onOpenSearch,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -83,6 +85,13 @@ export function Timeline({
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
           {trip.title}
         </h1>
+        <button
+          onClick={onOpenSearch}
+          className="rounded border border-slate-300 px-2 py-1 text-xs"
+          title="Search places (⌘K)"
+        >
+          🔍 Search
+        </button>
         <span
           className="hidden cursor-help text-xs text-slate-400 min-[900px]:inline"
           title={

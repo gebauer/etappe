@@ -45,13 +45,17 @@ const SHADE_OPACITY = [
 export function MapPane({
   records,
   result,
+  onMapClick,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
+  onMapClick?: (lat: number, lon: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const loadedRef = useRef(false);
+  const clickRef = useRef(onMapClick);
+  clickRef.current = onMapClick;
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
@@ -131,6 +135,8 @@ export function MapPane({
       loadedRef.current = true;
       fitToFeatures(map, fc);
     });
+
+    map.on('click', (ev) => clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng));
 
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);

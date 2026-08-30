@@ -23,18 +23,31 @@ function coordsOf(stops: StopsResponse[]): Map<string, LatLon | null> {
   return map;
 }
 
-/** Append a new stop to a day and connect it from the previous stop. */
+export interface NewStopData {
+  title?: string;
+  kind?: string;
+  lat?: number;
+  lon?: number;
+  kind_confirmed?: boolean;
+}
+
+/** Append a new stop to a day and connect it from the previous stop. With
+ * coordinates the new car leg auto-routes; without, it stays manual. */
 export async function addStopAtEnd(
   pb: TypedPocketBase,
   provider: RoutingProvider,
   dayId: string,
   dayStops: StopsResponse[],
+  data: NewStopData = {},
 ): Promise<string> {
   const created = await pb.collection('stops').create({
     day: dayId,
     order_index: dayStops.length,
-    title: 'New stop',
-    kind: 'uncategorized',
+    title: data.title ?? 'New stop',
+    kind: data.kind ?? 'uncategorized',
+    kind_confirmed: data.kind_confirmed ?? false,
+    lat: data.lat ?? 0,
+    lon: data.lon ?? 0,
   });
   const prev = dayStops[dayStops.length - 1] ?? null;
   const plan = planInsertBetween(null, prev?.id ?? null, created.id, null);
