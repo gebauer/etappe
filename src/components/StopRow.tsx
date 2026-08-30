@@ -8,6 +8,8 @@ interface Props {
   timing?: StopTiming;
   warnings: Warning[];
   dragHandle?: ReactNode;
+  selected?: boolean;
+  onSelect?: (additive: boolean) => void;
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
 }
@@ -21,13 +23,20 @@ export function StopRow({
   timing,
   warnings,
   dragHandle,
+  selected,
+  onSelect,
   onUpdate,
   onDelete,
 }: Props) {
   const anchored = !!stop.anchor_time;
 
   return (
-    <div className="flex items-start gap-2 border-b border-slate-100 px-4 py-2">
+    <div
+      onClick={(e) => onSelect?.(e.metaKey || e.ctrlKey)}
+      className={`flex items-start gap-2 border-b border-slate-100 px-4 py-2 ${
+        selected ? 'bg-sky-50 ring-1 ring-inset ring-sky-300' : ''
+      }`}
+    >
       {dragHandle}
       {/* time column */}
       <div className="w-16 shrink-0 pt-1 text-right">

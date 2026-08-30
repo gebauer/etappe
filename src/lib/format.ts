@@ -1,5 +1,18 @@
 import { addDays } from './cascade';
 
+/** Shift an "HH:MM" clock time by a signed minute offset, clamped to the day. */
+export function shiftClock(hhmm: string, deltaMin: number): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+  if (!m) return hhmm;
+  const total = Math.max(
+    0,
+    Math.min(23 * 60 + 59, Number(m[1]) * 60 + Number(m[2]) + deltaMin),
+  );
+  const h = Math.floor(total / 60);
+  const min = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
 /** Minutes as "1h 55m" / "45m" / "0m". */
 export function formatDuration(min: number): string {
   const h = Math.floor(min / 60);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { pb } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { insertDay, deleteDay } from '../lib/pb-days';
@@ -12,6 +12,7 @@ import {
   type LegPatch,
 } from '../lib/pb-stops';
 import { createPocketBaseRouting } from '../lib/routing';
+import { shiftClock } from '../lib/format';
 import { DayRail } from './DayRail';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
@@ -21,6 +22,9 @@ export function TripEditor({ tripId }: { tripId: string }) {
   const { records, result, error, reload } = useTripEditor(tripId);
   const routing = useMemo(() => createPocketBaseRouting(pb), []);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -33,6 +37,92 @@ export function TripEditor({ tripId }: { tripId: string }) {
       setActionError(err instanceof Error ? err.message : 'Action failed.');
     }
   }
+
+  function toggleSelect(stopId: string, additive: boolean) {
+    setSelectedStopIds((prev) => {
+      if (!additive) return new Set([stopId]);
+      const next = new Set(prev);
+      if (next.has(stopId)) next.delete(stopId);
+      else next.add(stopId);
+      return next;
+    });
+  }
+
+  function doAddStopToFocus() {
+    if (!records) return;
+    let dayId = selectedDayId;
+    if (!dayId && selectedStopIds.size > 0) {
+      const first = [...selectedStopIds][0]!;
+      dayId = records.stops.find((s) => s.id === first)?.day ?? null;
+    }
+    if (!dayId) dayId = records.days[records.days.length - 1]?.id ?? null;
+    if (!dayId) return;
+    const target = dayId;
+    void run(() =>
+      addStopAtEnd(
+        pb,
+        routing,
+        target,
+        records.stops.filter((s) => s.day === target),
+      ),
+    );
+  }
+
+  function doMoveSelected(dir: -1 | 1) {
+    if (!records || selectedStopIds.size !== 1) return;
+    const id = [...selectedStopIds][0]!;
+    const stop = records.stops.find((s) => s.id === id);
+    if (!stop) return;
+    const dayStops = records.stops
+      .filter((s) => s.day === stop.day)
+      .sort((a, b) => a.order_index - b.order_index);
+    const i = dayStops.findIndex((s) => s.id === id);
+    const target = i + dir;
+    if (target < 0 || target >= dayStops.length) return;
+    void run(() => moveStop(pb, routing, records, id, stop.day, target));
+  }
+
+  function doBulkShift(delta: number) {
+    if (!records) return;
+    const targets = records.stops.filter(
+      (s) => selectedStopIds.has(s.id) && s.anchor_time,
+    );
+    if (targets.length === 0) return;
+    void run(() =>
+      Promise.all(
+        targets.map((s) =>
+          updateStop(pb, s.id, {
+            anchor_time: shiftClock(s.anchor_time, delta),
+          }),
+        ),
+      ),
+    );
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape') return setSelectedStopIds(new Set());
+      if (e.altKey && e.key === 'ArrowUp')
+        return void (e.preventDefault(), doMoveSelected(-1));
+      if (e.altKey && e.key === 'ArrowDown')
+        return void (e.preventDefault(), doMoveSelected(1));
+      if (e.shiftKey && e.key === 'ArrowUp')
+        return void (e.preventDefault(), doBulkShift(-5));
+      if (e.shiftKey && e.key === 'ArrowDown')
+        return void (e.preventDefault(), doBulkShift(5));
+      if (e.key === 'd' && records)
+        return void (e.preventDefault(),
+        run(() =>
+          insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
+        ));
+      if (e.key === 'n') return void (e.preventDefault(), doAddStopToFocus());
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, selectedStopIds, selectedDayId]);
 
   if (!records) {
     return (
@@ -79,6 +169,8 @@ export function TripEditor({ tripId }: { tripId: string }) {
           stops={stops}
           legs={legs}
           result={result}
+          selectedStopIds={selectedStopIds}
+          onSelectStop={toggleSelect}
           onToggleRail={() => setShowRail(true)}
           onToggleRight={() => setShowRight(true)}
           onAddStop={(dayId) =>

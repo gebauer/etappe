@@ -28,6 +28,8 @@ interface Props {
     targetDayId: string,
     targetIndex: number,
   ) => void;
+  selectedStopIds: Set<string>;
+  onSelectStop: (stopId: string, additive: boolean) => void;
 }
 
 export function Timeline({
@@ -43,6 +45,8 @@ export function Timeline({
   onUpdateStop,
   onUpdateLeg,
   onMoveStop,
+  selectedStopIds,
+  onSelectStop,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -79,6 +83,14 @@ export function Timeline({
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
           {trip.title}
         </h1>
+        <span
+          className="hidden cursor-help text-xs text-slate-400 min-[900px]:inline"
+          title={
+            'Keyboard:\nn  new stop\nd  new day\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
+          }
+        >
+          ⌨
+        </span>
         <button
           onClick={onToggleRight}
           className="rounded border border-slate-300 px-2 py-1 text-xs min-[1280px]:hidden"
@@ -160,6 +172,8 @@ export function Timeline({
                         stop={stop}
                         timing={timingByStop.get(stop.id)}
                         warnings={stopWarnings.get(stop.id) ?? []}
+                        selected={selectedStopIds.has(stop.id)}
+                        onSelect={(additive) => onSelectStop(stop.id, additive)}
                         dragHandle={
                           <span
                             draggable
