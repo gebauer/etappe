@@ -5,6 +5,7 @@ import { insertDay, deleteDay } from '../lib/pb-days';
 import {
   addStopAtEnd,
   deleteStop,
+  moveStop,
   updateStop,
   updateLeg,
   type StopPatch,
@@ -108,6 +109,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
           }
           onUpdateLeg={(legId, patch: LegPatch) =>
             run(() => updateLeg(pb, legId, patch))
+          }
+          onMoveStop={(stopId, targetDayId, targetIndex) =>
+            run(() =>
+              moveStop(pb, routing, records, stopId, targetDayId, targetIndex),
+            )
           }
         />
       </div>

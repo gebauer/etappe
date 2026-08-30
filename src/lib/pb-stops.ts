@@ -12,6 +12,8 @@ import {
   type LegLike,
 } from './pb-legs';
 import type { LatLon, RoutingProvider } from './routing';
+import { planStopMove } from './stop-move';
+import type { TripRecords } from './pb-trip-doc';
 
 function coordsOf(stops: StopsResponse[]): Map<string, LatLon | null> {
   const map = new Map<string, LatLon | null>();
@@ -74,6 +76,53 @@ export async function deleteStop(
     );
     await pb.collection('legs').create(record);
   }
+}
+
+/** Move a stop within a day or to another day, reindexing and re-routing the
+ * affected legs (WORK 4.3). */
+export async function moveStop(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  stopId: string,
+  targetDayId: string,
+  targetIndex: number,
+): Promise<void> {
+  const positions = records.stops.map((s) => ({
+    id: s.id,
+    day: s.day,
+    order_index: s.order_index,
+  }));
+  const pairs = records.legs.map((l) => ({
+    id: l.id,
+    from_stop: l.from_stop,
+    to_stop: l.to_stop,
+  }));
+  const { stopUpdates, legPlan } = planStopMove(
+    positions,
+    pairs,
+    stopId,
+    targetDayId,
+    targetIndex,
+  );
+  if (
+    stopUpdates.length === 0 &&
+    legPlan.deleteLegIds.length === 0 &&
+    legPlan.create.length === 0
+  ) {
+    return;
+  }
+  if (stopUpdates.length > 0) {
+    const batch = pb.createBatch();
+    for (const u of stopUpdates) {
+      batch.collection('stops').update(u.id, {
+        day: u.day,
+        order_index: u.order_index,
+      });
+    }
+    await batch.send();
+  }
+  await applyLegPlan(pb, provider, legPlan, coordsOf(records.stops));
 }
 
 export type StopPatch = Partial<

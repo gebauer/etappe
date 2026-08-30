@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react';
+import { type KeyboardEvent, type ReactNode } from 'react';
 import { formatClock, type StopTiming, type Warning } from '../lib/cascade';
 import type { StopsResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
@@ -7,6 +7,7 @@ interface Props {
   stop: StopsResponse;
   timing?: StopTiming;
   warnings: Warning[];
+  dragHandle?: ReactNode;
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
 }
@@ -15,11 +16,19 @@ function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
 }
 
-export function StopRow({ stop, timing, warnings, onUpdate, onDelete }: Props) {
+export function StopRow({
+  stop,
+  timing,
+  warnings,
+  dragHandle,
+  onUpdate,
+  onDelete,
+}: Props) {
   const anchored = !!stop.anchor_time;
 
   return (
-    <div className="flex items-start gap-3 border-b border-slate-100 px-4 py-2">
+    <div className="flex items-start gap-2 border-b border-slate-100 px-4 py-2">
+      {dragHandle}
       {/* time column */}
       <div className="w-16 shrink-0 pt-1 text-right">
         <div

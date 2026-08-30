@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { formatDayDate } from '../lib/format';
 import type { CascadeResult, Warning } from '../lib/cascade';
 import type {
@@ -23,6 +23,11 @@ interface Props {
   onDeleteStop: (stopId: string) => void;
   onUpdateStop: (stopId: string, patch: StopPatch) => void;
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
+  onMoveStop: (
+    stopId: string,
+    targetDayId: string,
+    targetIndex: number,
+  ) => void;
 }
 
 export function Timeline({
@@ -37,7 +42,31 @@ export function Timeline({
   onDeleteStop,
   onUpdateStop,
   onUpdateLeg,
+  onMoveStop,
 }: Props) {
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  function indexInDay(dayId: string, beforeStopId?: string): number {
+    const list = stops
+      .filter((s) => s.day === dayId && s.id !== dragId)
+      .sort((a, b) => a.order_index - b.order_index);
+    if (!beforeStopId) return list.length; // append
+    const i = list.findIndex((s) => s.id === beforeStopId);
+    return i < 0 ? list.length : i;
+  }
+
+  function dropBefore(targetStopId: string, targetDayId: string) {
+    if (dragId && dragId !== targetStopId) {
+      onMoveStop(dragId, targetDayId, indexInDay(targetDayId, targetStopId));
+    }
+    setDragId(null);
+  }
+
+  function dropOnDay(dayId: string) {
+    if (dragId) onMoveStop(dragId, dayId, indexInDay(dayId));
+    setDragId(null);
+  }
+
   return (
     <div className="flex h-full min-w-0 flex-col bg-slate-50">
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
@@ -89,7 +118,11 @@ export function Timeline({
 
           return (
             <section key={day.id}>
-              <header className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/90 px-4 py-2 backdrop-blur">
+              <header
+                onDragOver={(e) => dragId && e.preventDefault()}
+                onDrop={() => dropOnDay(day.id)}
+                className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/90 px-4 py-2 backdrop-blur"
+              >
                 <h2 className="text-sm font-semibold text-slate-900">
                   Day {dayIndex + 1}
                   {day.title ? ` · ${day.title}` : ''}
@@ -118,13 +151,30 @@ export function Timeline({
                   : undefined;
                 return (
                   <Fragment key={`${stop.id}:${stop.updated}`}>
-                    <StopRow
-                      stop={stop}
-                      timing={timingByStop.get(stop.id)}
-                      warnings={stopWarnings.get(stop.id) ?? []}
-                      onUpdate={(patch) => onUpdateStop(stop.id, patch)}
-                      onDelete={() => onDeleteStop(stop.id)}
-                    />
+                    <div
+                      onDragOver={(e) => dragId && e.preventDefault()}
+                      onDrop={() => dropBefore(stop.id, day.id)}
+                      className={dragId === stop.id ? 'opacity-40' : ''}
+                    >
+                      <StopRow
+                        stop={stop}
+                        timing={timingByStop.get(stop.id)}
+                        warnings={stopWarnings.get(stop.id) ?? []}
+                        dragHandle={
+                          <span
+                            draggable
+                            onDragStart={() => setDragId(stop.id)}
+                            onDragEnd={() => setDragId(null)}
+                            className="cursor-grab select-none pt-1 text-slate-300 hover:text-slate-500"
+                            title="Drag to reorder"
+                          >
+                            ⠿
+                          </span>
+                        }
+                        onUpdate={(patch) => onUpdateStop(stop.id, patch)}
+                        onDelete={() => onDeleteStop(stop.id)}
+                      />
+                    </div>
                     {next && (
                       <LegRow
                         leg={leg}
