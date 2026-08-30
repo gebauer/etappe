@@ -76,6 +76,12 @@ management library, no ORM, no CSS-in-JS. Tailwind for styling.
 - Do exactly the task in `WORK.md`, then stop. If you notice something else
   worth doing, write it at the bottom of `WORK.md` under "Noticed" instead of
   doing it.
+- Finish a task, then ask whether to continue — do not roll straight into the
+  next one. The author often works under remote control and relies on the
+  notification that fires when a turn ends.
+- When the user reports an error, lead with a short likely-cause and the one
+  thing to try. Only start deep, tool-heavy investigation if that is not enough
+  or they ask for it.
 - If the spec is ambiguous or wrong, say so and propose a resolution before
   implementing. Do not silently pick an interpretation.
 - Prefer deleting code to adding a flag.
