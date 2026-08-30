@@ -211,7 +211,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
       </div>
 
       <aside className="hidden overflow-hidden border-l border-slate-200 min-[1280px]:block">
-        <RightPane trip={trip} selectedDay={selectedDay} />
+        <RightPane
+          records={records}
+          result={result}
+          selectedDay={selectedDay}
+        />
       </aside>
 
       {showRail && (
@@ -221,7 +225,11 @@ export function TripEditor({ tripId }: { tripId: string }) {
       )}
       {showRight && (
         <Drawer side="right" width="w-96" onClose={() => setShowRight(false)}>
-          <RightPane trip={trip} selectedDay={selectedDay} />
+          <RightPane
+            records={records}
+            result={result}
+            selectedDay={selectedDay}
+          />
         </Drawer>
       )}
     </div>
