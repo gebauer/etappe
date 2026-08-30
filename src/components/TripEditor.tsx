@@ -31,6 +31,33 @@ export function TripEditor({ tripId }: { tripId: string }) {
   const [showRight, setShowRight] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [railW, setRailW] = useState(() => loadWidths().rail);
+  const [rightW, setRightW] = useState(() => loadWidths().right);
+  const [bp, setBp] = useState({ mid: false, wide: false });
+
+  useEffect(() => {
+    const midQ = matchMedia('(min-width: 900px)');
+    const wideQ = matchMedia('(min-width: 1280px)');
+    const update = () => setBp({ mid: midQ.matches, wide: wideQ.matches });
+    update();
+    midQ.addEventListener('change', update);
+    wideQ.addEventListener('change', update);
+    return () => {
+      midQ.removeEventListener('change', update);
+      wideQ.removeEventListener('change', update);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'etappe.paneWidths',
+        JSON.stringify({ rail: railW, right: rightW }),
+      );
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  }, [railW, rightW]);
 
   async function run(fn: () => Promise<unknown>) {
     try {
@@ -212,10 +239,24 @@ export function TripEditor({ tripId }: { tripId: string }) {
   );
 
   return (
-    <div className="grid h-full grid-cols-1 min-[900px]:grid-cols-[220px_minmax(0,1fr)] min-[1280px]:grid-cols-[220px_minmax(0,1fr)_380px]">
-      <div className="hidden overflow-hidden border-r border-slate-200 min-[900px]:block">
-        {rail}
-      </div>
+    <div
+      className="grid h-full"
+      style={{
+        gridTemplateColumns: bp.wide
+          ? `${railW}px 6px minmax(0,1fr) 6px ${rightW}px`
+          : bp.mid
+            ? `${railW}px 6px minmax(0,1fr)`
+            : '1fr',
+      }}
+    >
+      {bp.mid && (
+        <div className="overflow-hidden border-r border-slate-200">{rail}</div>
+      )}
+      {bp.mid && (
+        <ResizeDivider
+          onResize={(dx) => setRailW((w) => clampWidth(w + dx, 160, 420))}
+        />
+      )}
 
       <div className="flex min-w-0 flex-col">
         {actionError && (
@@ -271,14 +312,21 @@ export function TripEditor({ tripId }: { tripId: string }) {
         />
       </div>
 
-      <aside className="hidden overflow-hidden border-l border-slate-200 min-[1280px]:block">
-        <RightPane
-          records={records}
-          result={result}
-          selectedDay={selectedDay}
-          onMapClick={onMapClick}
+      {bp.wide && (
+        <ResizeDivider
+          onResize={(dx) => setRightW((w) => clampWidth(w - dx, 280, 680))}
         />
-      </aside>
+      )}
+      {bp.wide && (
+        <aside className="overflow-hidden border-l border-slate-200">
+          <RightPane
+            records={records}
+            result={result}
+            selectedDay={selectedDay}
+            onMapClick={onMapClick}
+          />
+        </aside>
+      )}
 
       {showRail && (
         <Drawer side="left" width="w-64" onClose={() => setShowRail(false)}>
@@ -305,5 +353,51 @@ export function TripEditor({ tripId }: { tripId: string }) {
         />
       )}
     </div>
+  );
+}
+
+function clampWidth(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function loadWidths(): { rail: number; right: number } {
+  try {
+    const raw = localStorage.getItem('etappe.paneWidths');
+    if (raw) {
+      const o = JSON.parse(raw) as { rail?: number; right?: number };
+      return { rail: Number(o.rail) || 220, right: Number(o.right) || 380 };
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return { rail: 220, right: 380 };
+}
+
+/** A draggable column divider; reports the horizontal delta as the user drags. */
+function ResizeDivider({ onResize }: { onResize: (dx: number) => void }) {
+  function onMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    let last = e.clientX;
+    const move = (ev: MouseEvent) => {
+      onResize(ev.clientX - last);
+      last = ev.clientX;
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="cursor-col-resize bg-slate-200 transition-colors hover:bg-sky-400"
+      title="Drag to resize"
+    />
   );
 }
