@@ -5,6 +5,7 @@ import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
 import type { DaysResponse, StopsResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
+import type { NearbyPoi } from '../lib/overpass';
 
 interface Props {
   records: TripRecords;
@@ -21,6 +22,7 @@ interface Props {
   onClearAccessPoint: (stopId: string) => void;
   onDragStop: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint: (stopId: string, lat: number, lon: number) => void;
+  onSelectNearby: (poi: NearbyPoi) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
@@ -43,6 +45,7 @@ export function RightPane({
   onClearAccessPoint,
   onDragStop,
   onDragAccessPoint,
+  onSelectNearby,
   hoveredStopId,
   focusDayId,
   flyTo,
@@ -63,6 +66,7 @@ export function RightPane({
           selectedStop={selectedStop}
           onDragStop={onDragStop}
           onDragAccessPoint={onDragAccessPoint}
+          onSelectNearby={onSelectNearby}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">

@@ -7,6 +7,9 @@ import { pb } from '../lib/pb';
 interface Props {
   onPick: (place: PlaceResult, sourceUrl?: string) => void;
   onClose: () => void;
+  /** Prefills the input — used by the share target and wishlist "+ Idea",
+   * which arrive already holding a query rather than starting from empty. */
+  initialQuery?: string;
 }
 
 function coordPlace(lat: number, lon: number): PlaceResult {
@@ -15,8 +18,8 @@ function coordPlace(lat: number, lon: number): PlaceResult {
 
 /** ⌘K capture: Photon typeahead for names, and a paste sniffer for pasted
  * coordinates / Google Maps or Komoot URLs (BUILD §6). */
-export function SearchPalette({ onPick, onClose }: Props) {
-  const [q, setQ] = useState('');
+export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
+  const [q, setQ] = useState(initialQuery ?? '');
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

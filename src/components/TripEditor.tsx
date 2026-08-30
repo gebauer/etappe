@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pb } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { insertDay, deleteDay } from '../lib/pb-days';
@@ -15,19 +15,38 @@ import {
   type StopPatch,
   type LegPatch,
 } from '../lib/pb-stops';
+import {
+  listWishlist,
+  addWishlistItem,
+  rejectWishlistItem,
+  markWishlistScheduled,
+} from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
+import type { NearbyPoi } from '../lib/overpass';
+import type { PoisResponse } from '../types/pb';
 import { DayRail } from './DayRail';
+import { WishlistPanel } from './WishlistPanel';
 import { SearchPalette } from './SearchPalette';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
 import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 
-export function TripEditor({ tripId }: { tripId: string }) {
+export function TripEditor({
+  tripId,
+  sharedCapture,
+  onSharedCaptureConsumed,
+}: {
+  tripId: string;
+  /** Text/URL handed off from the PWA share target (WORK 6.4) — opens the
+   * wishlist capture flow prefilled, once. */
+  sharedCapture?: string | null;
+  onSharedCaptureConsumed?: () => void;
+}) {
   const { records, result, error, reload } = useTripEditor(tripId);
   const routing = useMemo(() => createPocketBaseRouting(pb), []);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -42,13 +61,22 @@ export function TripEditor({ tripId }: { tripId: string }) {
   } | null>(null);
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
+  const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
+    null,
+  );
+  const [shareQuery, setShareQuery] = useState<string | null>(null);
+  const [wishlist, setWishlist] = useState<PoisResponse[]>([]);
   const [placingAccessFor, setPlacingAccessFor] = useState<{
     id: string;
     title: string;
   } | null>(null);
   const [pendingPlacement, setPendingPlacement] = useState<
-    (PlacementCandidate & { kind: string; sourceUrl?: string }) | null
+    | (PlacementCandidate & {
+        kind: string;
+        sourceUrl?: string;
+        wishlistId?: string;
+      })
+    | null
   >(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [railW, setRailW] = useState(() => loadWidths().rail);
@@ -78,6 +106,29 @@ export function TripEditor({ tripId }: { tripId: string }) {
       /* storage unavailable — non-fatal */
     }
   }, [railW, rightW]);
+
+  // Wishlist lives outside the cascade-oriented trip doc (it has no day/
+  // order_index), so it gets its own small fetch rather than riding along
+  // with useTripEditor's reload.
+  const reloadWishlist = useCallback(() => {
+    void listWishlist(pb, tripId).then(setWishlist);
+  }, [tripId]);
+  useEffect(() => {
+    reloadWishlist();
+  }, [reloadWishlist]);
+
+  // A share-target capture opens the wishlist search prefilled, once. Copied
+  // into local state immediately rather than read from the prop at render
+  // time — onSharedCaptureConsumed clears the parent's copy right away, and
+  // relying on the prop surviving until SearchPalette mounts would race it.
+  useEffect(() => {
+    if (sharedCapture) {
+      setShareQuery(sharedCapture);
+      setSearchMode('wishlist');
+      onSharedCaptureConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedCapture]);
 
   async function run(fn: () => Promise<unknown>) {
     try {
@@ -201,6 +252,54 @@ export function TripEditor({ tripId }: { tripId: string }) {
           candidate.name,
         );
       }
+      if (candidate.wishlistId) {
+        await markWishlistScheduled(pb, candidate.wishlistId);
+        reloadWishlist();
+      }
+    });
+  }
+
+  // Wishlist (WORK 6.4): captures without a slot land here instead of the
+  // placement picker. "+ Idea" and a nearby ghost pin both feed the same
+  // SearchPalette; searchMode decides what onPick does with the result.
+  function commitWishlistPick(place: PlaceResult, sourceUrl?: string) {
+    void run(async () => {
+      await addWishlistItem(pb, tripId, {
+        title: place.name,
+        kind: place.kind,
+        lat: place.lat,
+        lon: place.lon,
+        url: sourceUrl ?? '',
+      });
+      reloadWishlist();
+    });
+  }
+
+  function rejectWishlist(id: string) {
+    void rejectWishlistItem(pb, id).then(reloadWishlist);
+  }
+
+  // Placing a wishlist item or a nearby ghost pin is the same ranked
+  // placement flow as any other capture (WORK 6.3) — a wishlist item just
+  // arrives with a wishlistId so commitPlacement can mark it scheduled.
+  function placeWishlistItem(item: PoisResponse) {
+    if (!item.lat || !item.lon) return;
+    setPendingPlacement({
+      name: item.title,
+      kind: item.kind ?? 'uncategorized',
+      lat: item.lat,
+      lon: item.lon,
+      sourceUrl: item.url || undefined,
+      wishlistId: item.id,
+    });
+  }
+
+  function selectNearby(poi: NearbyPoi) {
+    setPendingPlacement({
+      name: poi.name,
+      kind: poi.kind,
+      lat: poi.lat,
+      lon: poi.lon,
     });
   }
 
@@ -313,7 +412,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
-        setShowSearch(true);
+        setSearchMode('placement');
         return;
       }
       const el = e.target as HTMLElement | null;
@@ -367,19 +466,34 @@ export function TripEditor({ tripId }: { tripId: string }) {
       : null;
 
   const rail = (
-    <DayRail
-      trip={trip}
-      days={days}
-      selectedDayId={selectedDayId}
-      onSelectDay={(id) => {
-        setSelectedDayId(id);
-        setShowRail(false);
-      }}
-      onAddDay={() =>
-        run(() => insertDay(pb, tripId, days.length, { kind: 'travel' }))
-      }
-      onDeleteDay={(id) => run(() => deleteDay(pb, tripId, id))}
-    />
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <DayRail
+          trip={trip}
+          days={days}
+          selectedDayId={selectedDayId}
+          onSelectDay={(id) => {
+            setSelectedDayId(id);
+            setShowRail(false);
+          }}
+          onAddDay={() =>
+            run(() => insertDay(pb, tripId, days.length, { kind: 'travel' }))
+          }
+          onDeleteDay={(id) => run(() => deleteDay(pb, tripId, id))}
+        />
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden border-t border-slate-200">
+        <WishlistPanel
+          items={wishlist}
+          onAdd={() => {
+            setShareQuery(null);
+            setSearchMode('wishlist');
+          }}
+          onPlace={placeWishlistItem}
+          onReject={rejectWishlist}
+        />
+      </div>
+    </div>
   );
 
   return (
@@ -433,7 +547,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
           result={result}
           selectedStopIds={selectedStopIds}
           onSelectStop={toggleSelect}
-          onOpenSearch={() => setShowSearch(true)}
+          onOpenSearch={() => setSearchMode('placement')}
           scrollToDayId={selectedDayId}
           scrollToStopId={
             selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
@@ -493,6 +607,7 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onClearAccessPoint={clearAccessPoint}
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
+            onSelectNearby={selectNearby}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -522,19 +637,29 @@ export function TripEditor({ tripId }: { tripId: string }) {
             onClearAccessPoint={clearAccessPoint}
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
+            onSelectNearby={selectNearby}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
           />
         </Drawer>
       )}
-      {showSearch && (
+      {searchMode && (
         <SearchPalette
+          initialQuery={
+            searchMode === 'wishlist' ? (shareQuery ?? undefined) : undefined
+          }
           onPick={(place, sourceUrl) => {
-            setShowSearch(false);
-            addPlaceStop(place, sourceUrl);
+            const mode = searchMode;
+            setSearchMode(null);
+            setShareQuery(null);
+            if (mode === 'wishlist') commitWishlistPick(place, sourceUrl);
+            else addPlaceStop(place, sourceUrl);
           }}
-          onClose={() => setShowSearch(false)}
+          onClose={() => {
+            setSearchMode(null);
+            setShareQuery(null);
+          }}
         />
       )}
       {pendingPlacement && records && (

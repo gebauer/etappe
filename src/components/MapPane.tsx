@@ -19,6 +19,7 @@ import {
   drawEmojiGlyph,
   type SpriteEntry,
 } from '../lib/map-markers';
+import { queryNearby, type NearbyPoi } from '../lib/overpass';
 
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
@@ -84,6 +85,7 @@ export function MapPane({
   selectedStop,
   onDragStop,
   onDragAccessPoint,
+  onSelectNearby,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -96,6 +98,7 @@ export function MapPane({
   selectedStop?: StopsResponse | null;
   onDragStop?: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint?: (stopId: string, lat: number, lon: number) => void;
+  onSelectNearby?: (poi: NearbyPoi) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -117,6 +120,13 @@ export function MapPane({
   const accessMarkerRef = useRef<maplibregl.Marker | null>(null);
   const draggingRef = useRef(false);
   const [markerMode, setMarkerMode] = useState<MarkerMode>('auto');
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
+  const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
+  const nearbyRef = useRef(nearbyPois);
+  nearbyRef.current = nearbyPois;
+  const selectNearbyRef = useRef(onSelectNearby);
+  selectNearbyRef.current = onSelectNearby;
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
@@ -127,6 +137,19 @@ export function MapPane({
   fcRef.current = fc;
   const stopFcRef = useRef(stopFc);
   stopFcRef.current = stopFc;
+  const nearbyFc = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: nearbyPois.map((p) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
+        properties: { osmId: p.osmId, name: p.name, kind: p.kind },
+      })),
+    }),
+    [nearbyPois],
+  );
+  const nearbyFcRef = useRef(nearbyFc);
+  nearbyFcRef.current = nearbyFc;
   const fittedRef = useRef(false);
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -220,6 +243,25 @@ export function MapPane({
       // endpoint 404s on the arrow range, and a failed symbol glyph aborts the
       // whole source's tile in the worker — which silently drops the leg lines
       // too. Direction arrows via a sprite icon are tracked in ToDo.md.
+
+      // Nearby ghost pins (WORK 6.4): plain grey circles, deliberately not
+      // full pins — "not yet part of your plan" should read as visually
+      // distinct from a real stop, not just a different colour of the same
+      // shape.
+      map.addSource('nearby', { type: 'geojson', data: nearbyFcRef.current });
+      map.addLayer({
+        id: 'nearby-ghost',
+        type: 'circle',
+        source: 'nearby',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#94a3b8',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.5,
+          'circle-opacity': 0.85,
+        },
+      });
+
       loadedRef.current = true;
       maybeFit(map);
 
@@ -270,8 +312,24 @@ export function MapPane({
       return (hits[0]?.properties?.stopId as string | undefined) ?? null;
     };
 
-    // Click a marker to select its stop; click empty map to drop a stop.
+    const nearbyUnder = (point: maplibregl.Point): string | null => {
+      if (!map.getLayer('nearby-ghost')) return null;
+      const hits = map.queryRenderedFeatures(point, {
+        layers: ['nearby-ghost'],
+      });
+      return (hits[0]?.properties?.osmId as string | undefined) ?? null;
+    };
+
+    // Click a ghost pin to capture it (same placement flow as any other
+    // capture); click a marker to select its stop; click empty map to drop
+    // a stop.
     map.on('click', (ev) => {
+      const nearbyId = nearbyUnder(ev.point);
+      if (nearbyId) {
+        const poi = nearbyRef.current.find((p) => p.osmId === nearbyId);
+        if (poi) selectNearbyRef.current?.(poi);
+        return;
+      }
       const id = stopsUnder(ev.point);
       if (id) selectRef.current?.(id);
       else clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
@@ -279,7 +337,8 @@ export function MapPane({
 
     map.on('mousemove', (ev) => {
       const id = stopsUnder(ev.point);
-      map.getCanvas().style.cursor = id ? 'pointer' : '';
+      const overNearby = id ? false : !!nearbyUnder(ev.point);
+      map.getCanvas().style.cursor = id || overNearby ? 'pointer' : '';
       hoverRef.current?.(id);
     });
     map.on('mouseout', () => hoverRef.current?.(null));
@@ -322,6 +381,51 @@ export function MapPane({
       maplibregl.GeoJSONSource | undefined;
     labelSource?.setData(stopFc);
   }, [stopFc]);
+
+  // Push new ghost pins.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    const source = map.getSource('nearby') as
+      maplibregl.GeoJSONSource | undefined;
+    source?.setData(nearbyFc);
+  }, [nearbyFc]);
+
+  // Query Overpass for the focused day's corridor when Nearby is toggled on,
+  // or the day/radius changes. Reads records via the ref (not a dependency)
+  // so an unrelated stop edit elsewhere doesn't re-trigger the query.
+  useEffect(() => {
+    if (!nearbyEnabled) {
+      setNearbyPois([]);
+      return;
+    }
+    if (!focusDayId) {
+      setNearbyPois([]);
+      return;
+    }
+    const dayStops = recordsRef.current.stops
+      .filter((s) => s.day === focusDayId && s.lat && s.lon)
+      .map((s) => ({ lat: s.lat, lon: s.lon }));
+    if (dayStops.length === 0) {
+      setNearbyPois([]);
+      return;
+    }
+    const existing = recordsRef.current.stops
+      .filter((s) => s.lat && s.lon)
+      .map((s) => ({ lat: s.lat, lon: s.lon }));
+    let cancelled = false;
+    queryNearby(dayStops, nearbyRadiusKm * 1000, existing)
+      .then((pois) => {
+        if (!cancelled) setNearbyPois(pois);
+      })
+      .catch((err) => {
+        console.error('nearby query failed', err);
+        if (!cancelled) setNearbyPois([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [nearbyEnabled, nearbyRadiusKm, focusDayId]);
 
   // Highlight the hovered stop with a ring (a filtered circle layer — reliable,
   // unlike feature-state which several paint props reject).
@@ -520,6 +624,34 @@ export function MapPane({
           </button>
         ))}
       </div>
+      <div className="absolute left-2 top-11 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
+        <button
+          onClick={() => setNearbyEnabled((v) => !v)}
+          className={
+            nearbyEnabled ? 'font-semibold text-slate-900' : 'text-slate-500'
+          }
+        >
+          Nearby
+        </button>
+        {nearbyEnabled && (
+          <>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              value={nearbyRadiusKm}
+              onChange={(e) => setNearbyRadiusKm(Number(e.target.value))}
+              className="w-16"
+            />
+            <span className="text-slate-400">{nearbyRadiusKm}km</span>
+          </>
+        )}
+      </div>
+      {nearbyEnabled && !focusDayId && (
+        <div className="absolute left-2 top-[4.75rem] rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
+          Select a day to see nearby POIs
+        </div>
+      )}
     </div>
   );
 }
