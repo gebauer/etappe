@@ -246,6 +246,18 @@ export function MapPane({
               promoteId: 'stopId',
             });
           }
+          // Labels live on their own source, deliberately not fused into the
+          // icon layers: a symbol layer whose text glyph 404s can abort its
+          // *whole source's* worker tile (see ToDo.md — this already silently
+          // dropped the leg lines once). Isolating labels here means a bad
+          // glyph can only ever cost the labels, never the icons.
+          if (!map.getSource('stops-labels')) {
+            map.addSource('stops-labels', {
+              type: 'geojson',
+              data: stopFcRef.current,
+              promoteId: 'stopId',
+            });
+          }
           addMarkerLayers(map);
           maybeFit(map);
         })
@@ -307,6 +319,9 @@ export function MapPane({
     const source = map.getSource('stops') as
       maplibregl.GeoJSONSource | undefined;
     source?.setData(stopFc);
+    const labelSource = map.getSource('stops-labels') as
+      maplibregl.GeoJSONSource | undefined;
+    labelSource?.setData(stopFc);
   }, [stopFc]);
 
   // Highlight the hovered stop with a ring (a filtered circle layer — reliable,
@@ -660,6 +675,34 @@ const HOVER_RADIUS = [
   22,
 ] as unknown as maplibregl.ExpressionSpecification;
 
+// Names only once zoomed in past the trip-overview zoom — at z5-8 there's
+// rarely room for them anyway. text-size grows roughly with icon-size so the
+// fixed text-offset below keeps clearing the pin at every zoom. Below
+// minzoom, MapLibre doesn't even lay the glyphs out.
+const LABEL_MINZOOM = 9;
+const LABEL_SIZE = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  LABEL_MINZOOM,
+  10,
+  14,
+  13,
+] as unknown as maplibregl.ExpressionSpecification;
+
+const LABEL_LAYOUT = {
+  'text-field': ['get', 'title'],
+  'text-font': ['Noto Sans Regular'],
+  'text-size': LABEL_SIZE,
+  'text-anchor': 'bottom',
+  'text-offset': [0, -3.2],
+  // The collision engine is the "only if there's enough space" behaviour:
+  // it hides whichever labels don't fit rather than overlapping them.
+  'text-allow-overlap': false,
+  'text-optional': true,
+  'symbol-sort-key': ['get', 'sortKey'],
+} as unknown as maplibregl.SymbolLayerSpecification['layout'];
+
 function addMarkerLayers(map: maplibregl.Map) {
   // Hover highlight: a ring under the markers, shown for the hovered stop via
   // setFilter. A plain circle layer (no data-driven paint) — reliable.
@@ -697,6 +740,20 @@ function addMarkerLayers(map: maplibregl.Map) {
       filter: ['==', ['get', 'isAccommodation'], false],
       layout: MARKER_LAYOUT,
       paint: { 'icon-opacity': TIER_OPACITY },
+    });
+  }
+  if (!map.getLayer('stops-label')) {
+    map.addLayer({
+      id: 'stops-label',
+      type: 'symbol',
+      source: 'stops-labels',
+      minzoom: LABEL_MINZOOM,
+      layout: LABEL_LAYOUT,
+      paint: {
+        'text-color': '#1e293b',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.2,
+      },
     });
   }
 }

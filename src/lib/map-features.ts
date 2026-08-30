@@ -117,6 +117,7 @@ export interface StopFeature {
   geometry: { type: 'Point'; coordinates: [number, number] };
   properties: {
     stopId: string;
+    title: string;
     icon: string;
     hue: string;
     iconImage: string;
@@ -150,6 +151,7 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
         properties: {
           stopId: s.id,
+          title: s.title,
           icon,
           hue,
           iconImage: `m:${icon}:${hue}`,

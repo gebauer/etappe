@@ -109,6 +109,7 @@ describe('buildStopFeatures', () => {
         id: 'A',
         day: 'd1',
         order_index: 0,
+        title: 'Skógafoss',
         kind: 'waterfall',
         lat: 64,
         lon: -20,
@@ -117,13 +118,22 @@ describe('buildStopFeatures', () => {
         id: 'B',
         day: 'd1',
         order_index: 1,
+        title: 'Hótel Skálholt',
         kind: 'hotel',
         lat: 63,
         lon: -21,
         is_accommodation: true,
         anchor_time: '18:00',
       },
-      { id: 'C', day: 'd1', order_index: 2, kind: 'town', lat: 0, lon: 0 }, // no coords
+      {
+        id: 'C',
+        day: 'd1',
+        order_index: 2,
+        title: 'No coords',
+        kind: 'town',
+        lat: 0,
+        lon: 0,
+      }, // no coords
     ],
     legs: [],
     activities: [],
@@ -132,6 +142,10 @@ describe('buildStopFeatures', () => {
   it('emits a marker per stop with coordinates', () => {
     const fc = buildStopFeatures(recs);
     expect(fc.features.map((f) => f.properties.stopId)).toEqual(['A', 'B']);
+    expect(fc.features.map((f) => f.properties.title)).toEqual([
+      'Skógafoss',
+      'Hótel Skálholt',
+    ]);
   });
 
   it('maps the kind icon and ranks accommodation first', () => {
