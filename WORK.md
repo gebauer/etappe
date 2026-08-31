@@ -51,7 +51,9 @@ Each done task is tagged ✅ below. All pushed to `origin/master`.
   `export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null`
 - Backend: `npm run pb` (PocketBase 0.40.1 binary in `./bin`; fetch with
   `npm run pb:setup`). Frontend: `npm run dev` (Vite proxies `/api` + `/_`).
-- After any schema migration: `npm run types:pb` regenerates `src/types/pb.ts`.
+- After any schema migration: `npm run types:pb` regenerates `src/types/pb.ts`
+  (fetches `pocketbase-typegen` on demand via `npx`; it is not a dependency —
+  its `better-sqlite3` sub-dep has no musl prebuilt and broke the Docker build).
 - Before every commit: `npm run check` **and** `npm run format:check`
   (Prettier is not part of `check`).
 
