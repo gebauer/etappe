@@ -4,6 +4,11 @@ services:
       context: .
       args:
         PB_VERSION: '0.40.1'
+        # Optional — unset falls back to the app's public defaults (see
+        # Dockerfile). Compose fills these from .env / the shell environment.
+        TILE_URL: ${TILE_URL:-}
+        PHOTON_URL: ${PHOTON_URL:-}
+        OVERPASS_URL: ${OVERPASS_URL:-}
     ports:
       - '8090:8090'
     env_file:
@@ -13,6 +18,12 @@ services:
     volumes:
       - pb_data:/pb/pb_data
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8090/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   pb_data:

@@ -460,8 +460,13 @@ in the admin UI generate migrations in `pb_migrations` — commit them, or
 production drifts from local.
 
 Environment: `ORS_API_KEY`, `TILE_URL`, `PHOTON_URL`, `OVERPASS_URL`,
-`APP_URL`. Hooks live in `pb_hooks/` and run in Goja — roughly ES2015, no npm.
-Keep them small: the share endpoint, the ORS proxy, the short-link resolver.
+`APP_URL`. The last three are build-time only, baked into the SPA bundle by
+`docker-compose build` — see `.env.example`. `PB_ADMIN_EMAIL` /
+`PB_ADMIN_PASSWORD`, if set, bootstrap the first superuser on container start
+(`scripts/docker-entrypoint.sh`); otherwise create one by hand via
+`pocketbase superuser upsert`. Hooks live in `pb_hooks/` and run in Goja —
+roughly ES2015, no npm. Keep them small: the share endpoint, the ORS proxy,
+the short-link resolver.
 
 ---
 

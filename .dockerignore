@@ -6,4 +6,5 @@ coverage
 *.local
 pb_data
 pb_public
+bin
 npm-debug.log*
