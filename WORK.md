@@ -372,6 +372,13 @@ currency, members, share token.
 **11.3 Deploy** · Standard
 Coolify config, volume, backup note, committed migrations, smoke test against
 the deployed instance.
+Pulled ahead for an alpha (2026-08-31), repo side only — `c51ef93`:
+Dockerfile/docker-compose.yml build-time env var fix (TILE_URL etc. weren't
+reaching the SPA bundle at all), admin bootstrap entrypoint, healthcheck.
+Not run live — no Docker daemon in this environment to test a real build,
+and the actual Coolify resource/domain/env-var setup is a manual step only
+the author can do. Still open: first live build+deploy, smoke test against
+it, backup note.
 
 ---
 
