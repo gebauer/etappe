@@ -36,7 +36,10 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 let shotN = 0;
 async function shot(page, label) {
   shotN += 1;
-  const file = path.join(SHOTS, `${String(shotN).padStart(2, '0')}-${label}.png`);
+  const file = path.join(
+    SHOTS,
+    `${String(shotN).padStart(2, '0')}-${label}.png`,
+  );
   await page.screenshot({ path: file });
   console.log('screenshot:', file);
 }
@@ -135,7 +138,10 @@ async function placeAccessPoint(page, offsetX = 80, offsetY = 40) {
   const canvas = page.locator('.maplibregl-canvas').first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('map canvas not found');
-  await page.mouse.click(box.x + box.width / 2 + offsetX, box.y + box.height / 2 + offsetY);
+  await page.mouse.click(
+    box.x + box.width / 2 + offsetX,
+    box.y + box.height / 2 + offsetY,
+  );
   await page.waitForTimeout(800);
 }
 
@@ -151,8 +157,13 @@ async function main() {
 
   const consoleErrors = [];
   const pageErrors = [];
-  const browser = await chromium.launch({ headless: HEADLESS, args: ['--no-sandbox'] });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const browser = await chromium.launch({
+    headless: HEADLESS,
+    args: ['--no-sandbox'],
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
   const page = await context.newPage();
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -184,7 +195,8 @@ async function main() {
     const hasClear = (await page.locator('text=clear').count()) > 0;
     console.log('clear link present:', hasClear);
     await shot(page, 'access-point-set');
-    if (!hasClear) throw new Error('access point was not set (no "clear" link)');
+    if (!hasClear)
+      throw new Error('access point was not set (no "clear" link)');
 
     console.log('--- clear access point ---');
     await clearAccessPoint(page);

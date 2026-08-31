@@ -62,7 +62,7 @@ throwaway trip (default title `"Testing"` — override with
 `ETAPPE_TRIP_TITLE`), and drives one real flow end-to-end: add a day and a
 stop, set the stop's coordinates, zoom the map to it, place a routing
 **access point** by clicking the map, confirm it shows up (the amber car pin
-+ a "clear" link), then clear it. It prints `PASS` or `FAIL`, and exits
+and a "clear" link), then clear it. It prints `PASS` or `FAIL`, and exits
 non-zero on failure, a thrown assertion, or any browser console
 error/uncaught exception — so it doubles as a pass/fail smoke check, not
 just a manual walkthrough.
@@ -78,13 +78,13 @@ exception was thrown.
 
 Env vars, all optional:
 
-| var | default | purpose |
-|---|---|---|
-| `ETAPPE_URL` | `http://localhost:5173` | frontend base URL |
-| `ETAPPE_API_URL` | `http://127.0.0.1:8090` | PocketBase base URL (health check only) |
-| `ETAPPE_EMAIL` / `ETAPPE_PASSWORD` | fresh throwaway | reuse an existing test account instead of registering a new one |
-| `ETAPPE_TRIP_TITLE` | `Testing` | name of the throwaway trip |
-| `HEADLESS` | `true` | set `false` to watch it run (needs a display) |
+| var                                | default                 | purpose                                                         |
+| ---------------------------------- | ----------------------- | --------------------------------------------------------------- |
+| `ETAPPE_URL`                       | `http://localhost:5173` | frontend base URL                                               |
+| `ETAPPE_API_URL`                   | `http://127.0.0.1:8090` | PocketBase base URL (health check only)                         |
+| `ETAPPE_EMAIL` / `ETAPPE_PASSWORD` | fresh throwaway         | reuse an existing test account instead of registering a new one |
+| `ETAPPE_TRIP_TITLE`                | `Testing`               | name of the throwaway trip                                      |
+| `HEADLESS`                         | `true`                  | set `false` to watch it run (needs a display)                   |
 
 **Extending it:** `driver.mjs` exports no library surface, but its helper
 functions (`selectStopByKind`, `setStopLatLon`, `placeAccessPoint`, ...) are
@@ -124,7 +124,7 @@ replacement for it.
 - **`npx playwright install --with-deps` needs interactive sudo** and fails
   outright in a non-interactive shell ("a password is required"). Skip
   `--with-deps` — on this machine the plain `npx playwright install
-  chromium` was sufficient; the browser launched headless with no missing
+chromium` was sufficient; the browser launched headless with no missing
   `.so` errors.
 - **React controlled inputs need `.fill()`/`.blur()`**, not
   `eval el.value = '...'` — the latter never fires React's `onChange`, so
@@ -134,7 +134,7 @@ replacement for it.
   single `<canvas class="maplibregl-canvas">` by MapLibre GL, so there's no
   CSS selector for "the third stop marker." To click a location on the map,
   get the canvas's `boundingBox()` and click at a pixel offset. (The
-  draggable overlay markers for the *selected* stop and its access point are
+  draggable overlay markers for the _selected_ stop and its access point are
   real DOM elements — `.maplibregl-marker` — if you need to drag one.)
 - **Registration has no email-verification gate locally** — a fresh
   timestamped email logs straight in, no inbox needed.
