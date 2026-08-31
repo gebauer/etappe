@@ -1,0 +1,9 @@
+{
+  "name": "run-etappe-driver",
+  "private": true,
+  "description": "Playwright driver for the run-etappe skill. Not part of the app — installed and run only from this skill directory.",
+  "type": "module",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}
