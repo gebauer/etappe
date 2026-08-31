@@ -20,6 +20,8 @@ Reply with ONLY a JSON object in exactly this shape — no other text:
       "title": "Short name of the place",
       "kind": "waterfall",
       "place_hint": "Full name + region, for geocoding",
+      "lat": 64.3271,
+      "lon": -19.9152,
       "description": "A paragraph on what makes it worth visiting.",
       "links": [
         { "url": "https://...", "title": "Official page / more info" }
@@ -42,8 +44,11 @@ Rules:
 cave, lake, coast, viewpoint, hike, museum, monument, church, town, \
 restaurant, hotel, campsite, airport, ferry, fuel, shop, pool, wildlife, \
 parking, other, uncategorized. Pick the closest match.
-- "lat"/"lon" are optional — omit them if you're not sure, they'll be \
-geocoded from "place_hint" on import.
+- "lat"/"lon" are optional, but include them whenever you're confident in \
+the exact coordinates (you usually know these better than a geocoder does, \
+especially for specific trailheads, viewpoints or landmarks vs. a whole \
+town). Omit both if you're not sure — they'll then be geocoded from \
+"place_hint" on import, which is coarser.
 - "links" and "photos" are optional arrays — omit them entirely for a \
 highlight with none, don't invent URLs.
 - Leave out "notes" — that's for me to fill in myself after importing.
