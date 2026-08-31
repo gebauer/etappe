@@ -6,30 +6,25 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phase 6 complete; 7.1 and 7.2 done; Highlights import (schema + importer)
-done; both Highlights follow-ups (wishlist-on-map, visual review) done.**
+**Phase 6 complete; phase 7 complete (7.1, 7.2, 7.3); Highlights import
+(schema + importer) done; both Highlights follow-ups (wishlist-on-map,
+visual review) done.**
 Capture, ranked placement, wishlist, nearby, share target, merge-on-capture,
-the inspector block editor (note/link/photo with visibility, reorder,
-Markdown notes), and Highlights import — paste JSON → validate → preview →
-commit to the wishlist as `pois` (status `idea`) + note/link/photo blocks,
-geocoding each `place_hint` via Photon when coordinates are missing — all in.
-`blocks.parent_type` now also allows `poi` (migration `1788000005`).
-Wishlist `pois` render on `MapPane` as their own pin layer (dark-stroked
-category-coloured circles, always on — not gated behind a toggle like
-Nearby). A wishlist row now shows a thumbnail (first photo block) and opens
-a read-only `WishlistPreview` card (photo carousel, attribution, Markdown
-description, links) instead of placing directly — Place/Reject live there;
-a map-pin click opens the same card. Fixed along the way: Highlights import
-only reloaded the wishlist list, not `records.blocks`, so a fresh import's
-photo/note/link blocks were invisible until the next full page load.
-Photo pipeline (7.2): upload with EXIF extraction, PocketBase thumbs, and
-Wikimedia Commons attribution — see the task entry below and the spec
-deviation note above (Wikimedia lookup runs off Nearby, not Photon).
-**→ Next, in order (per author 2026-08-31): 7.3** (kind picker +
-uncategorized review) — author-requested, next up. After that, no further
-instruction — candidates are 8.2 (the full multi-day §8 import wizard) or,
-bigger, `ToDo.md`'s "Design direction" (the unified pin-click card and the
-map-dominant layout that depends on it). Ask before picking one of those.
+the inspector block editor (note/link/photo, visibility, reorder, Markdown
+notes, upload with EXIF extraction, PocketBase thumbs, Wikimedia attribution),
+the icon-grid kind picker + uncategorized review, and Highlights import —
+paste JSON → validate → preview → commit to the wishlist as `pois` (status
+`idea`) + note/link/photo blocks — all in. Wishlist `pois` render on
+`MapPane` as their own pin layer and open a read-only `WishlistPreview` card
+(photo carousel, attribution, description, links) before Place/Reject.
+See the task entries below for each phase-7 piece, and the spec deviation
+note above (Wikimedia lookup runs off Nearby/Overpass, not Photon — the
+live Photon instance never returns a `wikidata` tag).
+**→ Next, in order:** no further author instruction — candidates are 8.2
+(the full multi-day §8 import wizard) or, bigger, `ToDo.md`'s "Design
+direction" (the unified pin-click card, generalizing `WishlistPreview` to
+stops and empty-map clicks, and the map-dominant layout that depends on
+it). Ask before picking one.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -37,7 +32,7 @@ v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 
 7.1 `d4ae836` · poi-blocks migration `a7a6d27` · Highlights schema `4adb15d` ·
 Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
 wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
-7.2 photo pipeline `4f4b91a`.
+7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -313,9 +308,10 @@ same call as `markdown.ts`). Wikimedia lookup storing author, licence and
 source URL — wired to Nearby's capture path, not Photon; see spec deviations
 below. Attribution renders in `BlockEditor` and `WishlistPreview`.
 
-**7.3 Kind picker and review screen** · Cheap
-Icon grid with type-to-filter. Uncategorized counter in the trip header opening
-a list of just those stops with the grid inline.
+**7.3 Kind picker and review screen** · Cheap · ✅ `1d6b85c`
+Icon grid with type-to-filter (`KindPicker`/`KindIcon`, sprite-atlas reuse —
+no new icon assets). Trip header's uncategorized counter opens a drawer
+listing just those stops with the grid already expanded per row.
 
 ---
 
