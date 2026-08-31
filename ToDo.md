@@ -3,10 +3,9 @@
 Deferred fixes and polish found while building. Not blocking the current phase;
 pick up before v1.
 
-- [ ] **Fix adding POIs by map-clicking** — show a reverse-geocoded suggestion
-      with a confirm dialog (accept / rename / cancel) instead of dropping the
-      stop immediately (BUILD §6: "reverse-geocode for a name suggestion;
-      accept or rename").
+- [ ] **Map-click and wishlist-click capture flow** — superseded by the
+      unified pin-click card in "Design direction" below; see there instead
+      of this line (was: "Fix adding POIs by map-clicking").
 - [ ] Confirmation (or undo) before deleting stops — row ✕, Delete key, and the
       inspector currently delete without asking.
 - [x] **Manual legs still not routing** — root cause: `buildLegRecord`
@@ -52,6 +51,46 @@ pick up before v1.
       card before deciding to place/reject an item is effectively this
       same card component, just fed from a `pois` row instead of a `stops`
       row. Worth designing the card once, generically, for both.
+      **Resolved question — editing.** The reference is a pure viewer: no
+      fields, no drag, no anchors — it has nothing that corresponds to
+      Etappe's actual value (computed times, daylight warnings, buffers).
+      Don't build a separate "view mode" vs. "edit mode" (two UIs to keep in
+      sync); instead make the card itself progressive — clicking a pin
+      always opens the visual card first (photo, name, quick facts,
+      prev/next), and an edit affordance on the card expands it in place to
+      reveal the technical fields (kind, dwell, anchor, access point,
+      blocks), rather than jumping to a different screen. One component,
+      read-only by default, editable on demand.
       Out of scope for now — current phase keeps the technical form-based
       inspector; revisit once Highlights (import + map pins + visuals) is
       further along.
+
+- [ ] **Unified pin-click card, three contexts, one component** (2026-08-31,
+      converges the map-click ToDo above with the wishlist-click behavior):
+      the same visual card opens whenever anything on the map is clicked —
+      an existing stop, a wishlist POI, or a fresh unplaced point — but its
+      action bar changes by context. Nothing is created or placed just by
+      clicking; every context ends in one explicit "add" action.
+  - **Empty map click** ("identify"): reverse-geocode (and/or check
+    Nearby's Overpass results) the clicked point, open the card with
+    whatever was found. Actions: **+ Wishlist** (default — this is
+    browsing, not committing) and **+ Day** (opens the existing ranked
+    `PlacementPicker` for someone who already knows where it goes).
+    Dismissing the card (click elsewhere / Escape) creates nothing.
+  - **Wishlist item click** (today: opens `PlacementPicker` immediately —
+    change this): zoom the map to it and open the card (photos, notes,
+    links — its blocks). Only action: **Add to itinerary**, which then
+    either suggests the best-fit day/position (today's ranked placement,
+    kept as the default) or lets you pick the day/position by hand — both
+    still going through the existing `PlacementPicker`/`rankPlacements`,
+    just reached one step later than today, after a look rather than
+    before it.
+  - **Existing stop-pin click** (today's behavior, unaffected in kind, just
+    reframed): opens the card read-only; its edit affordance expands the
+    technical fields in place (see the resolved editing question above)
+    instead of jumping straight to the full inspector.
+  - Touches: `MapPane`'s click handler (currently three-way branch —
+    nearby / stop-select / else-beginCapture — becomes "open card for
+    whatever was hit"), `WishlistPanel`'s `onPlace` (currently calls
+    `beginCapture` directly), and a new shared card component consumed by
+    all three. Not started.
