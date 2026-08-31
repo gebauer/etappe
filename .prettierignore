@@ -13,3 +13,6 @@ src/types/pb.ts
 BUILD.md
 WORK.md
 CLAUDE.md
+
+# Design handoff — reference material, not production code (see its README)
+design_handoff_map_first_planner

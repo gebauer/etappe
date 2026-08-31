@@ -11,5 +11,6 @@ pb_public
 bin
 *.log
 .DS_Store
+*:Zone.Identifier
 .vscode/*
 !.vscode/extensions.json

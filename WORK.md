@@ -20,11 +20,12 @@ paste JSON → validate → preview → commit to the wishlist as `pois` (status
 See the task entries below for each phase-7 piece, and the spec deviation
 note above (Wikimedia lookup runs off Nearby/Overpass, not Photon — the
 live Photon instance never returns a `wikidata` tag).
-**→ Next, in order:** no further author instruction — candidates are 8.2
-(the full multi-day §8 import wizard) or, bigger, `ToDo.md`'s "Design
-direction" (the unified pin-click card, generalizing `WishlistPreview` to
-stops and empty-map clicks, and the map-dominant layout that depends on
-it). Ask before picking one.
+**→ Next, in order:** the map-first redesign has been picked (over 8.2, the
+full multi-day §8 import wizard, which is now deferred) — see Phase 12
+below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
+spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
+12.1 (design tokens and fonts) is done; next is 12.2 (unified pin-click
+card).
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -395,6 +396,87 @@ Not run live — no Docker daemon in this environment to test a real build,
 and the actual Coolify resource/domain/env-var setup is a manual step only
 the author can do. Still open: first live build+deploy, smoke test against
 it, backup note.
+
+---
+
+## Phase 12 — Map-first redesign
+
+Source: `design_handoff_map_first_planner/README.md` (+ `Etappe
+Redesign.dc.html`, a design-reference prototype, not production code —
+translate its inline styles into Tailwind, don't port them). Formalizes and
+supersedes `ToDo.md`'s "Design direction" notes with a pixel-accurate spec.
+Replaces the day rail / timeline / boxed-map-and-inspector 3-pane grid with
+a map-dominant layout: map fills the screen, day pills dock over it, the
+itinerary becomes a right column, and a single progressive "unified
+pin-click card" (read-only first, expands in place to edit) replaces the
+technical `StopInspector` form and the modal `WishlistPreview`. Dark theme
+only; the photo-wheel filmstrip and light theme are explicitly out of scope
+for this bundle. Does not touch the cascade engine, data model, routing or
+geocoding.
+
+**12.1 Design tokens and fonts** · Cheap · ✅
+Tailwind theme tokens (oklch palette from the handoff's token table, kept
+as oklch rather than converted to hex), self-hosted Instrument Sans
+(400/500/600) and IBM Plex Mono (400/500) via `@fontsource/instrument-sans`
++ `@fontsource/ibm-plex-mono` (replaces hotlinking Google Fonts — the
+handoff requires self-hosting for the Coolify container), a custom `desktop:
+860px` Tailwind breakpoint. Infrastructure only — nothing consumes the new
+tokens yet, so no component changed visually.
+
+**12.2 Unified pin-click card** · Heavy
+New component generalizing `WishlistPreview` to three modes (existing stop
+pin / wishlist pin / empty map click) per the handoff's card spec: photo
+header, prev/next nav + counter (sequence order for stops, cached
+proximity-chain order for wishlist), computed-times strip and daylight line
+(cascade engine output, rendered never computed), description, a
+progressive edit region revealed by an Edit action, and a context-dependent
+action bar (`Edit`/`Remove` · `Add to itinerary`/`Reject` ·
+`+ Wishlist`/`+ Day`/`Dismiss`). Replaces `WishlistPreview`'s usage in
+`TripEditor`; changes `onMapClick`'s current immediate
+reverse-geocode-then-placement flow to open the card first, placement only
+on an explicit action. Open question carried from the handoff review: which
+`StopInspector` fields (address, raw lat/lon, is_accommodation) the card's
+edit region keeps vs. drops, since the handoff's edit-region grid only
+lists title/kind/dwell/anchor/access-point/type/blocks — ask before
+implementing.
+
+**12.3 Pin visuals** · Standard
+Stop pin unselected/selected sizing + accent halo per spec; wishlist pins
+become square photo thumbnails with an amber border (reuse the existing
+`nearby-photo` Wikimedia-thumbnail compositing pattern) instead of the
+current plain circles. Touches `map-markers.ts`, `map-features.ts`,
+`MapPane.tsx`.
+
+**12.4 Day pills and Fit trip** · Standard
+New map-overlay component taking over `DayRail`'s role: a pill row (day
+title, mono stop-count/empty meta, `+` add day) docked top-left over the
+map, plus a "Fit trip" button wired through a new re-triggerable prop on
+`MapPane` (mirrors the existing `flyTo` `{lat,lon,nonce}` pattern — today's
+`maybeFit` only auto-fires once and isn't exposed as an action).
+
+**12.5 Map-dominant shell and itinerary column restyle** · Heavy
+Replaces `TripEditor`'s resizable 3-pane grid with the map-fills-screen
+layout: dark header (avatar instead of an email string — the known "phone
+width breaks the header first" fix), map pane with day pills / wishlist
+fallback list / card docked over it, right 400px itinerary column
+(restyled `Timeline`/`StopRow`/`LegRow` — kept functionally as-is per the
+handoff, restyled only). Retires `DayRail`, `RightPane`, `Drawer`, the
+resize dividers, and `StopInspector` as a standalone pane (its fields move
+into the card's edit region, 12.2).
+
+**12.6 Phone layout** · Standard
+`<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
+it, day pills/wishlist panel/desktop card all suppressed. Compact phone
+card (not the full card) with horizontal swipe navigation (>40px
+threshold, same step function as the desktop card's `‹`/`›`) and a looping
+chevron nudge as the discoverability cue; edit region uses 44px targets.
+Drag-to-expand and a rubber-band swipe transform are explicitly not built.
+
+**12.7 Cleanup and polish** · Cheap
+Dead-code removal for everything retired in 12.5, keyboard shortcuts
+re-verified (`k` still opens the kind picker from the card), `npm run
+check` and `npm run format:check`, this file and `ToDo.md` updated to
+reflect the shipped design.
 
 ---
 
