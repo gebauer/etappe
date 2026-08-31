@@ -1,7 +1,9 @@
 import { type KeyboardEvent } from 'react';
 import { KINDS, TAXONOMY } from '../lib/taxonomy';
-import type { StopsResponse } from '../types/pb';
+import type { StopsResponse, BlocksResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
+import type { BlockKind, BlockPatch } from '../lib/pb-blocks';
+import { BlockEditor } from './BlockEditor';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
@@ -15,18 +17,28 @@ const label = 'block text-xs font-medium text-slate-500';
  * uncontrolled inputs refresh after external changes. */
 export function StopInspector({
   stop,
+  blocks,
   onUpdate,
   onDelete,
   onZoom,
   onPlaceAccessPoint,
   onClearAccessPoint,
+  onAddBlock,
+  onUpdateBlock,
+  onDeleteBlock,
+  onMoveBlock,
 }: {
   stop: StopsResponse;
+  blocks: BlocksResponse[];
   onUpdate: (patch: StopPatch) => void;
   onDelete: () => void;
   onZoom: () => void;
   onPlaceAccessPoint: () => void;
   onClearAccessPoint: () => void;
+  onAddBlock: (kind: BlockKind) => void;
+  onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
+  onDeleteBlock: (blockId: string) => void;
+  onMoveBlock: (blockId: string, dir: -1 | 1) => void;
 }) {
   const hasCoords = !!stop.lat && !!stop.lon;
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
@@ -188,8 +200,14 @@ export function StopInspector({
         Accommodation (day ends here)
       </label>
 
-      <div className="rounded border border-dashed border-slate-300 p-3 text-center text-xs text-slate-400">
-        Thumbnail — photo uploads arrive in phase 7.2
+      <div className="border-t border-slate-200 pt-3">
+        <BlockEditor
+          blocks={blocks}
+          onAdd={onAddBlock}
+          onUpdate={onUpdateBlock}
+          onDelete={onDeleteBlock}
+          onMove={onMoveBlock}
+        />
       </div>
 
       <button

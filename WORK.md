@@ -6,9 +6,12 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phase 6 complete.** Capture, ranked placement, wishlist, nearby, share
-target and merge-on-capture all in.
-**→ Next task: 7.1 Inspector and block editor (Standard).**
+**Phase 6 complete; 7.1 done.** Capture, ranked placement, wishlist, nearby,
+share target, merge-on-capture, and the inspector block editor (note/link/photo
+with visibility, reorder, Markdown notes) all in.
+**→ Next: 8.1 import schema + prompt (extended with photos/description), toward
+the Highlights import.** (7.1 was pulled ahead of 7.2/8 as the foundation for
+rich POI content; 7.2 photo pipeline and 7.3 kind picker still to do.)
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -269,9 +272,11 @@ nearby ghost pins alike rather than needing a check per path.
 
 ## Phase 7 — Blocks
 
-**7.1 Inspector and block editor** · Standard
+**7.1 Inspector and block editor** · Standard · ✅
 Note, link, photo and file blocks with the three-level visibility selector.
-Reorder. Markdown rendering for notes.
+Reorder. Markdown rendering for notes. (Photo blocks reference a URL for now;
+upload/thumbs/EXIF/attribution is 7.2. Safe in-house Markdown subset in
+`src/lib/markdown.ts`, no new dependency.)
 
 **7.2 Photo pipeline** · Standard
 Upload, PocketBase thumbs, EXIF extraction into `lat`, `lon`, `taken_at`.

@@ -6,6 +6,7 @@ import type { CascadeResult } from '../lib/cascade';
 import type { DaysResponse, StopsResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import type { NearbyPoi } from '../lib/overpass';
+import { blocksFor, type BlockKind, type BlockPatch } from '../lib/pb-blocks';
 
 interface Props {
   records: TripRecords;
@@ -23,13 +24,18 @@ interface Props {
   onDragStop: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint: (stopId: string, lat: number, lon: number) => void;
   onSelectNearby: (poi: NearbyPoi) => void;
+  onAddBlock: (stopId: string, kind: BlockKind) => void;
+  onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
+  onDeleteBlock: (blockId: string) => void;
+  onMoveBlock: (stopId: string, blockId: string, dir: -1 | 1) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
 }
 
-/** Right pane: map on top, inspector below (BUILD §9). The block editor is
- * built in 7.1; for now the inspector shows the selected day's details. */
+/** Right pane: map on top, inspector below (BUILD §9). The inspector edits the
+ * selected stop, its access point and its blocks; otherwise it shows the
+ * selected day. */
 export function RightPane({
   records,
   result,
@@ -46,11 +52,18 @@ export function RightPane({
   onDragStop,
   onDragAccessPoint,
   onSelectNearby,
+  onAddBlock,
+  onUpdateBlock,
+  onDeleteBlock,
+  onMoveBlock,
   hoveredStopId,
   focusDayId,
   flyTo,
 }: Props) {
   const { trip } = records;
+  const stopBlocks = selectedStop
+    ? blocksFor(records.blocks, 'stop', selectedStop.id)
+    : [];
   return (
     <div className="flex h-full flex-col">
       <div className="h-1/2 border-b border-slate-200">
@@ -77,6 +90,7 @@ export function RightPane({
           <StopInspector
             key={`${selectedStop.id}:${selectedStop.updated}`}
             stop={selectedStop}
+            blocks={stopBlocks}
             onUpdate={(patch) => onUpdateStop(selectedStop.id, patch)}
             onDelete={() => onDeleteStop(selectedStop.id)}
             onZoom={() =>
@@ -84,6 +98,12 @@ export function RightPane({
             }
             onPlaceAccessPoint={() => onPlaceAccessPoint(selectedStop.id)}
             onClearAccessPoint={() => onClearAccessPoint(selectedStop.id)}
+            onAddBlock={(kind) => onAddBlock(selectedStop.id, kind)}
+            onUpdateBlock={onUpdateBlock}
+            onDeleteBlock={onDeleteBlock}
+            onMoveBlock={(blockId, dir) =>
+              onMoveBlock(selectedStop.id, blockId, dir)
+            }
           />
         ) : selectedDay ? (
           <div className="text-sm text-slate-700">

@@ -28,6 +28,15 @@ import { addLinkBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
 import type { NearbyPoi } from '../lib/overpass';
 import type { PoisResponse } from '../types/pb';
+import {
+  addBlock,
+  updateBlock,
+  deleteBlock,
+  moveBlock,
+  blocksFor,
+  type BlockKind,
+  type BlockPatch,
+} from '../lib/pb-blocks';
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
 import { SearchPalette } from './SearchPalette';
@@ -528,6 +537,26 @@ export function TripEditor({
       ? (stops.find((s) => s.id === [...selectedStopIds][0]) ?? null)
       : null;
 
+  const blockHandlers = {
+    onAddBlock: (stopId: string, kind: BlockKind) =>
+      run(() =>
+        addBlock(
+          pb,
+          tripId,
+          stopId,
+          kind,
+          blocksFor(records.blocks, 'stop', stopId).length,
+        ),
+      ),
+    onUpdateBlock: (blockId: string, patch: BlockPatch) =>
+      run(() => updateBlock(pb, blockId, patch)),
+    onDeleteBlock: (blockId: string) => run(() => deleteBlock(pb, blockId)),
+    onMoveBlock: (stopId: string, blockId: string, dir: -1 | 1) =>
+      run(() =>
+        moveBlock(pb, blocksFor(records.blocks, 'stop', stopId), blockId, dir),
+      ),
+  };
+
   const rail = (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -671,6 +700,7 @@ export function TripEditor({
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
+            {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -701,6 +731,7 @@ export function TripEditor({
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
+            {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}

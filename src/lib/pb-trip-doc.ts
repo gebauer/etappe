@@ -23,6 +23,7 @@ import type {
   StopsResponse,
   LegsResponse,
   ActivitiesResponse,
+  BlocksResponse,
 } from '../types/pb';
 
 export interface TripRecords {
@@ -31,6 +32,7 @@ export interface TripRecords {
   stops: StopsResponse[];
   legs: LegsResponse[];
   activities: ActivitiesResponse[];
+  blocks: BlocksResponse[];
 }
 
 export function buildCascadeTrip(records: TripRecords): CascadeTrip {
@@ -112,7 +114,7 @@ export async function loadTripRecords(
   tripId: string,
 ): Promise<TripRecords> {
   const scope = pb.filter('day.trip = {:t}', { t: tripId });
-  const [trip, days, stops, legs, activities] = await Promise.all([
+  const [trip, days, stops, legs, activities, blocks] = await Promise.all([
     pb.collection('trips').getOne(tripId, { requestKey: null }),
     pb.collection('days').getFullList({
       filter: pb.filter('trip = {:t}', { t: tripId }),
@@ -133,6 +135,11 @@ export async function loadTripRecords(
       sort: 'order_index',
       requestKey: null,
     }),
+    pb.collection('blocks').getFullList({
+      filter: pb.filter('trip = {:t}', { t: tripId }),
+      sort: 'order_index',
+      requestKey: null,
+    }),
   ]);
-  return { trip, days, stops, legs, activities };
+  return { trip, days, stops, legs, activities, blocks };
 }

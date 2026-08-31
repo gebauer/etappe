@@ -76,6 +76,7 @@ const records: TripRecords = {
       kind: 'activity',
     } as unknown as ActivitiesResponse,
   ],
+  blocks: [],
 };
 
 describe('buildCascadeTrip', () => {
