@@ -6,8 +6,8 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phase 6 complete; 7.1 done; Highlights import (schema + importer) done;
-both Highlights follow-ups (wishlist-on-map, visual review) done.**
+**Phase 6 complete; 7.1 and 7.2 done; Highlights import (schema + importer)
+done; both Highlights follow-ups (wishlist-on-map, visual review) done.**
 Capture, ranked placement, wishlist, nearby, share target, merge-on-capture,
 the inspector block editor (note/link/photo with visibility, reorder,
 Markdown notes), and Highlights import — paste JSON → validate → preview →
@@ -22,20 +22,22 @@ description, links) instead of placing directly — Place/Reject live there;
 a map-pin click opens the same card. Fixed along the way: Highlights import
 only reloaded the wishlist list, not `records.blocks`, so a fresh import's
 photo/note/link blocks were invisible until the next full page load.
-**→ Next, in order:** no author instruction past this point — candidates are
-7.2 (photo pipeline: upload/thumbs/EXIF/Wikimedia attribution for *stops*,
-not just the wishlist preview), 7.3 (kind picker + uncategorized review), or
-8.2 (the full multi-day §8 import wizard). Also queued but bigger, in
-`ToDo.md`'s "Design direction": the unified pin-click card (generalizes
-`WishlistPreview` to stops and empty-map clicks) and the map-dominant
-layout that depends on it. Ask before picking one.
+Photo pipeline (7.2): upload with EXIF extraction, PocketBase thumbs, and
+Wikimedia Commons attribution — see the task entry below and the spec
+deviation note above (Wikimedia lookup runs off Nearby, not Photon).
+**→ Next, in order (per author 2026-08-31): 7.3** (kind picker +
+uncategorized review) — author-requested, next up. After that, no further
+instruction — candidates are 8.2 (the full multi-day §8 import wizard) or,
+bigger, `ToDo.md`'s "Design direction" (the unified pin-click card and the
+map-dominant layout that depends on it). Ask before picking one of those.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
 v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79` · 6.2 `36971fa` · 6.3 `677ebf1` · 6.4 `98f53ef` (map-markers split `2d02145`) · 6.5 `ad266d4` ·
 7.1 `d4ae836` · poi-blocks migration `a7a6d27` · Highlights schema `4adb15d` ·
 Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
-wishlist-on-map `811f909` · wishlist visual review `ec3fac3`.
+wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
+7.2 photo pipeline `4f4b91a`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -91,6 +93,12 @@ a leg route to a nearby road/car park instead of a POI's own coordinates when
 the POI itself isn't reachable by car — fixes legs that stayed manual forever
 with no way to heal them (see ToDo.md). A leg with no route geometry now draws
 a straight dashed connector instead of no line.
+BUILD §5 says the Wikimedia photo lookup triggers off a `wikidata` tag
+"returned by Photon" — the live Photon instance (photon.komoot.io) never
+actually returns one for any query tried (Gullfoss, Eiffel Tower, Statue of
+Liberty — spot-checked directly against the API). Only Overpass carries the
+tag (already used by Nearby, WORK 6.4), so 7.2's Wikimedia attribution is
+wired to the Nearby capture path instead of Photon search/paste/map-click.
 
 **Pending / not done**
 - **Release v0.1.0**: version bumped and pushed, but the git tag + GitHub
@@ -297,10 +305,13 @@ Reorder. Markdown rendering for notes. (Photo blocks reference a URL for now;
 upload/thumbs/EXIF/attribution is 7.2. Safe in-house Markdown subset in
 `src/lib/markdown.ts`, no new dependency.)
 
-**7.2 Photo pipeline** · Standard
-Upload, PocketBase thumbs, EXIF extraction into `lat`, `lon`, `taken_at`.
-Wikimedia lookup via the OSM `wikidata` tag, storing author, licence and source
-URL. Attribution rendered wherever the image appears.
+**7.2 Photo pipeline** · Standard · ✅ `4f4b91a`
+Upload (`BlockEditor`'s photo/file blocks), PocketBase thumbs (migration
+`1788000006`: `80x80`/`640x0` on `blocks.file`), EXIF extraction into `lat`,
+`lon`, `taken_at` (hand-rolled reader, `src/lib/exif.ts` — no new dependency,
+same call as `markdown.ts`). Wikimedia lookup storing author, licence and
+source URL — wired to Nearby's capture path, not Photon; see spec deviations
+below. Attribution renders in `BlockEditor` and `WishlistPreview`.
 
 **7.3 Kind picker and review screen** · Cheap
 Icon grid with type-to-filter. Uncategorized counter in the trip header opening
