@@ -6,16 +6,19 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phase 6 complete; 7.1 done; Highlights import (schema + importer) done.**
+**Phase 6 complete; 7.1 done; Highlights import (schema + importer) done;
+wishlist-on-map done.**
 Capture, ranked placement, wishlist, nearby, share target, merge-on-capture,
 the inspector block editor (note/link/photo with visibility, reorder,
 Markdown notes), and Highlights import — paste JSON → validate → preview →
 commit to the wishlist as `pois` (status `idea`) + note/link/photo blocks,
 geocoding each `place_hint` via Photon when coordinates are missing — all in.
 `blocks.parent_type` now also allows `poi` (migration `1788000005`).
-**→ Next, in order (per author 2026-08-31): (1) wishlist items on the map**
-(currently invisible there — MapPane never receives them, so "arrange
-highlights on a map" doesn't work yet), **(2) visual richness** — a thumbnail
+Wishlist `pois` now render on `MapPane` as their own pin layer (dark-stroked
+category-coloured circles, always on — not gated behind a toggle like
+Nearby); clicking one opens the same placement flow as the wishlist panel's
+row click.
+**→ Next, in order (per author 2026-08-31): visual richness** — a thumbnail
 per wishlist row and a way to preview a highlight's photos/description before
 placing or rejecting it (today it's just a title + Place/Reject, nothing to
 look at first).
@@ -27,7 +30,8 @@ Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
 v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79` · 6.2 `36971fa` · 6.3 `677ebf1` · 6.4 `98f53ef` (map-markers split `2d02145`) · 6.5 `ad266d4` ·
 7.1 `d4ae836` · poi-blocks migration `a7a6d27` · Highlights schema `4adb15d` ·
-Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce`.
+Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
+wishlist-on-map `811f909`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -311,10 +315,10 @@ no days — shipped as `src/lib/import-highlights.ts` `4adb15d`, with its
 importer + dialog as `8d11bd7`. This full multi-day §8 schema, and its
 wizard below, are still open.)
 
-**Highlights follow-up: wishlist on the map** · Cheap
-Wishlist `pois` never reach `MapPane` today — pass them through as a pin
-layer (reuse the Nearby ghost-pin styling) so imported/added highlights can
-actually be arranged spatially, the point of having a wishlist at all.
+**Highlights follow-up: wishlist on the map** · Cheap · ✅ `811f909`
+Wishlist `pois` now pass through to `MapPane` as their own pin layer (Nearby
+ghost-pin circle styling, dark stroke instead of white, always shown — not
+toggle-gated). Click opens the existing placement flow.
 
 **Highlights follow-up: visual review** · Standard
 A thumbnail (first photo block) per wishlist row, and a lightweight preview
