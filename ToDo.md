@@ -94,3 +94,36 @@ pick up before v1.
     whatever was hit"), `WishlistPanel`'s `onPlace` (currently calls
     `beginCapture` directly), and a new shared card component consumed by
     all three. Not started.
+
+- [ ] **Map-dominant layout** (2026-08-31, follow-on to the pin-click card
+      above — build that first, this needs it) — more reference screenshots
+      from a commercial itinerary app ("Jan In Iceland"): the map fills most
+      of the screen; the itinerary (today's `Timeline`) moves to a right
+      column, kept functionally as-is for now ("restyle later" — not a
+      rewrite, just relocated); the day rail's separate list goes away in
+      favour of a row of day pills docked at the top, which scroll the
+      itinerary column to that day's position rather than switching views
+      (`Timeline` already does `scrollIntoView` on day-select — this
+      relocates the trigger UI, it doesn't add new scroll logic); the
+      dedicated wishlist column goes away too — wishlist `pois` render
+      directly as pins on the map instead, with a small collapsible list in
+      the bottom-left corner as a fallback text/thumbnail view for when
+      hunting pins on a zoomed map isn't convenient. A bottom-of-map
+      horizontal "photo wheel" (a filmstrip of highlight cards, echoing the
+      pin-click card's photo carousel) was floated as a fancier alternative
+      to the collapsible list — explicitly undecided; build the plain
+      collapsible list first since it's cheap and well-understood, treat
+      the photo wheel as later polish, not a blocker.
+      **Resolved — no AI.** The reference has an "Ask AI" per-POI chat box;
+      CLAUDE.md is explicit that the app makes no LLM calls, ever. Doesn't
+      transfer, full stop.
+      **Resolved — wishlist-on-map clutter.** Initially flagged as risky
+      (echoes "too many POIs" — the original complaint that started the
+      Highlights work). Not actually the same problem: that complaint was
+      about **Nearby**'s raw Overpass results (every OSM-tagged POI in a
+      radius, dense in a city like Reykjavik). The wishlist is
+      hand-curated via the Highlights importer — on the order of 100 POIs
+      spread across a whole country reads fine on a map; no
+      clustering/zoom-gating needed the way Nearby already has its own
+      radius/toggle gating. Show wishlist pins on the map plainly.
+      Not started — bigger than the pin-click card, do that one first.
