@@ -12,13 +12,18 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SHOTS = path.join(HERE, 'screenshots');
 mkdirSync(SHOTS, { recursive: true });
+
+const HIGHLIGHTS_FIXTURE = readFileSync(
+  path.join(HERE, '..', '..', '..', 'fixtures', 'highlights-example.json'),
+  'utf8',
+);
 
 const BASE_URL = process.env.ETAPPE_URL ?? 'http://localhost:5173';
 const API_URL = process.env.ETAPPE_API_URL ?? 'http://127.0.0.1:8090';
@@ -134,17 +139,88 @@ async function main() {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.waitForTimeout(500);
 
+    const previewOpened = await page
+      .locator('text=Place on the itinerary')
+      .isVisible()
+      .catch(() => false);
+    console.log('preview card opened on wishlist-pin click:', previewOpened);
+    await shot(page, 'clicked-pin-preview');
+
+    if (!previewOpened) {
+      throw new Error(
+        'Clicking the map center did not open the wishlist preview card — ' +
+          'wishlist pin click handling is not wired up as expected.',
+      );
+    }
+
+    console.log('--- click "Place on the itinerary" in the preview ---');
+    await page.click('button:has-text("Place on the itinerary")');
+    await page.waitForTimeout(500);
+
     const pickerOpened = await page
       .locator('text=Ranked by added drive time')
       .isVisible()
       .catch(() => false);
-    console.log('placement picker opened on wishlist-pin click:', pickerOpened);
-    await shot(page, 'clicked-pin');
+    console.log('placement picker opened from preview:', pickerOpened);
+    await shot(page, 'placement-picker');
 
     if (!pickerOpened) {
       throw new Error(
-        'Clicking the map center did not open the placement picker — ' +
-          'wishlist pin click handling is not wired up as expected.',
+        'The preview\'s "Place on the itinerary" button did not open the ' +
+          'placement picker.',
+      );
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    console.log('--- import the Highlights fixture (has a photo block) ---');
+    await page.click('button:has-text("Import")');
+    await page.waitForSelector('textarea[placeholder*="version"]', {
+      timeout: 15000,
+    });
+    await page.fill('textarea[placeholder*="version"]', HIGHLIGHTS_FIXTURE);
+    await page.click('button:has-text("Validate")');
+    await page.waitForSelector('text=ready to import', { timeout: 15000 });
+    await page.click('button:has-text("Import 2")');
+    await page.waitForSelector('text=Imported 2 highlight', {
+      timeout: 20000,
+    });
+    await page.click('button:has-text("Done")').catch(() => {});
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    console.log('--- check for a row thumbnail (Gullfoss has a photo) ---');
+    const rowThumb = await page.locator('li:has-text("Gullfoss") img').count();
+    console.log('Gullfoss row has a thumbnail <img>:', rowThumb > 0);
+    await shot(page, 'wishlist-thumbnails');
+    if (rowThumb === 0) {
+      throw new Error('Gullfoss row has no thumbnail <img> after import.');
+    }
+
+    console.log('--- open the Gullfoss preview card ---');
+    await page.click('li:has-text("Gullfoss") button');
+    await page.waitForSelector('text=Place on the itinerary', {
+      timeout: 5000,
+    });
+    const previewHasPhoto =
+      (await page.locator('.fixed img[alt="Gullfoss in summer"]').count()) > 0;
+    const previewHasDescription = await page
+      .locator('text=Hvítá river')
+      .isVisible()
+      .catch(() => false);
+    const previewHasLink = await page
+      .locator('a:has-text("Official site")')
+      .isVisible()
+      .catch(() => false);
+    console.log('preview shows photo:', previewHasPhoto);
+    console.log('preview shows description:', previewHasDescription);
+    console.log('preview shows link:', previewHasLink);
+    await shot(page, 'wishlist-preview-card');
+
+    if (!previewHasPhoto || !previewHasDescription || !previewHasLink) {
+      throw new Error(
+        'Wishlist preview card is missing photo, description or link ' +
+          'content from the imported highlight.',
       );
     }
 

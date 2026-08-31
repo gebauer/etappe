@@ -1,23 +1,30 @@
-import type { PoisResponse } from '../types/pb';
+import { pb } from '../lib/pb';
+import { firstPhotoUrl } from '../lib/pb-blocks';
+import type { BlocksResponse, PoisResponse } from '../types/pb';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 
 interface Props {
   items: PoisResponse[];
+  blocks: BlocksResponse[];
   onAdd: () => void;
   onImport: () => void;
-  onPlace: (item: PoisResponse) => void;
+  onPreview: (item: PoisResponse) => void;
   onReject: (id: string) => void;
 }
 
 /** Left rail, below the day list (BUILD §9): captures without a slot land
- * here (`pois`, status "idea"). Placing one reuses the phase 6.3 ranked
- * picker rather than a bespoke drop target — it's a capture like any other,
- * just one that already has a name and coordinates. */
+ * here (`pois`, status "idea"). A row opens the read-only preview (WORK 8.1
+ * follow-up "visual review") rather than placing directly — Place/Reject
+ * live there now, so a look always comes before a commit. Placing still
+ * reuses the phase 6.3 ranked picker rather than a bespoke drop target —
+ * it's a capture like any other, just one that already has a name and
+ * coordinates. */
 export function WishlistPanel({
   items,
+  blocks,
   onAdd,
   onImport,
-  onPlace,
+  onPreview,
   onReject,
 }: Props) {
   return (
@@ -49,25 +56,34 @@ export function WishlistPanel({
           </li>
         )}
         {items.map((item) => {
-          const hasCoords = !!item.lat && !!item.lon;
+          const itemBlocks = blocks.filter(
+            (b) => b.parent_type === 'poi' && b.parent_id === item.id,
+          );
+          const thumb = firstPhotoUrl(pb, itemBlocks);
           return (
             <li
               key={item.id}
               className="group flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2"
             >
               <button
-                onClick={() => hasCoords && onPlace(item)}
-                disabled={!hasCoords}
-                title={
-                  hasCoords
-                    ? 'Place on the itinerary'
-                    : 'No coordinates yet — edit it to add some'
-                }
-                className="min-w-0 flex-1 truncate text-left text-sm text-slate-900 hover:underline disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
+                onClick={() => onPreview(item)}
+                title="Preview before placing or rejecting"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-slate-900 hover:underline"
               >
-                {item.title}
-                <span className="ml-1.5 text-xs text-slate-400">
-                  {TAXONOMY[item.kind as Kind]?.label ?? item.kind}
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt=""
+                    className="h-8 w-8 shrink-0 rounded object-cover"
+                  />
+                ) : (
+                  <span className="h-8 w-8 shrink-0 rounded bg-slate-100" />
+                )}
+                <span className="min-w-0 truncate">
+                  {item.title}
+                  <span className="ml-1.5 text-xs text-slate-400">
+                    {TAXONOMY[item.kind as Kind]?.label ?? item.kind}
+                  </span>
                 </span>
               </button>
               <span

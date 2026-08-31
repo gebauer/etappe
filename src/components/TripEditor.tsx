@@ -39,6 +39,7 @@ import {
 } from '../lib/pb-blocks';
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
+import { WishlistPreview } from './WishlistPreview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
 import { Timeline } from './Timeline';
@@ -90,6 +91,7 @@ export function TripEditor({
   );
   const [shareQuery, setShareQuery] = useState<string | null>(null);
   const [wishlist, setWishlist] = useState<PoisResponse[]>([]);
+  const [previewItem, setPreviewItem] = useState<PoisResponse | null>(null);
   const [placingAccessFor, setPlacingAccessFor] = useState<{
     id: string;
     title: string;
@@ -579,12 +581,13 @@ export function TripEditor({
       <div className="min-h-0 flex-1 overflow-hidden border-t border-slate-200">
         <WishlistPanel
           items={wishlist}
+          blocks={records?.blocks ?? []}
           onAdd={() => {
             setShareQuery(null);
             setSearchMode('wishlist');
           }}
           onImport={() => setShowHighlightsImport(true)}
-          onPlace={placeWishlistItem}
+          onPreview={setPreviewItem}
           onReject={rejectWishlist}
         />
       </div>
@@ -704,7 +707,7 @@ export function TripEditor({
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
-            onSelectWishlist={placeWishlistItem}
+            onSelectWishlist={setPreviewItem}
             {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
@@ -737,7 +740,7 @@ export function TripEditor({
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
-            onSelectWishlist={placeWishlistItem}
+            onSelectWishlist={setPreviewItem}
             {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
@@ -767,7 +770,10 @@ export function TripEditor({
         <HighlightsImportDialog
           tripId={tripId}
           onClose={() => setShowHighlightsImport(false)}
-          onImported={reloadWishlist}
+          onImported={() => {
+            reloadWishlist();
+            void reload();
+          }}
         />
       )}
       {pendingPlacement && records && (
@@ -786,6 +792,23 @@ export function TripEditor({
           onUseExisting={useExistingStop}
           onCreateNew={createSeparateStop}
           onCancel={() => setMergeCheck(null)}
+        />
+      )}
+      {previewItem && (
+        <WishlistPreview
+          item={previewItem}
+          blocks={
+            records ? blocksFor(records.blocks, 'poi', previewItem.id) : []
+          }
+          onPlace={() => {
+            placeWishlistItem(previewItem);
+            setPreviewItem(null);
+          }}
+          onReject={() => {
+            rejectWishlist(previewItem.id);
+            setPreviewItem(null);
+          }}
+          onClose={() => setPreviewItem(null)}
         />
       )}
     </div>

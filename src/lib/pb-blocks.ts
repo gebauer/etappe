@@ -28,6 +28,28 @@ export function blocksFor(
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 }
 
+/** Resolves a photo/file block to a displayable URL — an uploaded file
+ * (7.2's pipeline) takes priority; a plain external URL (import, paste) is
+ * the fallback everything uses today. */
+export function blockFileUrl(
+  pb: TypedPocketBase,
+  block: BlocksResponse,
+): string | null {
+  if (block.file) return pb.files.getURL(block, block.file);
+  if (block.url) return block.url;
+  return null;
+}
+
+/** The first photo block's displayable URL, for a row thumbnail — `null`
+ * when there isn't one, same "nothing to show" case as no blocks at all. */
+export function firstPhotoUrl(
+  pb: TypedPocketBase,
+  blocks: BlocksResponse[],
+): string | null {
+  const photo = blocks.find((b) => b.kind === 'photo');
+  return photo ? blockFileUrl(pb, photo) : null;
+}
+
 /** Append a new block to a stop, ordered after the ones already there. */
 export async function addBlock(
   pb: TypedPocketBase,

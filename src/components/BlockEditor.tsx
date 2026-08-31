@@ -2,7 +2,12 @@ import { type KeyboardEvent } from 'react';
 import { pb } from '../lib/pb';
 import { renderMarkdown } from '../lib/markdown';
 import type { BlocksResponse } from '../types/pb';
-import type { BlockKind, BlockPatch, BlockVisibility } from '../lib/pb-blocks';
+import {
+  blockFileUrl,
+  type BlockKind,
+  type BlockPatch,
+  type BlockVisibility,
+} from '../lib/pb-blocks';
 
 interface Props {
   blocks: BlocksResponse[];
@@ -16,12 +21,6 @@ const input = 'w-full rounded border border-slate-300 px-2 py-1 text-sm';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
-}
-
-function fileUrl(block: BlocksResponse): string | null {
-  if (block.file) return pb.files.getURL(block, block.file);
-  if (block.url) return block.url;
-  return null;
 }
 
 /** Note / link / photo / file blocks on a stop, with visibility, reorder and
@@ -183,7 +182,7 @@ function MediaBody({
   block: BlocksResponse;
   onUpdate: Props['onUpdate'];
 }) {
-  const src = fileUrl(block);
+  const src = blockFileUrl(pb, block);
   return (
     <div className="space-y-1">
       {!block.file && (
