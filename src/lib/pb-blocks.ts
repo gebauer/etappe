@@ -20,7 +20,7 @@ export type BlockPatch = Partial<{
 /** Blocks for one parent, in display order. */
 export function blocksFor(
   blocks: BlocksResponse[],
-  parentType: 'stop' | 'trip' | 'day' | 'leg',
+  parentType: 'stop' | 'trip' | 'day' | 'leg' | 'poi',
   parentId: string,
 ): BlocksResponse[] {
   return blocks

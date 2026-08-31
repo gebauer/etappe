@@ -126,6 +126,7 @@ export const BlocksParentTypeOptions = {
 	"day": "day",
 	"stop": "stop",
 	"leg": "leg",
+	"poi": "poi",
 } as const
 export type BlocksParentTypeOptions = typeof BlocksParentTypeOptions[keyof typeof BlocksParentTypeOptions]
 
