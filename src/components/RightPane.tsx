@@ -30,6 +30,7 @@ interface Props {
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (stopId: string, blockId: string, dir: -1 | 1) => void;
+  onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
@@ -60,6 +61,7 @@ export function RightPane({
   onUpdateBlock,
   onDeleteBlock,
   onMoveBlock,
+  onUploadBlockFile,
   hoveredStopId,
   focusDayId,
   flyTo,
@@ -110,6 +112,7 @@ export function RightPane({
             onMoveBlock={(blockId, dir) =>
               onMoveBlock(selectedStop.id, blockId, dir)
             }
+            onUploadBlockFile={onUploadBlockFile}
           />
         ) : selectedDay ? (
           <div className="text-sm text-slate-700">

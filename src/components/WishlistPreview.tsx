@@ -31,7 +31,7 @@ export function WishlistPreview({
   const [activePhoto, setActivePhoto] = useState(0);
   const hasCoords = !!item.lat && !!item.lon;
   const main = photos[activePhoto];
-  const mainSrc = main ? blockFileUrl(pb, main) : null;
+  const mainSrc = main ? blockFileUrl(pb, main, '640x0') : null;
 
   return (
     <div
@@ -52,7 +52,7 @@ export function WishlistPreview({
         {photos.length > 1 && (
           <div className="flex gap-1 overflow-x-auto border-b border-slate-100 p-2">
             {photos.map((p, i) => {
-              const thumb = blockFileUrl(pb, p);
+              const thumb = blockFileUrl(pb, p, '80x80');
               if (!thumb) return null;
               return (
                 <button

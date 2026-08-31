@@ -24,7 +24,7 @@ import {
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
-import { addLinkBlock } from '../lib/pb-capture';
+import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
 import type { NearbyPoi } from '../lib/overpass';
 import type { PoisResponse } from '../types/pb';
@@ -34,6 +34,7 @@ import {
   deleteBlock,
   moveBlock,
   blocksFor,
+  uploadBlockPhoto,
   type BlockKind,
   type BlockPatch,
 } from '../lib/pb-blocks';
@@ -53,11 +54,14 @@ import type { StopsResponse } from '../types/pb';
 /** What every capture path (search, paste, map click, wishlist promotion,
  * nearby) ends up as before it's ranked (WORK 6.3) or merge-checked
  * (WORK 6.5). wishlistId is set only when promoting a wishlist item, so its
- * source can be marked scheduled once the capture resolves. */
+ * source can be marked scheduled once the capture resolves. wikidataId is
+ * set only by Nearby (Overpass carries the tag; Photon doesn't — see
+ * wikimedia.ts), and drives an auto-attached Commons photo block (WORK 7.2). */
 type CaptureCandidate = PlacementCandidate & {
   kind: string;
   sourceUrl?: string;
   wishlistId?: string;
+  wikidataId?: string;
 };
 
 export function TripEditor({
@@ -292,6 +296,16 @@ export function TripEditor({
           candidate.name,
         );
       }
+      // A Nearby capture's wikidata tag resolves to a Commons cover photo,
+      // attributed, on the new stop (WORK 7.2).
+      if (candidate.wikidataId) {
+        await createWikimediaPhotoBlock(
+          pb,
+          tripId,
+          stopId,
+          candidate.wikidataId,
+        );
+      }
       if (candidate.wishlistId) {
         await markWishlistScheduled(pb, candidate.wishlistId);
         reloadWishlist();
@@ -340,6 +354,7 @@ export function TripEditor({
       kind: poi.kind,
       lat: poi.lat,
       lon: poi.lon,
+      wikidataId: poi.wikidataId,
     });
   }
 
@@ -353,7 +368,13 @@ export function TripEditor({
     setMergeCheck(null);
     if (!check) return;
     setSelectedStopIds(new Set([check.existingStop.id]));
-    if (!check.candidate.sourceUrl && !check.candidate.wishlistId) return;
+    if (
+      !check.candidate.sourceUrl &&
+      !check.candidate.wishlistId &&
+      !check.candidate.wikidataId
+    ) {
+      return;
+    }
     void run(async () => {
       if (check.candidate.sourceUrl) {
         await addLinkBlock(
@@ -362,6 +383,14 @@ export function TripEditor({
           check.existingStop.id,
           check.candidate.sourceUrl,
           check.candidate.name,
+        );
+      }
+      if (check.candidate.wikidataId) {
+        await createWikimediaPhotoBlock(
+          pb,
+          tripId,
+          check.existingStop.id,
+          check.candidate.wikidataId,
         );
       }
       if (check.candidate.wishlistId) {
@@ -559,6 +588,8 @@ export function TripEditor({
       run(() =>
         moveBlock(pb, blocksFor(records.blocks, 'stop', stopId), blockId, dir),
       ),
+    onUploadBlockFile: (blockId: string, file: File) =>
+      run(() => uploadBlockPhoto(pb, blockId, file)),
   };
 
   const rail = (

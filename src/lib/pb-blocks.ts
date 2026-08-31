@@ -1,11 +1,13 @@
 /**
- * Block mutations for the inspector's block editor (WORK 7.1). Blocks are
- * note / link / photo / file rows hanging off a stop (or, later, a wishlist
- * POI), each with a three-level visibility. Photo upload and attribution are
- * the phase 7.2 pipeline; here a photo block just references a URL.
+ * Block mutations for the inspector's block editor (WORK 7.1/7.2). Blocks
+ * are note / link / photo / file rows hanging off a stop (or a wishlist
+ * POI), each with a three-level visibility. Photo upload, EXIF extraction
+ * and Wikimedia attribution are the phase 7.2 pipeline (BUILD §2's "populate
+ * these from day one").
  */
 
 import type { TypedPocketBase, BlocksResponse } from '../types/pb';
+import { extractExif } from './exif';
 
 export type BlockKind = 'note' | 'link' | 'photo' | 'file';
 export type BlockVisibility = 'private' | 'trip' | 'public';
@@ -30,12 +32,15 @@ export function blocksFor(
 
 /** Resolves a photo/file block to a displayable URL — an uploaded file
  * (7.2's pipeline) takes priority; a plain external URL (import, paste) is
- * the fallback everything uses today. */
+ * the fallback everything uses today. `thumb` requests one of the sizes set
+ * on `blocks.file` (migration `1788000006`) — ignored for a non-image file
+ * and for a plain `url`-only block, both of which just return the original. */
 export function blockFileUrl(
   pb: TypedPocketBase,
   block: BlocksResponse,
+  thumb?: '80x80' | '640x0',
 ): string | null {
-  if (block.file) return pb.files.getURL(block, block.file);
+  if (block.file) return pb.files.getURL(block, block.file, { thumb });
   if (block.url) return block.url;
   return null;
 }
@@ -47,7 +52,26 @@ export function firstPhotoUrl(
   blocks: BlocksResponse[],
 ): string | null {
   const photo = blocks.find((b) => b.kind === 'photo');
-  return photo ? blockFileUrl(pb, photo) : null;
+  return photo ? blockFileUrl(pb, photo, '80x80') : null;
+}
+
+/** Uploads a photo/file block's file, extracting EXIF GPS/date first (BUILD
+ * §2: "photo and file blocks carry lat, lon, taken_at from EXIF on upload")
+ * and sending both in the one request. EXIF failure (a non-JPEG, or a JPEG
+ * with no GPS/date tags) is the common case, not an error — extractExif
+ * itself never throws, so the upload always proceeds with whatever it found. */
+export async function uploadBlockPhoto(
+  pb: TypedPocketBase,
+  blockId: string,
+  file: File,
+): Promise<void> {
+  const exif = extractExif(await file.arrayBuffer());
+  const form = new FormData();
+  form.append('file', file);
+  if (exif.lat !== undefined) form.append('lat', String(exif.lat));
+  if (exif.lon !== undefined) form.append('lon', String(exif.lon));
+  if (exif.takenAt) form.append('taken_at', exif.takenAt);
+  await pb.collection('blocks').update(blockId, form);
 }
 
 /** Append a new block to a stop, ordered after the ones already there. */

@@ -27,6 +27,7 @@ export function StopInspector({
   onUpdateBlock,
   onDeleteBlock,
   onMoveBlock,
+  onUploadBlockFile,
 }: {
   stop: StopsResponse;
   blocks: BlocksResponse[];
@@ -39,6 +40,7 @@ export function StopInspector({
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (blockId: string, dir: -1 | 1) => void;
+  onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
 }) {
   const hasCoords = !!stop.lat && !!stop.lon;
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
@@ -207,6 +209,7 @@ export function StopInspector({
           onUpdate={onUpdateBlock}
           onDelete={onDeleteBlock}
           onMove={onMoveBlock}
+          onUploadFile={onUploadBlockFile}
         />
       </div>
 

@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { pb } from '../lib/pb';
 import { renderMarkdown } from '../lib/markdown';
 import type { BlocksResponse } from '../types/pb';
@@ -15,6 +15,7 @@ interface Props {
   onUpdate: (blockId: string, patch: BlockPatch) => void;
   onDelete: (blockId: string) => void;
   onMove: (blockId: string, dir: -1 | 1) => void;
+  onUploadFile: (blockId: string, file: File) => Promise<void>;
 }
 
 const input = 'w-full rounded border border-slate-300 px-2 py-1 text-sm';
@@ -23,15 +24,18 @@ function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
 }
 
-/** Note / link / photo / file blocks on a stop, with visibility, reorder and
- * Markdown-rendered notes (WORK 7.1). Photo upload is 7.2; here a photo block
- * points at a URL. Inputs are uncontrolled, keyed by id+updated upstream. */
+/** Note / link / photo / file blocks on a stop, with visibility, reorder,
+ * Markdown-rendered notes (WORK 7.1), and photo upload with EXIF extraction
+ * (WORK 7.2) — a URL is still accepted as a fallback for a block that isn't
+ * an upload (import, paste). Inputs are uncontrolled, keyed by id+updated
+ * upstream. */
 export function BlockEditor({
   blocks,
   onAdd,
   onUpdate,
   onDelete,
   onMove,
+  onUploadFile,
 }: Props) {
   return (
     <div className="space-y-2">
@@ -95,7 +99,11 @@ export function BlockEditor({
             <LinkBody block={block} onUpdate={onUpdate} />
           )}
           {(block.kind === 'photo' || block.kind === 'file') && (
-            <MediaBody block={block} onUpdate={onUpdate} />
+            <MediaBody
+              block={block}
+              onUpdate={onUpdate}
+              onUploadFile={onUploadFile}
+            />
           )}
         </div>
       ))}
@@ -178,24 +186,51 @@ function LinkBody({
 function MediaBody({
   block,
   onUpdate,
+  onUploadFile,
 }: {
   block: BlocksResponse;
   onUpdate: Props['onUpdate'];
+  onUploadFile: Props['onUploadFile'];
 }) {
-  const src = blockFileUrl(pb, block);
+  const src = blockFileUrl(pb, block, '640x0');
+  const [uploading, setUploading] = useState(false);
+
+  // onUploadFile funnels through TripEditor's run(), which already surfaces
+  // a failure via the shared action-error banner — this only tracks the
+  // in-flight state for the "Uploading…" hint below.
+  function handleFile(f: File | undefined) {
+    if (!f) return;
+    setUploading(true);
+    void onUploadFile(block.id, f).finally(() => setUploading(false));
+  }
+
   return (
     <div className="space-y-1">
       {!block.file && (
-        <input
-          defaultValue={block.url}
-          onBlur={(e) => {
-            if (e.target.value !== block.url)
-              onUpdate(block.id, { url: e.target.value });
-          }}
-          onKeyDown={commitOnEnter}
-          placeholder="Image URL (upload arrives in 7.2)"
-          className={input}
-        />
+        <>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={uploading}
+            onChange={(e) => handleFile(e.target.files?.[0])}
+            className="block text-xs text-slate-600"
+          />
+          {uploading && (
+            <p className="text-xs text-slate-400">
+              Uploading — reading EXIF, then sending…
+            </p>
+          )}
+          <input
+            defaultValue={block.url}
+            onBlur={(e) => {
+              if (e.target.value !== block.url)
+                onUpdate(block.id, { url: e.target.value });
+            }}
+            onKeyDown={commitOnEnter}
+            placeholder="…or an image URL instead of uploading"
+            className={input}
+          />
+        </>
       )}
       <input
         defaultValue={block.title}
@@ -218,6 +253,17 @@ function MediaBody({
         <p className="text-[10px] text-slate-400">
           © {block.attribution_author}
           {block.attribution_licence ? ` · ${block.attribution_licence}` : ''}
+        </p>
+      )}
+      {(!!block.lat || block.taken_at) && (
+        <p className="text-[10px] text-slate-400">
+          {block.lat
+            ? `📍 ${block.lat.toFixed(5)}, ${block.lon.toFixed(5)}`
+            : ''}
+          {block.lat && block.taken_at ? ' · ' : ''}
+          {block.taken_at
+            ? `🕘 ${block.taken_at.slice(0, 19).replace('T', ' ')}`
+            : ''}
         </p>
       )}
     </div>
