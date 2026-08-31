@@ -6,17 +6,24 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-08-31
 
-**Phase 6 complete; 7.1 done.** Capture, ranked placement, wishlist, nearby,
-share target, merge-on-capture, and the inspector block editor (note/link/photo
-with visibility, reorder, Markdown notes) all in.
-**→ Next: 8.1 import schema + prompt (extended with photos/description), toward
-the Highlights import.** (7.1 was pulled ahead of 7.2/8 as the foundation for
-rich POI content; 7.2 photo pipeline and 7.3 kind picker still to do.)
+**Phase 6 complete; 7.1 done; Highlights import schema (8.1 slice) done.**
+Capture, ranked placement, wishlist, nearby, share target, merge-on-capture,
+the inspector block editor (note/link/photo with visibility, reorder,
+Markdown notes), and `src/lib/import-highlights.ts` (Zod schema + prompt
+template for a flat list of POI highlights — description/notes/links/photos,
+no day/anchor position) all in. `blocks.parent_type` now also allows `poi`
+(migration `1788000005`) so a promoted highlight can carry its blocks over.
+**→ Next: the Highlights importer** — validate → geocode each `place_hint` via
+Photon → create `pois` rows (status `idea`) + note/link/photo blocks — and an
+import screen (paste box + the prompt template + Zod errors + preview).
+(7.1 was pulled ahead of 7.2/8 as the foundation for rich POI content; 7.2
+photo pipeline, 7.3 kind picker, and the full multi-day §8 import/8.2 wizard
+are separate, still-open work — not what Highlights needs.)
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
 v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 `b6336e6` · 3.2 `3e2ce85` · 4.1 `f4145de` · 4.2 `51c5769` (checked #2) · 4.3 `c5cd6c6` · 4.4 `1000459` · 5.1 `514d410` · 5.2 `cc5e5ea` · 5.3 `8a7653f` · 5.4 `f0478c4` · 6.1 `4e18a79` · 6.2 `36971fa` · 6.3 `677ebf1` · 6.4 `98f53ef` (map-markers split `2d02145`) · 6.5 `ad266d4` ·
-7.1 `d4ae836`.
+7.1 `d4ae836` · poi-blocks migration `a7a6d27` · Highlights schema `4adb15d`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -295,6 +302,9 @@ a list of just those stops with the grid inline.
 BUILD §8. Enum-constrained kinds, optional coordinates, `HH:MM` times, day
 indices. The prompt template shipped on the import screen. Export writes the
 same format — round-trip test.
+(A separate, lighter schema for the Highlights goal — a flat list of POIs,
+no days — shipped as `src/lib/import-highlights.ts` `4adb15d`. This full
+multi-day §8 schema, and its wizard below, are still open.)
 
 **8.2 Wizard** · Standard
 Paste → validate with readable per-field errors → geocode with map confirmation
