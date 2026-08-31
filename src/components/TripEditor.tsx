@@ -40,6 +40,7 @@ import {
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
 import { SearchPalette } from './SearchPalette';
+import { HighlightsImportDialog } from './HighlightsImportDialog';
 import { Timeline } from './Timeline';
 import { RightPane } from './RightPane';
 import { Drawer } from './Drawer';
@@ -83,6 +84,7 @@ export function TripEditor({
   } | null>(null);
   const [showRail, setShowRail] = useState(false);
   const [showRight, setShowRight] = useState(false);
+  const [showHighlightsImport, setShowHighlightsImport] = useState(false);
   const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
     null,
   );
@@ -581,6 +583,7 @@ export function TripEditor({
             setShareQuery(null);
             setSearchMode('wishlist');
           }}
+          onImport={() => setShowHighlightsImport(true)}
           onPlace={placeWishlistItem}
           onReject={rejectWishlist}
         />
@@ -754,6 +757,13 @@ export function TripEditor({
             setSearchMode(null);
             setShareQuery(null);
           }}
+        />
+      )}
+      {showHighlightsImport && (
+        <HighlightsImportDialog
+          tripId={tripId}
+          onClose={() => setShowHighlightsImport(false)}
+          onImported={reloadWishlist}
         />
       )}
       {pendingPlacement && records && (

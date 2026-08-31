@@ -4,6 +4,7 @@ import { TAXONOMY, type Kind } from '../lib/taxonomy';
 interface Props {
   items: PoisResponse[];
   onAdd: () => void;
+  onImport: () => void;
   onPlace: (item: PoisResponse) => void;
   onReject: (id: string) => void;
 }
@@ -12,19 +13,34 @@ interface Props {
  * here (`pois`, status "idea"). Placing one reuses the phase 6.3 ranked
  * picker rather than a bespoke drop target — it's a capture like any other,
  * just one that already has a name and coordinates. */
-export function WishlistPanel({ items, onAdd, onPlace, onReject }: Props) {
+export function WishlistPanel({
+  items,
+  onAdd,
+  onImport,
+  onPlace,
+  onReject,
+}: Props) {
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Wishlist
         </span>
-        <button
-          onClick={onAdd}
-          className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white"
-        >
-          + Idea
-        </button>
+        <div className="flex gap-1">
+          <button
+            onClick={onImport}
+            title="Import highlights from pasted JSON"
+            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            Import
+          </button>
+          <button
+            onClick={onAdd}
+            className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white"
+          >
+            + Idea
+          </button>
+        </div>
       </div>
       <ul className="flex-1 overflow-y-auto">
         {items.length === 0 && (
