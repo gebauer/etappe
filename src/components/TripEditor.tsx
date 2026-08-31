@@ -41,6 +41,7 @@ import {
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
 import { WishlistPreview } from './WishlistPreview';
+import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
 import { Timeline } from './Timeline';
@@ -96,6 +97,8 @@ export function TripEditor({
   const [shareQuery, setShareQuery] = useState<string | null>(null);
   const [wishlist, setWishlist] = useState<PoisResponse[]>([]);
   const [previewItem, setPreviewItem] = useState<PoisResponse | null>(null);
+  const [kindPickerSignal, setKindPickerSignal] = useState(0);
+  const [showUncategorized, setShowUncategorized] = useState(false);
   const [placingAccessFor, setPlacingAccessFor] = useState<{
     id: string;
     title: string;
@@ -542,6 +545,19 @@ export function TripEditor({
           insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
         ));
       if (e.key === 'n') return void (e.preventDefault(), doAddStopToFocus());
+      // BUILD §7: "k opens an icon grid" for the one selected stop. Recomputed
+      // here rather than closing over the render's `selectedStop` — that const
+      // is declared after this component's early "loading" return, so a
+      // closure created during a records-not-yet-loaded render would capture
+      // a never-initialized binding.
+      if (e.key === 'k' && records) {
+        const ids = [...selectedStopIds];
+        const stop =
+          ids.length === 1 ? records.stops.find((s) => s.id === ids[0]) : null;
+        if (stop) {
+          return void (e.preventDefault(), setKindPickerSignal((n) => n + 1));
+        }
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -677,6 +693,7 @@ export function TripEditor({
           selectedStopIds={selectedStopIds}
           onSelectStop={toggleSelect}
           onOpenSearch={() => setSearchMode('placement')}
+          onOpenUncategorized={() => setShowUncategorized(true)}
           scrollToDayId={selectedDayId}
           scrollToStopId={
             selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
@@ -740,6 +757,7 @@ export function TripEditor({
             wishlist={wishlist}
             onSelectWishlist={setPreviewItem}
             {...blockHandlers}
+            openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -773,6 +791,7 @@ export function TripEditor({
             wishlist={wishlist}
             onSelectWishlist={setPreviewItem}
             {...blockHandlers}
+            openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
             flyTo={flyTo}
@@ -840,6 +859,19 @@ export function TripEditor({
             setPreviewItem(null);
           }}
           onClose={() => setPreviewItem(null)}
+        />
+      )}
+      {showUncategorized && records && (
+        <UncategorizedReview
+          stops={records.stops.filter((s) => s.kind === 'uncategorized')}
+          onUpdateKind={(stopId, kind) =>
+            run(() => updateStop(pb, stopId, { kind, kind_confirmed: true }))
+          }
+          onSelectStop={(id) => {
+            setSelectedStopIds(new Set([id]));
+            setShowUncategorized(false);
+          }}
+          onClose={() => setShowUncategorized(false)}
         />
       )}
     </div>

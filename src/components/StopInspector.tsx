@@ -1,9 +1,11 @@
-import { type KeyboardEvent } from 'react';
-import { KINDS, TAXONOMY } from '../lib/taxonomy';
+import { useEffect, useState, type KeyboardEvent } from 'react';
+import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import type { StopsResponse, BlocksResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import type { BlockKind, BlockPatch } from '../lib/pb-blocks';
 import { BlockEditor } from './BlockEditor';
+import { KindIcon } from './KindIcon';
+import { KindPicker } from './KindPicker';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
@@ -28,6 +30,7 @@ export function StopInspector({
   onDeleteBlock,
   onMoveBlock,
   onUploadBlockFile,
+  openKindPickerSignal,
 }: {
   stop: StopsResponse;
   blocks: BlocksResponse[];
@@ -41,9 +44,18 @@ export function StopInspector({
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (blockId: string, dir: -1 | 1) => void;
   onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
+  /** Bumped by TripEditor's bare `k` shortcut (BUILD §7) to open the kind
+   * picker for whichever stop is selected — a changing number, not a
+   * boolean, since the same "open" request can fire again while already
+   * open. 0/undefined never opens (falsy on first render). */
+  openKindPickerSignal?: number;
 }) {
   const hasCoords = !!stop.lat && !!stop.lon;
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
+  const [kindPickerOpen, setKindPickerOpen] = useState(false);
+  useEffect(() => {
+    if (openKindPickerSignal) setKindPickerOpen(true);
+  }, [openKindPickerSignal]);
   return (
     <div className="space-y-3">
       <label>
@@ -59,30 +71,36 @@ export function StopInspector({
         />
       </label>
 
-      <label>
+      <div>
         <span className={label}>Kind</span>
-        <select
-          defaultValue={stop.kind}
-          onChange={(e) =>
-            onUpdate({
-              kind: e.target.value as StopPatch['kind'],
-              kind_confirmed: true,
-            })
-          }
-          className={field}
+        <button
+          type="button"
+          onClick={() => setKindPickerOpen((v) => !v)}
+          title="Change kind (k)"
+          className={`${field} flex items-center gap-2 text-left`}
         >
-          {KINDS.map((k) => (
-            <option key={k} value={k}>
-              {TAXONOMY[k].label}
-            </option>
-          ))}
-        </select>
+          <KindIcon kind={stop.kind as Kind} />
+          {TAXONOMY[stop.kind as Kind]?.label ?? stop.kind}
+        </button>
         {!stop.kind_confirmed && (
           <span className="text-xs text-amber-600">
             auto-detected — confirm?
           </span>
         )}
-      </label>
+        {kindPickerOpen && (
+          <div className="mt-1 rounded border border-slate-300 bg-white p-2 shadow-sm">
+            <KindPicker
+              value={stop.kind as Kind}
+              autoFocus
+              onEscape={() => setKindPickerOpen(false)}
+              onChange={(kind) => {
+                onUpdate({ kind, kind_confirmed: true });
+                setKindPickerOpen(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="flex items-end gap-2">
         <label className="flex-1">

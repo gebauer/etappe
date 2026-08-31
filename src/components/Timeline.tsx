@@ -33,6 +33,7 @@ interface Props {
   selectedStopIds: Set<string>;
   onSelectStop: (stopId: string, additive: boolean) => void;
   onOpenSearch: () => void;
+  onOpenUncategorized: () => void;
   scrollToDayId: string | null;
   scrollToStopId: string | null;
   hoveredStopId: string | null;
@@ -57,6 +58,7 @@ export function Timeline({
   selectedStopIds,
   onSelectStop,
   onOpenSearch,
+  onOpenUncategorized,
   scrollToDayId,
   scrollToStopId,
   hoveredStopId,
@@ -64,6 +66,12 @@ export function Timeline({
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // BUILD §7: "the trip header shows an uncategorized counter" — real kind
+  // uncategorized specifically, not kind_confirmed (a separate "auto-
+  // detected, please glance at this" flag shown per-row in the inspector).
+  const uncategorizedCount = stops.filter(
+    (s) => s.kind === 'uncategorized',
+  ).length;
 
   useEffect(() => {
     if (!scrollToDayId || !scrollRef.current) return;
@@ -112,6 +120,15 @@ export function Timeline({
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
           {trip.title}
         </h1>
+        {uncategorizedCount > 0 && (
+          <button
+            onClick={onOpenUncategorized}
+            title="Review and give these stops a kind"
+            className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100"
+          >
+            ⚠ {uncategorizedCount} uncategorized
+          </button>
+        )}
         <button
           onClick={onOpenSearch}
           className="rounded border border-slate-300 px-2 py-1 text-xs"
@@ -122,7 +139,7 @@ export function Timeline({
         <span
           className="hidden cursor-help text-xs text-slate-400 min-[900px]:inline"
           title={
-            'Keyboard:\nn  new stop\nd  new day\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nDel  delete selected stop(s)\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
+            'Keyboard:\nn  new stop\nd  new day\nk  change kind (selected stop)\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nDel  delete selected stop(s)\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
           }
         >
           ⌨

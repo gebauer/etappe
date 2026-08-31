@@ -31,6 +31,7 @@ interface Props {
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (stopId: string, blockId: string, dir: -1 | 1) => void;
   onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
+  openKindPickerSignal?: number;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
   flyTo?: { lat: number; lon: number; nonce: number } | null;
@@ -62,6 +63,7 @@ export function RightPane({
   onDeleteBlock,
   onMoveBlock,
   onUploadBlockFile,
+  openKindPickerSignal,
   hoveredStopId,
   focusDayId,
   flyTo,
@@ -113,6 +115,7 @@ export function RightPane({
               onMoveBlock(selectedStop.id, blockId, dir)
             }
             onUploadBlockFile={onUploadBlockFile}
+            openKindPickerSignal={openKindPickerSignal}
           />
         ) : selectedDay ? (
           <div className="text-sm text-slate-700">
