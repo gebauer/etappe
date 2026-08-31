@@ -528,6 +528,7 @@ export function TripEditor({
         return setPendingPlacement(null);
       if (e.key === 'Escape' && placingAccessFor)
         return setPlacingAccessFor(null);
+      if (e.key === 'Escape' && previewItem) return setPreviewItem(null);
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
       if (e.key === 'Delete' || e.key === 'Backspace')
         return void (e.preventDefault(), deleteSelected());
@@ -569,6 +570,7 @@ export function TripEditor({
     placingAccessFor,
     pendingPlacement,
     mergeCheck,
+    previewItem,
   ]);
 
   if (!records) {
