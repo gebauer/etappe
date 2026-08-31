@@ -104,11 +104,48 @@ Action bar **by what was clicked** — one component, three action sets:
 
 | Source | Actions |
 |---|---|
-| Existing stop pin | `Edit` (ghost; becomes primary `Done` while expanded) · `Remove` (right-aligned) |
+| Existing stop pin | `Edit` (ghost; becomes primary `Done` while expanded) · `All details` (ghost) · `Remove` (right-aligned) |
 | Wishlist pin | `Add to itinerary` (primary) · `Reject` (right-aligned) |
 | Empty map click | `+ Wishlist` (primary) · `+ Day` (ghost) · `Dismiss` (right-aligned) |
 
 `Add to itinerary` leads to the existing ranked placement picker one step later. `Remove` must gain the delete confirmation flagged in the notes — the prototype does not show it.
+
+#### Expanded card — full inspector parity (desktop)
+
+Three tiers of depth, not two. The docked card is the everyday surface; the inline edit region covers the fields touched most while planning; the **expanded card** is where the retiring inspector's remaining fields land. Opened with `All details` from a stop card's action bar; `Done`, `✕` or selecting another pin closes it.
+
+This is what answers "where do the inspector's other fields go in 12.5". **Nothing from the inspector is dropped** — the fields simply stratify by how often they are touched:
+
+| Field | Tier | Why |
+|---|---|---|
+| Title, kind, dwell, anchor, type | inline edit region | adjusted constantly while planning |
+| Access point | inline + expanded | needs the map, so it appears wherever editing happens |
+| Blocks (note/link/photo/file) | inline + expanded | |
+| **is-accommodation** | **expanded, top of the pane** | load-bearing but set once per day |
+| **Address** | expanded, Place group | set at capture, rarely edited |
+| **Raw lat/lon** | expanded, Place group | correction path, not a planning control |
+
+Layout — a centered modal over a `oklch(0.12 0.015 250 / 0.72)` scrim with `blur(4px)`. Panel `width:min(1120px,100%)`, `height:min(700px,100%)`, `radius:16px`, border `1px solid oklch(0.31 0.012 250)`, shadow `0 30px 80px oklch(0.08 0.02 250 / 0.6)`. Two panes:
+
+- **Left, `flex:0 0 46%`** — the photo, full-bleed, `border-right:1px solid oklch(0.28 0.012 250)`. Bottom-left carries two glass chips: a mono carousel counter (`1 / 3`) and the attribution credit. This is the pane that earns the expanded size; the docked card's 158px header can only show one photo, this one is the carousel.
+- **Right, fluid** — header / scrolling body / action bar.
+  - Header, `padding:20px 22px 14px`, bottom border: title 24px/600 `letter-spacing:-0.015em`, subtitle 13px `oklch(0.68 0.01 250)`, 32px circular close at right.
+  - Body, `padding:18px 22px 22px`, scrolls.
+  - Action bar, `padding:12px 22px`, `oklch(0.205 0.012 250)`: `Done` (accent primary) · `Move to day…` (ghost) · `Remove` right-aligned in danger styling — border `oklch(0.45 0.10 25)`, text `oklch(0.78 0.11 25)`.
+
+Body contents, in order:
+
+1. **Computed strip** — same three-cell box as the docked card, at 18px mono, but the third cell is Daylight rather than Dwell (dwell is editable just below, so showing it twice is noise). Daylight value renders in `oklch(0.86 0.07 90)`.
+2. **Accommodation toggle** — the first editable thing in the pane, and the only one given its own panel: `padding:13px 15px`, `radius:11px`, border `1px solid oklch(0.42 0.09 80)`, background `oklch(0.24 0.04 80)` — the same amber family as the NO_ACCOMMODATION banner in the itinerary column, so the cause and the warning read as one thing. Title is the neutral noun `Accommodation` at 13.5px/600 `oklch(0.92 0.05 85)` — the switch alone carries the state, never the label. Beneath it a 12px `oklch(0.80 0.05 85)` line that changes with the switch: off reads "Turn on if the day ends here — this is what clears the day's NO_ACCOMMODATION warning", on reads "The day ends here. Clears the day's NO_ACCOMMODATION warning." Switch is 48×28, `radius:14px`, 22px white knob; on = `oklch(0.78 0.13 80)`, off = `oklch(0.32 0.012 250)`.
+   - Toggling it must re-run the cascade and update the itinerary column's warning banner live — that feedback loop is the whole argument for putting the toggle here rather than in a settings sheet.
+3. **Place** group (uppercase 10.5px section label): Title (full width) · Address (full width, 13px) · Latitude · Longitude side by side in mono 13.5px · then the Access point panel (`oklch(0.20 0.012 250)`, `Set on map` button). All fields 38px, `radius:9px`.
+   - Lat/lon are an editable correction path. Editing either must move the marker and re-route the adjacent legs; conversely, dragging the marker writes back into these fields. They are not display-only.
+4. **Timing** group: Kind (opens the kind picker) · Dwell (min, mono) · Anchor (mono), three equal columns.
+5. **Blocks** group: section label with a right-aligned mono count and visibility summary (`3 · visibility: trip`), the description paragraph, then the four dashed `+ Note / + Link / + Photo / + File` buttons at 34px.
+
+**Phone**: `All details` is not offered. The phone strip keeps its inline 44px-target edit form, which covers the planning fields; accommodation, address and coordinates are desktop-set values and the phone is read-mostly by design. If they do need to be reachable on phone, the expanded card should become a full-screen push view rather than a modal — not built.
+
+**Prototype note**: the reference screenshot this borrows its two-pane shape from also carried an Ask-AI box and creator attribution. Neither transfers — constraint 1 below is absolute, and there is no creator layer in Etappe.
 
 #### Itinerary column (right, 400px)
 
@@ -169,7 +206,8 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 The prototype needs four pieces of local UI state. None of it belongs in the trip document.
 
 - `selection: { type: 'stop' | 'wish' | 'empty', index } | null` — drives the card, pin emphasis and row highlight.
-- `editing: boolean` — card expansion. Reset on every selection change.
+- `editing: boolean` — inline edit region. Reset on every selection change.
+- `expanded: boolean` — the full-details modal. Also reset on every selection change; only meaningful when a stop is selected.
 - `activeDay: number`.
 - `wishlistPanelOpen: boolean`.
 
@@ -202,7 +240,9 @@ Colors (oklch, dark theme only):
 | `on-accent` | `oklch(0.16 0.02 240)` | text on accent |
 | `accent-surface` | `oklch(0.25 0.02 235)` | selected row background |
 | `wishlist` | `oklch(0.78 0.13 80)` | wishlist pin borders, warning dot |
-| `warn-bg` / `warn-border` / `warn-text` | `oklch(0.26 0.045 80)` / `oklch(0.42 0.09 80)` / `oklch(0.88 0.07 85)` | warning banner |
+| `warn-bg` / `warn-border` / `warn-text` | `oklch(0.26 0.045 80)` / `oklch(0.42 0.09 80)` / `oklch(0.88 0.07 85)` | warning banner, accommodation panel |
+| `danger-border` / `danger-text` | `oklch(0.45 0.10 25)` / `oklch(0.78 0.11 25)` | Remove, expanded card |
+| `scrim` | `oklch(0.12 0.015 250 / 0.72)` + `blur(4px)` | modal backdrop |
 | `daylight` | `oklch(0.78 0.12 90)` | daylight dot |
 
 Alternative accents offered as prototype tweaks: `oklch(0.75 0.13 155)` green, `oklch(0.75 0.14 65)` amber, `oklch(0.72 0.13 300)` violet.
@@ -232,7 +272,7 @@ None shipped. Everything in the prototype is CSS.
 
 ## Files
 
-- `Etappe Redesign.dc.html` — the full prototype: desktop shell, all card modes, phone layout. Open it directly in a browser.
+- `Etappe Redesign.dc.html` — the full prototype: desktop shell, all card modes, the expanded card, phone layout. Open it directly in a browser. Reach the expanded card via `All details` on any stop card.
 - `support.js` — prototype runtime only. Not for the target app.
 
 Inside the prototype: the markup section is the template, the `class Component` block below it holds the logic. `STOPS` and `WISH` at the top are seeded demo data mirroring the Iceland Ring Road trip from the screenshots. Four tweakable props sit at the bottom of the file — demo state (`rest` / `stop` / `stop-edit` / `wishlist` / `empty`), force-phone, wishlist pins on/off, and accent color — useful for stepping through every state without clicking.

@@ -25,7 +25,10 @@ full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
 12.1 (design tokens and fonts) is done; next is 12.2 (unified pin-click
-card).
+card). The handoff bundle was revised on 2026-08-31 (commit below) to add
+the expanded full-details card — now its own task, 12.3 — which is what
+answers "where do `StopInspector`'s remaining fields go when it retires".
+That insertion renumbered the old 12.3–12.7 up by one.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -407,9 +410,13 @@ translate its inline styles into Tailwind, don't port them). Formalizes and
 supersedes `ToDo.md`'s "Design direction" notes with a pixel-accurate spec.
 Replaces the day rail / timeline / boxed-map-and-inspector 3-pane grid with
 a map-dominant layout: map fills the screen, day pills dock over it, the
-itinerary becomes a right column, and a single progressive "unified
-pin-click card" (read-only first, expands in place to edit) replaces the
-technical `StopInspector` form and the modal `WishlistPreview`. Dark theme
+itinerary becomes a right column, and a progressive "unified pin-click
+card" replaces the technical `StopInspector` form and the modal
+`WishlistPreview`. The card has three tiers of depth, not two: the docked
+card is read-only (the everyday surface), an inline edit region expands in
+place for the fields adjusted constantly while planning, and an expanded
+full-details modal (`All details`) holds the rest — so no inspector field
+is dropped, they just stratify by how often they're touched. Dark theme
 only; the photo-wheel filmstrip and light theme are explicitly out of scope
 for this bundle. Does not touch the cascade engine, data model, routing or
 geocoding.
@@ -430,31 +437,48 @@ header, prev/next nav + counter (sequence order for stops, cached
 proximity-chain order for wishlist), computed-times strip and daylight line
 (cascade engine output, rendered never computed), description, a
 progressive edit region revealed by an Edit action, and a context-dependent
-action bar (`Edit`/`Remove` · `Add to itinerary`/`Reject` ·
+action bar (`Edit`/`All details`/`Remove` · `Add to itinerary`/`Reject` ·
 `+ Wishlist`/`+ Day`/`Dismiss`). Replaces `WishlistPreview`'s usage in
 `TripEditor`; changes `onMapClick`'s current immediate
 reverse-geocode-then-placement flow to open the card first, placement only
-on an explicit action. Open question carried from the handoff review: which
-`StopInspector` fields (address, raw lat/lon, is_accommodation) the card's
-edit region keeps vs. drops, since the handoff's edit-region grid only
-lists title/kind/dwell/anchor/access-point/type/blocks — ask before
-implementing.
+on an explicit action. `Remove` gains the delete confirmation the "Noticed"
+list has been asking for — the handoff calls for it explicitly.
+Transitional, until 12.5 flips the layout: the card docks fixed bottom-left
+of the viewport (12.5 only re-parents it into the map wrapper), and
+`StopInspector` stays where it is, so the two briefly overlap.
 
-**12.3 Pin visuals** · Standard
+**12.3 Expanded card — full inspector parity** · Standard
+The revised handoff's answer to "where do the inspector's remaining fields
+go": a third tier of depth, not two. A centered two-pane modal (photo
+carousel left at `flex:0 0 46%`, header/body/action bar right), opened with
+`All details` from a stop card and closed by `Done`, `✕` or selecting
+another pin. Nothing from `StopInspector` is dropped — the fields stratify
+by how often they're touched: the accommodation toggle gets its own amber
+panel at the top of the pane (same colour family as the itinerary column's
+NO_ACCOMMODATION banner, so cause and warning read as one thing, and
+toggling re-runs the cascade live), then a Place group (title, address,
+lat/lon in mono, access point) and a Timing group (kind, dwell, anchor),
+then Blocks. Lat/lon are an editable correction path, not display-only —
+editing either moves the marker and re-routes the adjacent legs, and
+dragging the marker writes back. Adds `expanded: boolean` to the card's UI
+state. Not offered on phone (the strip's inline form covers the planning
+fields; accommodation/address/coords are desktop-set values).
+
+**12.4 Pin visuals** · Standard
 Stop pin unselected/selected sizing + accent halo per spec; wishlist pins
 become square photo thumbnails with an amber border (reuse the existing
 `nearby-photo` Wikimedia-thumbnail compositing pattern) instead of the
 current plain circles. Touches `map-markers.ts`, `map-features.ts`,
 `MapPane.tsx`.
 
-**12.4 Day pills and Fit trip** · Standard
+**12.5 Day pills and Fit trip** · Standard
 New map-overlay component taking over `DayRail`'s role: a pill row (day
 title, mono stop-count/empty meta, `+` add day) docked top-left over the
 map, plus a "Fit trip" button wired through a new re-triggerable prop on
 `MapPane` (mirrors the existing `flyTo` `{lat,lon,nonce}` pattern — today's
 `maybeFit` only auto-fires once and isn't exposed as an action).
 
-**12.5 Map-dominant shell and itinerary column restyle** · Heavy
+**12.6 Map-dominant shell and itinerary column restyle** · Heavy
 Replaces `TripEditor`'s resizable 3-pane grid with the map-fills-screen
 layout: dark header (avatar instead of an email string — the known "phone
 width breaks the header first" fix), map pane with day pills / wishlist
@@ -464,7 +488,7 @@ handoff, restyled only). Retires `DayRail`, `RightPane`, `Drawer`, the
 resize dividers, and `StopInspector` as a standalone pane (its fields move
 into the card's edit region, 12.2).
 
-**12.6 Phone layout** · Standard
+**12.7 Phone layout** · Standard
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
 it, day pills/wishlist panel/desktop card all suppressed. Compact phone
 card (not the full card) with horizontal swipe navigation (>40px
@@ -472,7 +496,7 @@ threshold, same step function as the desktop card's `‹`/`›`) and a looping
 chevron nudge as the discoverability cue; edit region uses 44px targets.
 Drag-to-expand and a rubber-band swipe transform are explicitly not built.
 
-**12.7 Cleanup and polish** · Cheap
+**12.8 Cleanup and polish** · Cheap
 Dead-code removal for everything retired in 12.5, keyboard shortcuts
 re-verified (`k` still opens the kind picker from the card), `npm run
 check` and `npm run format:check`, this file and `ToDo.md` updated to

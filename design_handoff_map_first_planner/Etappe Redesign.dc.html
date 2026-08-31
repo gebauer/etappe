@@ -95,6 +95,121 @@
 
       <div style="position:absolute;right:10px;bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:oklch(0.55 0.01 250);pointer-events:none">MapLibre · OpenFreeMap</div>
 
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ false }}">
+        <div style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:28px;background:oklch(0.12 0.015 250 / 0.72);backdrop-filter:blur(4px)">
+          <div style="width:min(1120px,100%);height:min(700px,100%);display:flex;background:oklch(0.215 0.012 250);border:1px solid oklch(0.31 0.012 250);border-radius:16px;box-shadow:0 30px 80px oklch(0.08 0.02 250 / 0.6);overflow:hidden">
+            <div style="{{ bigPhotoStyle }}">
+              <div style="position:absolute;left:16px;bottom:14px;display:flex;gap:6px">
+                <span style="padding:5px 10px;border-radius:7px;background:oklch(0.18 0.012 250 / 0.76);backdrop-filter:blur(6px);font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:oklch(0.80 0.008 250)">1 / 3</span>
+                <sc-if value="{{ cardCredit }}" hint-placeholder-val="{{ false }}">
+                  <span style="padding:5px 10px;border-radius:7px;background:oklch(0.18 0.012 250 / 0.76);backdrop-filter:blur(6px);font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:oklch(0.66 0.01 250)">{{ cardCredit }}</span>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column">
+              <div style="flex:0 0 auto;display:flex;align-items:flex-start;gap:14px;padding:20px 22px 14px;border-bottom:1px solid oklch(0.28 0.012 250)">
+                <div style="min-width:0;flex:1">
+                  <h2 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.015em">{{ cardTitle }}</h2>
+                  <div style="margin-top:5px;font-size:13px;color:oklch(0.68 0.01 250)">{{ cardSub }}</div>
+                </div>
+                <button onClick="{{ collapse }}" style="flex:0 0 auto;width:32px;height:32px;border-radius:50%;border:1px solid oklch(0.32 0.012 250);background:transparent;color:oklch(0.88 0.006 250);font:inherit;cursor:pointer">✕</button>
+              </div>
+
+              <div style="flex:1 1 auto;min-height:0;overflow:auto;padding:18px 22px 22px">
+                <sc-if value="{{ cardIsStop }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:0;border:1px solid oklch(0.29 0.012 250);border-radius:10px;overflow:hidden;margin-bottom:18px">
+                    <div style="flex:1;padding:10px 14px">
+                      <div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Arrive</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;margin-top:2px">{{ cardArrive }}</div>
+                    </div>
+                    <div style="width:1px;background:oklch(0.29 0.012 250)"></div>
+                    <div style="flex:1;padding:10px 14px">
+                      <div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Depart</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;margin-top:2px">{{ cardDepart }}</div>
+                    </div>
+                    <div style="width:1px;background:oklch(0.29 0.012 250)"></div>
+                    <div style="flex:1;padding:10px 14px">
+                      <div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Daylight</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;margin-top:2px;color:oklch(0.86 0.07 90)">clear</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 15px;border-radius:11px;border:1px solid oklch(0.42 0.09 80);background:oklch(0.24 0.04 80)">
+                  <div style="min-width:0">
+                    <div style="font-size:13.5px;font-weight:600;color:oklch(0.92 0.05 85)">Accommodation</div>
+                    <div style="font-size:12px;color:oklch(0.80 0.05 85);margin-top:3px;text-wrap:pretty">{{ accomHint }}</div>
+                  </div>
+                  <button onClick="{{ toggleAccom }}" style="{{ accomSwitchStyle }}"><span style="{{ accomKnobStyle }}"></span></button>
+                </div>
+
+                <div style="margin-top:18px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Place</div>
+                <div style="margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <label style="grid-column:1 / -1;display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Title</span>
+                    <input value="Þingvellir" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font:inherit" />
+                  </label>
+                  <label style="grid-column:1 / -1;display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Address</span>
+                    <input value="Þingvellir National Park, 806 Selfoss, Iceland" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font:inherit;font-size:13px" />
+                  </label>
+                  <label style="display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Latitude</span>
+                    <input value="64.25581" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+                  </label>
+                  <label style="display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Longitude</span>
+                    <input value="-21.13011" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+                  </label>
+                  <div style="grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-radius:10px;background:oklch(0.20 0.012 250);border:1px solid oklch(0.29 0.012 250)">
+                    <div style="min-width:0">
+                      <div style="font-size:12.5px;font-weight:500">Access point</div>
+                      <div style="font-size:11.5px;color:oklch(0.62 0.01 250);margin-top:2px">Route to a nearby car park instead</div>
+                    </div>
+                    <button onClick="{{ noop }}" style="flex:0 0 auto;height:32px;padding:0 12px;border-radius:8px;border:1px solid oklch(0.34 0.012 250);background:oklch(0.26 0.013 250);color:oklch(0.88 0.006 250);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap">Set on map</button>
+                  </div>
+                </div>
+
+                <div style="margin-top:20px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Timing</div>
+                <div style="margin-top:9px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+                  <label style="display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Kind</span>
+                    <button onClick="{{ noop }}" style="width:100%;height:38px;padding:0 11px;text-align:left;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font:inherit;font-size:13px;cursor:pointer">Viewpoint</button>
+                  </label>
+                  <label style="display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Dwell (min)</span>
+                    <input value="20" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+                  </label>
+                  <label style="display:block">
+                    <span style="display:block;font-size:11px;color:oklch(0.66 0.01 250);margin-bottom:5px">Anchor</span>
+                    <input value="--:--" onChange="{{ noop }}" style="width:100%;height:38px;padding:0 11px;border-radius:9px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+                  </label>
+                </div>
+
+                <div style="margin-top:20px;display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                  <span style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Blocks</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.58 0.01 250)">3 · visibility: trip</span>
+                </div>
+                <p style="margin:9px 0 0;font-size:13.5px;color:oklch(0.80 0.008 250);text-wrap:pretty">{{ cardBody }}</p>
+                <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Note</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Link</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Photo</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ File</button>
+                </div>
+              </div>
+
+              <div style="flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:12px 22px;border-top:1px solid oklch(0.28 0.012 250);background:oklch(0.205 0.012 250)">
+                <button onClick="{{ collapse }}" style="{{ bigDoneStyle }}">Done</button>
+                <button onClick="{{ noop }}" style="white-space:nowrap;height:36px;padding:0 14px;border-radius:8px;border:1px solid oklch(0.33 0.012 250);background:transparent;color:oklch(0.84 0.008 250);font:inherit;font-size:13px;cursor:pointer">Move to day…</button>
+                <button onClick="{{ noop }}" style="white-space:nowrap;margin-left:auto;height:36px;padding:0 14px;border-radius:8px;border:1px solid oklch(0.45 0.10 25);background:transparent;color:oklch(0.78 0.11 25);font:inherit;font-size:13px;cursor:pointer">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ phoneCard }}" hint-placeholder-val="{{ false }}">
         <div onTouchStart="{{ onTouchStart }}" onTouchEnd="{{ onTouchEnd }}" style="position:absolute;left:8px;right:8px;bottom:8px;z-index:20;border-radius:14px;background:oklch(0.215 0.012 250 / 0.97);backdrop-filter:blur(14px);border:1px solid oklch(0.31 0.012 250);box-shadow:0 10px 30px oklch(0.10 0.02 250 / 0.55);overflow:hidden">
           <div style="display:flex;align-items:center;gap:11px;padding:10px 11px">
@@ -168,7 +283,9 @@
                 <span style="height:28px;display:flex;align-items:center;padding:0 10px;border-radius:14px;background:oklch(0.18 0.012 250 / 0.72);backdrop-filter:blur(6px);font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.04em;color:oklch(0.80 0.008 250);white-space:nowrap">{{ navLabel }}</span>
               </div>
             </sc-if>
-            <div style="position:absolute;left:12px;bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:oklch(0.62 0.01 250)">{{ cardCredit }}</div>
+            <sc-if value="{{ cardCredit }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:12px;bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:oklch(0.62 0.01 250)">{{ cardCredit }}</div>
+            </sc-if>
           </div>
 
           <div style="flex:1 1 auto;min-height:0;overflow:auto;padding:14px 16px 0">
@@ -350,7 +467,7 @@ const WISH = [
 ];
 
 class Component extends DCLogic {
-  state = { sel: null, editing: false, day: 1, wishOpen: true, w: 1440 };
+  state = { sel: null, editing: false, day: 1, wishOpen: true, w: 1440, expanded: false, accom: false };
 
   componentDidMount() {
     this._onResize = () => this.setState({ w: window.innerWidth });
@@ -368,7 +485,7 @@ class Component extends DCLogic {
   get phone() { return (this.props.forcePhone ?? false) || this.state.w < 860; }
   get accent() { return this.props.accent || "oklch(0.72 0.13 215)"; }
 
-  select(t, i) { this.setState({ sel: { t, i }, editing: false }); }
+  select(t, i) { this.setState({ sel: { t, i }, editing: false, expanded: false }); }
   step(d) {
     const s = this.state.sel;
     if (!s) return;
@@ -474,6 +591,7 @@ class Component extends DCLogic {
       cardPhotoLabel = "photo · " + stop.name;
       actions = [
         { label: this.state.editing ? "Done" : "Edit", onClick: () => this.setState({ editing: !this.state.editing }), style: this.state.editing ? primary : ghost },
+        { label: "All details", onClick: () => this.setState({ expanded: true }), style: ghost },
         { label: "Remove", onClick: () => {}, style: spacer }
       ];
     } else if (wish) {
@@ -564,7 +682,17 @@ class Component extends DCLogic {
       editing: this.state.editing && isStop,
       prevStop: () => this.step(-1),
       nextStop: () => this.step(1),
-      closeCard: () => this.setState({ sel: null, editing: false })
+      closeCard: () => this.setState({ sel: null, editing: false, expanded: false }),
+      expanded: this.state.expanded && !!sel,
+      collapse: () => this.setState({ expanded: false }),
+      bigPhotoStyle: `position:relative;flex:0 0 46%;min-width:0;background:${thumb};border-right:1px solid oklch(0.28 0.012 250)`,
+      bigDoneStyle: `white-space:nowrap;height:36px;padding:0 16px;border-radius:8px;border:0;background:${acc};color:oklch(0.16 0.02 240);font:inherit;font-size:13px;font-weight:500;cursor:pointer`,
+      toggleAccom: () => this.setState({ accom: !this.state.accom }),
+      accomHint: this.state.accom
+        ? "The day ends here. Clears the day's NO_ACCOMMODATION warning."
+        : "Turn on if the day ends here — this is what clears the day's NO_ACCOMMODATION warning.",
+      accomSwitchStyle: `flex:0 0 auto;width:48px;height:28px;padding:3px;border-radius:14px;border:0;cursor:pointer;display:flex;justify-content:${this.state.accom ? "flex-end" : "flex-start"};background:${this.state.accom ? "oklch(0.78 0.13 80)" : "oklch(0.32 0.012 250)"}`,
+      accomKnobStyle: "width:22px;height:22px;border-radius:50%;background:oklch(0.97 0.005 250);box-shadow:0 1px 3px oklch(0.12 0.02 250 / 0.5)"
     };
   }
 }

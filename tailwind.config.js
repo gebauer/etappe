@@ -30,6 +30,9 @@ export default {
         'warn-border': 'oklch(0.42 0.09 80)',
         'warn-text': 'oklch(0.88 0.07 85)',
         daylight: 'oklch(0.78 0.12 90)',
+        'danger-border': 'oklch(0.45 0.10 25)',
+        'danger-text': 'oklch(0.78 0.11 25)',
+        scrim: 'oklch(0.12 0.015 250 / 0.72)',
       },
       fontFamily: {
         sans: ['"Instrument Sans"', 'system-ui', 'sans-serif'],
