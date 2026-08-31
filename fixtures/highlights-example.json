@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "highlights": [
+    {
+      "title": "Gullfoss",
+      "kind": "waterfall",
+      "place_hint": "Gullfoss waterfall, Iceland",
+      "lat": 64.3271,
+      "lon": -20.1199,
+      "description": "A two-tier waterfall on the Hvítá river, one of the most visited natural sites on the Golden Circle.",
+      "links": [{ "url": "https://gullfoss.is/en/", "title": "Official site" }],
+      "photos": [
+        {
+          "url": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Gullfoss_waterfall_in_Iceland.jpg",
+          "title": "Gullfoss in summer",
+          "author": "Andreas Tille",
+          "licence": "CC BY-SA 4.0",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Gullfoss_waterfall_in_Iceland.jpg"
+        }
+      ]
+    },
+    {
+      "title": "Reynisfjara",
+      "kind": "coast",
+      "place_hint": "Reynisfjara black sand beach, Iceland",
+      "description": "A black sand beach near Vík known for its basalt columns and sea stacks."
+    }
+  ]
+}
