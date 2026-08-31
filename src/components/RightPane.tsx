@@ -3,7 +3,7 @@ import { StopInspector } from './StopInspector';
 import { formatDayDate } from '../lib/format';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
-import type { DaysResponse, StopsResponse } from '../types/pb';
+import type { DaysResponse, StopsResponse, PoisResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import type { NearbyPoi } from '../lib/overpass';
 import { blocksFor, type BlockKind, type BlockPatch } from '../lib/pb-blocks';
@@ -24,6 +24,8 @@ interface Props {
   onDragStop: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint: (stopId: string, lat: number, lon: number) => void;
   onSelectNearby: (poi: NearbyPoi) => void;
+  wishlist?: PoisResponse[];
+  onSelectWishlist?: (poi: PoisResponse) => void;
   onAddBlock: (stopId: string, kind: BlockKind) => void;
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -52,6 +54,8 @@ export function RightPane({
   onDragStop,
   onDragAccessPoint,
   onSelectNearby,
+  wishlist,
+  onSelectWishlist,
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
@@ -80,6 +84,8 @@ export function RightPane({
           onDragStop={onDragStop}
           onDragAccessPoint={onDragAccessPoint}
           onSelectNearby={onSelectNearby}
+          wishlist={wishlist}
+          onSelectWishlist={onSelectWishlist}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">

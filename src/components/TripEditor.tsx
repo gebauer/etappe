@@ -703,6 +703,8 @@ export function TripEditor({
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
+            wishlist={wishlist}
+            onSelectWishlist={placeWishlistItem}
             {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}
@@ -734,6 +736,8 @@ export function TripEditor({
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
+            wishlist={wishlist}
+            onSelectWishlist={placeWishlistItem}
             {...blockHandlers}
             hoveredStopId={hoveredStopId}
             focusDayId={selectedDayId}

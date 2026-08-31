@@ -8,7 +8,7 @@ import {
 } from '../lib/map-features';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
-import type { StopsResponse } from '../types/pb';
+import type { StopsResponse, PoisResponse } from '../types/pb';
 import {
   TIER_OPACITY,
   loadAtlas,
@@ -103,6 +103,8 @@ export function MapPane({
   onDragStop,
   onDragAccessPoint,
   onSelectNearby,
+  wishlist,
+  onSelectWishlist,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -116,6 +118,10 @@ export function MapPane({
   onDragStop?: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint?: (stopId: string, lat: number, lon: number) => void;
   onSelectNearby?: (poi: NearbyPoi) => void;
+  /** Wishlist ideas (WORK 8.1 follow-up) — hand-curated, so shown plainly,
+   * unlike Nearby's raw Overpass results which are gated behind a toggle. */
+  wishlist?: PoisResponse[];
+  onSelectWishlist?: (poi: PoisResponse) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -145,6 +151,10 @@ export function MapPane({
   nearbyRef.current = nearbyPois;
   const selectNearbyRef = useRef(onSelectNearby);
   selectNearbyRef.current = onSelectNearby;
+  const selectWishlistRef = useRef(onSelectWishlist);
+  selectWishlistRef.current = onSelectWishlist;
+  const wishlistRef = useRef(wishlist ?? []);
+  wishlistRef.current = wishlist ?? [];
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
@@ -175,6 +185,29 @@ export function MapPane({
   );
   const nearbyFcRef = useRef(nearbyFc);
   nearbyFcRef.current = nearbyFc;
+  // Wishlist ideas with real coordinates only — a freshly-added item defaults
+  // to lat/lon 0,0 until placed or edited, which would otherwise paint a pin
+  // in the Gulf of Guinea.
+  const wishlistFc = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: (wishlist ?? [])
+        .filter((p) => p.lat && p.lon)
+        .map((p) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
+          properties: {
+            poiId: p.id,
+            title: p.title,
+            kind: p.kind,
+            color: categoryColor(p.kind),
+          },
+        })),
+    }),
+    [wishlist],
+  );
+  const wishlistFcRef = useRef(wishlistFc);
+  wishlistFcRef.current = wishlistFc;
   const fittedRef = useRef(false);
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -302,6 +335,27 @@ export function MapPane({
         },
       });
 
+      // Wishlist pins (WORK 8.1 follow-up): same ghost-circle styling as
+      // Nearby, but a solid dark stroke instead of white — these are
+      // already-curated ideas, not raw discovery results, so they read as
+      // more "committed" than a Nearby suggestion.
+      map.addSource('wishlist', {
+        type: 'geojson',
+        data: wishlistFcRef.current,
+      });
+      map.addLayer({
+        id: 'wishlist-pins',
+        type: 'circle',
+        source: 'wishlist',
+        paint: {
+          'circle-radius': 7,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#1e293b',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0.9,
+        },
+      });
+
       loadedRef.current = true;
       maybeFit(map);
 
@@ -361,10 +415,23 @@ export function MapPane({
       return (hits[0]?.properties?.osmId as string | undefined) ?? null;
     };
 
-    // Click a ghost pin to capture it (same placement flow as any other
-    // capture); click a marker to select its stop; click empty map to drop
-    // a stop.
+    const wishlistUnder = (point: maplibregl.Point): string | null => {
+      if (!map.getLayer('wishlist-pins')) return null;
+      const hits = map.queryRenderedFeatures(point, {
+        layers: ['wishlist-pins'],
+      });
+      return (hits[0]?.properties?.poiId as string | undefined) ?? null;
+    };
+
+    // Click a wishlist or ghost pin to act on it (place / capture); click a
+    // marker to select its stop; click empty map to drop a stop.
     map.on('click', (ev) => {
+      const wishlistId = wishlistUnder(ev.point);
+      if (wishlistId) {
+        const poi = wishlistRef.current.find((p) => p.id === wishlistId);
+        if (poi) selectWishlistRef.current?.(poi);
+        return;
+      }
       const nearbyId = nearbyUnder(ev.point);
       if (nearbyId) {
         const poi = nearbyRef.current.find((p) => p.osmId === nearbyId);
@@ -378,8 +445,10 @@ export function MapPane({
 
     map.on('mousemove', (ev) => {
       const id = stopsUnder(ev.point);
-      const overNearby = id ? false : !!nearbyUnder(ev.point);
-      map.getCanvas().style.cursor = id || overNearby ? 'pointer' : '';
+      const overGhost = id
+        ? false
+        : !!wishlistUnder(ev.point) || !!nearbyUnder(ev.point);
+      map.getCanvas().style.cursor = id || overGhost ? 'pointer' : '';
       hoverRef.current?.(id);
     });
     map.on('mouseout', () => hoverRef.current?.(null));
@@ -431,6 +500,15 @@ export function MapPane({
       maplibregl.GeoJSONSource | undefined;
     source?.setData(nearbyFc);
   }, [nearbyFc]);
+
+  // Push new wishlist pins.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    const source = map.getSource('wishlist') as
+      maplibregl.GeoJSONSource | undefined;
+    source?.setData(wishlistFc);
+  }, [wishlistFc]);
 
   // Query Overpass for the focused day's corridor when Nearby is toggled on,
   // or the day/radius changes. Reads records via the ref (not a dependency)
