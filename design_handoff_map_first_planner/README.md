@@ -66,10 +66,25 @@ Two things are deliberately unresolved and marked as such below: the photo-wheel
 
 **Wishlist panel**, bottom-left, `width:236px`, `radius:12px`, same glass treatment, z-index 8:
 - Header button: full width, `padding:9px 11px`, label `WISHLIST · 6` at 12px uppercase `letter-spacing:0.08em`, chevron `▾`/`▸` at right. Toggles the list.
-- Rows: `padding:8px 11px`, `gap:10px` — 34px rounded-7px thumbnail, name 13px/500 (truncating), kind 11.5px `oklch(0.64 0.01 250)`. Selected row background `oklch(0.26 0.02 235)`.
-- Shows the first four; it is the fallback list, not the primary surface.
-- **Hidden whenever a card is open** — it occupies the same bottom-left slot.
-- **Undecided, not built**: the horizontal "photo wheel" filmstrip floated as a richer replacement for this panel.
+- Rows: `padding:8px 11px`, `gap:10px` — 34px rounded-7px thumbnail, name 13px/500 (truncating), kind 11.5px `oklch(0.64 0.01 250)`. Selected row background `oklch(0.26 0.02 235)`; hovered row `oklch(0.24 0.013 250)` with an amber thumbnail border.
+- Shows the first four, then a full-width **`Browse all N ›`** footer button (`padding:9px 11px`, 12.5px, hover `oklch(0.25 0.013 250)`) opening the carousel below.
+- **Hidden whenever a card is open or the carousel is up** — it occupies the same bottom-left slot.
+
+#### Wishlist carousel (desktop)
+
+The "photo wheel" filmstrip, now built and no longer optional. Opens from `Browse all N ›`; closes with `✕` or by picking a place. Clears the current selection on open so it never competes with a card.
+
+- Container spans the full map width at the bottom (`left:0; right:0; bottom:0`, z-index 22) on a `linear-gradient(180deg, transparent, oklch(0.15 0.014 250 / 0.86) 42%)` fade rather than a panel — the map stays visible through it.
+- Toolbar row, `padding:0 16px 8px`: the **`★ Top choices`** filter pill at the left (30px, `radius:15px`; off = `oklch(0.22 0.013 250 / 0.9)` with `oklch(0.34 0.012 250)` border, on = `oklch(0.78 0.13 80)` fill with `oklch(0.20 0.04 80)` text), a mono meta line (`6 places · nearest first`, or `2 starred · nearest first` when filtered), and a 28px close button at the right.
+- Strip: `display:flex; gap:12px; padding:4px 16px 6px; overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth`.
+- Card: 178px wide, `scroll-snap-align:start`, `radius:13px`. A 136px photo fills it edge to edge — no card chrome, no separate text block. Name (13px/600 `oklch(0.97 0.004 250)`) and kind (11px `oklch(0.82 0.01 250)`) sit over a bottom scrim (`linear-gradient` to `oklch(0.13 0.015 250 / 0.88)`, 58% height). Shadow `0 6px 16px oklch(0.10 0.02 250 / 0.4)`.
+- **Star button** per card, 28px circle top-right: `oklch(0.78 0.13 80)` filled when starred, `oklch(0.16 0.014 250 / 0.6)` glass when not. Independent of selection.
+- Arrows: 34px round buttons floating over the strip's left and right edges (`oklch(0.20 0.013 250 / 0.92)` + `blur(8px)`), three cards per press.
+- Order is the same cached proximity chain as `‹`/`›` browsing.
+
+**Hover highlights only.** Hovering a carousel card (or a compact-list row) lifts it 4px with a deeper shadow, borders it amber, and grows that place's map pin to 36px with the amber halo. It does **not** select, open a card, or move the map. Clicking is what zooms in — closing the carousel and opening that place's card. Keep that separation; it is what makes scanning photos against the map cheap.
+
+**Starring** — a starred place shows a 16px gold star badge on the top-right of its map pin at all times, not only in the carousel. The filter pill narrows the strip only; starred pins stay on the map either way.
 
 **Attribution**: `MapLibre · OpenFreeMap`, 10px mono `oklch(0.55 0.01 250)`, bottom-right, `pointer-events:none`.
 
@@ -95,7 +110,7 @@ Card: `width:min(382px,100%)`, `max-height:100%`, `display:flex; flex-direction:
 
 **Expanded edit region** — revealed in place when Edit is pressed, never a separate mode. Separated by `border-top:1px solid oklch(0.28 0.012 250)`, `padding-top:14px`, `display:grid; grid-template-columns:1fr 1fr; gap:12px`:
 - Title (full width), Kind (opens the existing kind picker), Dwell (min, mono), Anchor (mono), Type — all 36px tall, `radius:8px`, border `oklch(0.32 0.012 250)`, background `oklch(0.22 0.012 250)`.
-- Access point row: full-width panel, `oklch(0.215 0.012 250)`, label + hint + a `Set on map` button.
+- Access point row: full-width panel, `oklch(0.215 0.012 250)` — label, the current value, and a `Set on map` button that enters picking mode (below).
 - Block buttons: `+ Note`, `+ Link`, `+ Photo`, `+ File` — 30px, dashed border, wired to the existing block editor.
 
 **Action bar**, `padding:11px 16px`, top border, background `oklch(0.205 0.012 250)`. Buttons 34px, `radius:8px`, `white-space:nowrap`. Primary = accent fill with `oklch(0.16 0.02 240)` text; ghost = `1px solid oklch(0.33 0.012 250)`; the trailing destructive/dismiss button takes `margin-left:auto`.
@@ -138,10 +153,26 @@ Body contents, in order:
 1. **Computed strip** — same three-cell box as the docked card, at 18px mono, but the third cell is Daylight rather than Dwell (dwell is editable just below, so showing it twice is noise). Daylight value renders in `oklch(0.86 0.07 90)`.
 2. **Accommodation toggle** — the first editable thing in the pane, and the only one given its own panel: `padding:13px 15px`, `radius:11px`, border `1px solid oklch(0.42 0.09 80)`, background `oklch(0.24 0.04 80)` — the same amber family as the NO_ACCOMMODATION banner in the itinerary column, so the cause and the warning read as one thing. Title is the neutral noun `Accommodation` at 13.5px/600 `oklch(0.92 0.05 85)` — the switch alone carries the state, never the label. Beneath it a 12px `oklch(0.80 0.05 85)` line that changes with the switch: off reads "Turn on if the day ends here — this is what clears the day's NO_ACCOMMODATION warning", on reads "The day ends here. Clears the day's NO_ACCOMMODATION warning." Switch is 48×28, `radius:14px`, 22px white knob; on = `oklch(0.78 0.13 80)`, off = `oklch(0.32 0.012 250)`.
    - Toggling it must re-run the cascade and update the itinerary column's warning banner live — that feedback loop is the whole argument for putting the toggle here rather than in a settings sheet.
-3. **Place** group (uppercase 10.5px section label): Title (full width) · Address (full width, 13px) · Latitude · Longitude side by side in mono 13.5px · then the Access point panel (`oklch(0.20 0.012 250)`, `Set on map` button). All fields 38px, `radius:9px`.
+3. **Place** group (uppercase 10.5px section label): Title (full width) · Address (full width, 13px) · Latitude · Longitude side by side in mono 13.5px · then the Access point panel (`oklch(0.20 0.012 250)`) — label, current value in mono 11.5px (coordinates, or `Not set — routes to the stop itself`), and at the right a `Clear` button (only when set) plus `Set on map`. All fields 38px, `radius:9px`.
    - Lat/lon are an editable correction path. Editing either must move the marker and re-route the adjacent legs; conversely, dragging the marker writes back into these fields. They are not display-only.
 4. **Timing** group: Kind (opens the kind picker) · Dwell (min, mono) · Anchor (mono), three equal columns.
 5. **Blocks** group: section label with a right-aligned mono count and visibility summary (`3 · visibility: trip`), the description paragraph, then the four dashed `+ Note / + Link / + Photo / + File` buttons at 34px.
+
+#### Access-point picking mode
+
+`Set on map` cannot open a picker inside the modal — the modal is what covers the map. It **exits every overlay and hands the map back**:
+
+1. The expanded modal, the docked card and the wishlist panel all hide. `expanded`, `desktopCard` and `phoneCard` are each gated on `!picking`.
+2. The map viewport gains an accent inset ring (`box-shadow: inset 0 0 0 2px oklch(0.72 0.13 215 / 0.55)`) so the mode is unmistakable.
+3. **The map zooms to the stop** — 5× about the stop's position, 350ms ease, every pin animating to its new position. Without this you are aiming at a country-scale view and cannot find a car park. In MapLibre this is an `easeTo` centring the stop at roughly z17, not a CSS transform.
+4. **Nearby parking chips** render as clickable accent pills — `P` badge, lot name, straight-line distance in mono (`P · Hakið car park · 260 m`). Clicking one sets the access point directly; clicking bare map sets it freehand.
+5. A banner floats below the day-pill row: dashed `P` glyph, "Click the map to set the access point", subline "Zoomed to <stop> · nearby parking shown", then **Reset** (only when one already exists) and **Cancel**. Both return to the modal; Cancel changes nothing.
+
+Once set, a dashed accent `P` pin marks the access point and the modal's access row shows its coordinates.
+
+**Parking chip data source** — an Overpass `amenity=parking` (plus `parking_entrance`) query in a small radius around the stop, server-cached like the existing Nearby call. Bound it: one tag, nearest 3–5 only, rendered only during picking. Deliberately unlike raw Nearby, which returns every tagged POI in a radius and caused the original "too many pins" complaint. No chips in range is a valid state — freehand clicking is the fallback. Tags worth surfacing on the chip where present: `name`, `fee`, `capacity`, `access`, `maxstay`.
+
+**Deferred**: a directions link on the chip. Overpass returns no such link; it would be constructed client-side from the lot's coordinates. Not designed, not built.
 
 **Phone**: `All details` is not offered. The phone strip keeps its inline 44px-target edit form, which covers the planning fields; accommodation, address and coordinates are desktop-set values and the phone is read-mostly by design. If they do need to be reachable on phone, the expanded card should become a full-screen push view rather than a modal — not built.
 
@@ -208,10 +239,16 @@ The prototype needs four pieces of local UI state. None of it belongs in the tri
 - `selection: { type: 'stop' | 'wish' | 'empty', index } | null` — drives the card, pin emphasis and row highlight.
 - `editing: boolean` — inline edit region. Reset on every selection change.
 - `expanded: boolean` — the full-details modal. Also reset on every selection change; only meaningful when a stop is selected.
+- `picking: boolean` — access-point picking mode. Suppresses `expanded`, the docked card and the phone card while true.
+- `browsing: boolean` — the wishlist carousel. Desktop only; opening it clears `selection`.
+- `hover: id | null` — hover highlight shared by the carousel, the compact list and the map pins. Never drives selection.
+- `starOnly: boolean` — the `★ Top choices` filter.
 - `activeDay: number`.
 - `wishlistPanelOpen: boolean`.
 
 Plus a cached `wishOrder: number[]` (the proximity chain), invalidated only when the wishlist set itself changes.
+
+**Persistent, not UI state**: a place's starred flag (`★ Top choices`) and a stop's access point both belong in the trip document. Setting an access point must re-run the cascade — it changes routing to and from the stop, and therefore every downstream arrival time.
 
 Data all comes from existing sources: the trip document via TanStack Query, computed arrival/departure/daylight/warnings from the cascade engine, photos from PocketBase thumbs. **The redesign renders engine output and never computes times.**
 
