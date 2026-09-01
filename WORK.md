@@ -899,37 +899,54 @@ address, access point, star, and the whole block system. A stop adds
 - The wishlist card's **"Reject" becomes "Delete"** — a hard delete
   (`deleteWishlistItem`) with a confirm.
 
-**14.1 Schema + data layer**
+**14.1 Schema + data layer** · ✅
 Migration `1788000009`: `pois` drop `url` / `notes` / `status`, add
 `access_lat` / `access_lon` / `address`; `stops` add `starred` (bool, not
 required). Up-migration first deletes any `pois` with `status != 'idea'`
-(hidden history nothing shows). `npm run types:pb`. `pb-pois.ts`:
+(hidden history nothing showed). `npm run types:pb`. `pb-pois.ts`:
 `listWishlist` loses the status filter, `addWishlistItem` its `notes` /
-`url` / `status` payload; delete `markWishlistScheduled` and
-`rejectWishlistItem` (callers move to `deleteWishlistItem`). `setStopStarred`
-in `pb-stops.ts`. Generalise `addLinkBlock` / `addNoteBlock` to any block
-parent (poi or stop). Sweep for remaining `.url` / `.notes` / `.status` on
-pois.
+`url` / `status` payload; `markWishlistScheduled` and `rejectWishlistItem`
+deleted (callers move to `deleteWishlistItem`; `starred` just joined
+`StopPatch`, no bespoke setter needed). `addLinkBlock` generalised to any
+block parent (poi or stop) via a `BlockParent` type, new `addNoteBlock`
+alongside it (`pb-capture.ts`); new `reparentBlocks` (`pb-blocks.ts`).
 
-**14.2 Promote, downgrade, capture, importer**
-`commitPlacement` / `useExistingStop`: copy title/kind/lat/lon/address/
-access/starred, `reparentBlocks` poi→stop, delete the poi (drop
-`markWishlistScheduled`). New `downgradeStopToWishlist(pb, records, stopId)`
-— create the poi, re-parent blocks back, then the existing `deleteStop`
-path (leg re-merge + `reconcileLeadingLegs` via `runStructural`). Hand
-capture (`commitWishlistPick`, share-target) creates a `link` block instead
-of setting `pois.url`; the Highlights importer routes `h.notes` to a note
-block. Stop card action bar gains the trash + `♻` buttons (docked card;
-expanded card too if cheap).
+Turned out the schema change forces the promote rewrite in the same
+breath — `commitPlacement` / `useExistingStop` couldn't keep compiling
+against `markWishlistScheduled`, so **the lossless-promotion fix landed
+here, not in 14.2**: both now `reparentBlocks` the idea's blocks onto the
+new/matched stop and `deleteWishlistItem` (no tombstone) instead of
+marking it scheduled. Hand capture (`commitWishlistPick`) creates a `link`
+block instead of setting `pois.url`; the Highlights importer routes
+`h.notes` into its own note block alongside the existing `description` one
+(`createHighlightBlocks`). `PinCard` drops the `target.item.url` /
+`target.item.notes` scalar branches and now renders *every* link block,
+not just the first (was `.find`, now `.filter` — free once the scalar
+override was gone).
 
-**14.3 Card rendering + starred stops**
-`PinCard`: drop the `target.item.url` / `target.item.notes` scalar
-branches, render all link blocks, "Reject" → "Delete" + confirm.
+Browser-verified end to end (the original bug report): imported a
+highlight with a description + link, opened its wishlist card (both
+show), promoted it via the ranked placement picker, opened the resulting
+stop's card — description and link both present, wishlist item gone. No
+console errors. `npm run check` green (194 tests unchanged — nothing new
+to unit-test here, same as `pb-legs`'s async apply functions).
+
+**14.2 Downgrade + stop-card actions**
+New mirror of promotion: `downgradeStopToWishlist(pb, records, stopId)` —
+create the poi (shared fields), `reparentBlocks` stop→poi, then the
+existing `deleteStop` path (leg re-merge + `reconcileLeadingLegs` via
+`runStructural`). Stop card action bar gains a trash button (delete, kept
+confirm) and a `♻` recycle button (downgrade), both with hover tooltips —
+docked card first, expanded card too if cheap.
+
+**14.3 Starred stops + wishlist delete confirm**
 `buildStopFeatures` carries `starred`; a `stops-star` overlay layer with a
 shared composited gold-star image (`icon-offset` top-right, filtered to
 starred ids) — not folded into `n:<seq>` since that image is shared across
 same-numbered stops. `StopRow` shows a star when `stop.starred`; the stop
-card gets a star toggle (`setStopStarred`).
+card gets a star toggle (`updateStop(..., { starred })`, no new fn needed).
+Wishlist card's "Reject" → "Delete" with a confirm (mirrors the stop
+card's existing `confirmingRemove` pattern).
 
 ---
 

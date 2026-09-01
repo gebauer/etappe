@@ -296,26 +296,19 @@ export const PoisKindOptions = {
 	"uncategorized": "uncategorized",
 } as const
 export type PoisKindOptions = typeof PoisKindOptions[keyof typeof PoisKindOptions]
-
-export const PoisStatusOptions = {
-	"idea": "idea",
-	"scheduled": "scheduled",
-	"rejected": "rejected",
-} as const
-export type PoisStatusOptions = typeof PoisStatusOptions[keyof typeof PoisStatusOptions]
 export type PoisRecord = {
+	access_lat?: number
+	access_lon?: number
+	address?: string
 	created: IsoAutoDateString
 	id: string
 	kind?: PoisKindOptions
 	lat?: number
 	lon?: number
-	notes?: string
 	starred?: boolean
-	status: PoisStatusOptions
 	title: string
 	trip: RecordIdString
 	updated: IsoAutoDateString
-	url?: string
 }
 
 export type RouteCacheRecord<Tgeometry = unknown> = {
@@ -378,6 +371,7 @@ export type StopsRecord = {
 	lat?: number
 	lon?: number
 	order_index?: number
+	starred?: boolean
 	title: string
 	updated: IsoAutoDateString
 }

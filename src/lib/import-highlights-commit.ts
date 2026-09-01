@@ -1,7 +1,7 @@
 /**
  * Commits a parsed Highlights document (WORK 8.1) into the wishlist: one
- * `pois` row per highlight (status "idea", same shape as any hand-added
- * wishlist item) plus its note/link/photo blocks. Coordinates are geocoded
+ * `pois` row per highlight (same shape as any hand-added wishlist item)
+ * plus its note/link/photo blocks. Coordinates are geocoded
  * from `place_hint` via Photon when the highlight didn't include lat/lon —
  * mirrors BUILD §8's "place_hint... geocoded on import" for the full trip
  * wizard, at the flat-list scale Highlights needs.
@@ -72,6 +72,17 @@ async function createHighlightBlocks(
       body: h.description,
     });
   }
+  // `notes` (personal, "why it's on the list") is a separate field from
+  // `description` (about the place) — its own note block, not merged in.
+  // WORK 14: pois have no notes field of their own any more, blocks only.
+  if (h.notes) {
+    await pb.collection('blocks').create({
+      ...base,
+      kind: 'note',
+      title: 'Notes',
+      body: h.notes,
+    });
+  }
   for (const link of h.links) {
     await pb.collection('blocks').create({
       ...base,
@@ -118,7 +129,6 @@ export async function importHighlights(
       kind: h.kind,
       lat: coords.lat,
       lon: coords.lon,
-      notes: h.notes,
     });
     const photoBlockIds = await createHighlightBlocks(
       pb,

@@ -1,13 +1,21 @@
 /**
  * Capture helpers: resolve a short link server-side (WORK 6.2, CORS-blocked
- * in the browser) and attach extra blocks to a freshly-created stop — a
- * pasted URL as a link block, or (WORK 7.2) a Wikimedia Commons photo when
- * the capture carried a wikidata id (Nearby/Overpass is the source of these
+ * in the browser) and attach extra blocks to a freshly-created stop or
+ * wishlist idea — a pasted URL as a link block, free text as a note block
+ * (WORK 14: pois carry these as blocks now, same as stops, not scalar
+ * `url`/`notes` fields), or (WORK 7.2) a Wikimedia Commons photo when the
+ * capture carried a wikidata id (Nearby/Overpass is the source of these
  * today — see wikimedia.ts's doc comment on why not Photon).
  */
 
 import type { TypedPocketBase } from '../types/pb';
 import { lookupWikimediaPhoto } from './wikimedia';
+
+/** Either kind of place a capture block can attach to. */
+export interface BlockParent {
+  type: 'stop' | 'poi';
+  id: string;
+}
 
 export async function resolveLink(
   pb: TypedPocketBase,
@@ -19,7 +27,7 @@ export async function resolveLink(
 export async function addLinkBlock(
   pb: TypedPocketBase,
   tripId: string,
-  stopId: string,
+  parent: BlockParent,
   url: string,
   title = '',
 ): Promise<void> {
@@ -27,11 +35,35 @@ export async function addLinkBlock(
   if (!user) return;
   await pb.collection('blocks').create({
     trip: tripId,
-    parent_type: 'stop',
-    parent_id: stopId,
+    parent_type: parent.type,
+    parent_id: parent.id,
     kind: 'link',
     visibility: 'trip',
     url,
+    title,
+    creator: user.id,
+  });
+}
+
+/** Adds a note block carrying `body` text — the home for a wishlist idea's
+ * free-text notes now that `pois.notes` is gone (WORK 14), same as a stop's
+ * description has always been a note block. */
+export async function addNoteBlock(
+  pb: TypedPocketBase,
+  tripId: string,
+  parent: BlockParent,
+  body: string,
+  title = '',
+): Promise<void> {
+  const user = pb.authStore.record;
+  if (!user) return;
+  await pb.collection('blocks').create({
+    trip: tripId,
+    parent_type: parent.type,
+    parent_id: parent.id,
+    kind: 'note',
+    visibility: 'trip',
+    body,
     title,
     creator: user.id,
   });

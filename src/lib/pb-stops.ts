@@ -227,6 +227,7 @@ export type StopPatch = Partial<
     | 'anchor_time'
     | 'anchor_type'
     | 'is_accommodation'
+    | 'starred'
   >
 >;
 

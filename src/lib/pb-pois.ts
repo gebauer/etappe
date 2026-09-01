@@ -1,10 +1,10 @@
 /**
- * Wishlist CRUD and promotion (WORK 6.4, BUILD §2/§6): a `pois` record is
- * "captured without a slot" — a trip-level idea with no day/order_index.
- * Promotion doesn't get its own bespoke insert path: it reuses the phase 6.3
- * placement flow (PlacementPicker + addStopAt) exactly like any other
- * capture, then marks the source poi `scheduled` rather than deleting it, so
- * the wishlist keeps a history instead of silently losing the idea.
+ * Wishlist CRUD (WORK 6.4, BUILD §2/§6; unified with stops in WORK 14): a
+ * `pois` record is "a stop without a day" — a trip-level idea with no day/
+ * order_index, otherwise sharing title/kind/lat/lon/address/access point/star
+ * and the whole block system. There's no `status` any more: a poi is always
+ * a live idea. Promotion to a stop (`pb-promote.ts`) re-parents its blocks
+ * and deletes the poi outright rather than leaving a tombstone behind.
  */
 
 import type { TypedPocketBase, PoisResponse } from '../types/pb';
@@ -14,18 +14,18 @@ export interface NewWishlistItem {
   kind?: string;
   lat?: number;
   lon?: number;
-  notes?: string;
-  url?: string;
+  address?: string;
+  access_lat?: number;
+  access_lon?: number;
 }
 
-/** Active wishlist for a trip — ideas only; scheduled/rejected are history,
- * not shown in the default list. */
+/** The whole wishlist for a trip. */
 export async function listWishlist(
   pb: TypedPocketBase,
   tripId: string,
 ): Promise<PoisResponse[]> {
   return pb.collection('pois').getFullList({
-    filter: pb.filter('trip = {:trip} && status = "idea"', { trip: tripId }),
+    filter: pb.filter('trip = {:trip}', { trip: tripId }),
     sort: '-created',
   });
 }
@@ -41,20 +41,11 @@ export async function addWishlistItem(
     kind: data.kind ?? 'uncategorized',
     lat: data.lat ?? 0,
     lon: data.lon ?? 0,
-    notes: data.notes ?? '',
-    url: data.url ?? '',
-    status: 'idea',
+    address: data.address ?? '',
+    access_lat: data.access_lat ?? 0,
+    access_lon: data.access_lon ?? 0,
   });
   return created.id;
-}
-
-/** Dismiss a wishlist idea without deleting it (status: rejected, per the
- * BUILD §2 enum) — an accidental reject is a one-field undo, not a re-add. */
-export async function rejectWishlistItem(
-  pb: TypedPocketBase,
-  poiId: string,
-): Promise<void> {
-  await pb.collection('pois').update(poiId, { status: 'rejected' });
 }
 
 export async function deleteWishlistItem(
@@ -62,14 +53,6 @@ export async function deleteWishlistItem(
   poiId: string,
 ): Promise<void> {
   await pb.collection('pois').delete(poiId);
-}
-
-/** Marks a wishlist item as placed once its promotion (addStopAt) commits. */
-export async function markWishlistScheduled(
-  pb: TypedPocketBase,
-  poiId: string,
-): Promise<void> {
-  await pb.collection('pois').update(poiId, { status: 'scheduled' });
 }
 
 /** Toggles a wishlist idea's `★ Top choices` flag (WORK 12.10). Persistent,

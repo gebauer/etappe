@@ -103,6 +103,32 @@ export async function updateBlock(
   await pb.collection('blocks').update(blockId, patch);
 }
 
+/** Move every block under one parent to another. Promoting a wishlist idea
+ * to a stop (or downgrading a stop back to one, WORK 14) carries its
+ * photos, description and links across this way — re-parented, not copied,
+ * so a stored photo file isn't duplicated. The moved blocks are re-indexed
+ * after any the target already has. Returns how many moved. */
+export async function reparentBlocks(
+  pb: TypedPocketBase,
+  blocks: BlocksResponse[],
+  from: { type: 'poi' | 'stop'; id: string },
+  to: { type: 'poi' | 'stop'; id: string },
+): Promise<number> {
+  const moving = blocksFor(blocks, from.type, from.id);
+  if (moving.length === 0) return 0;
+  const base = blocksFor(blocks, to.type, to.id).length;
+  const batch = pb.createBatch();
+  moving.forEach((b, i) => {
+    batch.collection('blocks').update(b.id, {
+      parent_type: to.type,
+      parent_id: to.id,
+      order_index: base + i,
+    });
+  });
+  await batch.send();
+  return moving.length;
+}
+
 export async function deleteBlock(
   pb: TypedPocketBase,
   blockId: string,

@@ -3,8 +3,8 @@
  * prompts to merge instead of duplicating." Pure detection only — the actual
  * merge (use the existing stop, optionally attach the new capture's link)
  * is a caller concern, since what "merge" means depends on what the
- * candidate carries (a wishlist promotion also marks the source scheduled;
- * a plain search pick doesn't).
+ * candidate carries (a wishlist promotion also re-parents the idea's blocks
+ * and deletes it; a plain search pick doesn't).
  */
 
 import { haversineMeters } from './geo';

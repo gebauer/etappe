@@ -22,7 +22,7 @@ interface Props {
 
 /**
  * The wishlist surface docked bottom-left over the map (design handoff,
- * "Wishlist panel") — captures without a slot (`pois`, status "idea").
+ * "Wishlist panel") — captures without a slot (`pois`, no day/order_index).
  * Deliberately the *fallback* list, not the primary surface: the pins on
  * the map are (WORK 12.4), so this shows only the first few and collapses.
  *

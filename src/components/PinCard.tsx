@@ -99,7 +99,10 @@ export function PinCard({
   const cover = photos[0];
   const coverSrc = cover ? blockFileUrl(pb, cover, '640x0') : null;
   const notes = blocks.filter((b) => b.kind === 'note' && b.body?.trim());
-  const linkBlock = blocks.find((b) => b.kind === 'link' && b.url);
+  // Every link block, not just one — a wishlist idea imported from
+  // Highlights routinely carries several (WORK 14: pois have no url field
+  // of their own any more, links are blocks on both pois and stops).
+  const linkBlocks = blocks.filter((b) => b.kind === 'link' && b.url);
 
   const hasNav = target.type !== 'empty';
   const navLabel =
@@ -111,14 +114,12 @@ export function PinCard({
 
   let title: string;
   let subtitle: string;
-  let link: string | undefined = linkBlock?.url;
   if (target.type === 'stop') {
     title = target.stop.title;
     subtitle = `${kindLabel(target.stop.kind)} · ${target.dayLabel}`;
   } else if (target.type === 'wish') {
     title = target.item.title;
     subtitle = `${kindLabel(target.item.kind ?? 'uncategorized')} · Wishlist`;
-    link = target.item.url || link;
   } else {
     title = target.place?.name ?? 'Dropped pin';
     const coords = `${target.lat.toFixed(4)}, ${target.lon.toFixed(4)}`;
@@ -244,28 +245,25 @@ export function PinCard({
           />
         ))}
 
-        {target.type === 'wish' && target.item.notes?.trim() && (
-          <p className="mt-3 text-[13.5px] text-text-2 [text-wrap:pretty]">
-            {target.item.notes}
-          </p>
-        )}
-
         {target.type === 'empty' && !target.identifying && (
           <p className="mt-3 text-[13.5px] text-text-2 [text-wrap:pretty]">
             Nothing here yet. Save it for later, or drop it straight into a day.
           </p>
         )}
 
-        {link && (
-          <div className="mt-2.5">
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[13px] text-accent underline"
-            >
-              Official site
-            </a>
+        {linkBlocks.length > 0 && (
+          <div className="mt-2.5 flex flex-col gap-1">
+            {linkBlocks.map((b) => (
+              <a
+                key={b.id}
+                href={b.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[13px] text-accent underline"
+              >
+                {b.title?.trim() || 'Official site'}
+              </a>
+            ))}
           </div>
         )}
 

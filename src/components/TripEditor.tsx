@@ -19,8 +19,7 @@ import {
 import {
   listWishlist,
   addWishlistItem,
-  rejectWishlistItem,
-  markWishlistScheduled,
+  deleteWishlistItem,
   setPoiStarred,
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
@@ -36,6 +35,7 @@ import {
   deleteBlock,
   moveBlock,
   blocksFor,
+  reparentBlocks,
   uploadBlockPhoto,
   type BlockKind,
   type BlockPatch,
@@ -59,9 +59,10 @@ import type { StopsResponse } from '../types/pb';
 /** What every capture path (search, paste, map click, wishlist promotion,
  * nearby) ends up as before it's ranked (WORK 6.3) or merge-checked
  * (WORK 6.5). wishlistId is set only when promoting a wishlist item, so its
- * source can be marked scheduled once the capture resolves. wikidataId is
- * set only by Nearby (Overpass carries the tag; Photon doesn't — see
- * wikimedia.ts), and drives an auto-attached Commons photo block (WORK 7.2). */
+ * source's blocks can be re-parented and it deleted once the capture
+ * resolves (WORK 14). wikidataId is set only by Nearby (Overpass carries
+ * the tag; Photon doesn't — see wikimedia.ts), and drives an auto-attached
+ * Commons photo block (WORK 7.2). */
 type CaptureCandidate = PlacementCandidate & {
   kind: string;
   sourceUrl?: string;
@@ -362,12 +363,27 @@ export function TripEditor({
           kind_confirmed: false,
         },
       );
-      // Keep the pasted URL as a link block on the new stop (BUILD §6).
+      // Promoting a wishlist idea (WORK 14): its blocks — photos,
+      // description, links — move onto the new stop wholesale, then the
+      // idea itself is deleted rather than left as a hidden tombstone.
+      if (candidate.wishlistId) {
+        await reparentBlocks(
+          pb,
+          records.blocks,
+          { type: 'poi', id: candidate.wishlistId },
+          { type: 'stop', id: stopId },
+        );
+        await deleteWishlistItem(pb, candidate.wishlistId);
+        reloadWishlist();
+      }
+      // Keep the pasted URL as a link block on the new stop (BUILD §6) —
+      // only reachable for a non-wishlist capture; a promoted idea's own
+      // links already came across via reparentBlocks above.
       if (candidate.sourceUrl) {
         await addLinkBlock(
           pb,
           tripId,
-          stopId,
+          { type: 'stop', id: stopId },
           candidate.sourceUrl,
           candidate.name,
         );
@@ -382,10 +398,6 @@ export function TripEditor({
           candidate.wikidataId,
         );
       }
-      if (candidate.wishlistId) {
-        await markWishlistScheduled(pb, candidate.wishlistId);
-        reloadWishlist();
-      }
     });
   }
 
@@ -394,19 +406,29 @@ export function TripEditor({
   // SearchPalette; searchMode decides what onPick does with the result.
   function commitWishlistPick(place: PlaceResult, sourceUrl?: string) {
     void run(async () => {
-      await addWishlistItem(pb, tripId, {
+      const poiId = await addWishlistItem(pb, tripId, {
         title: place.name,
         kind: place.kind,
         lat: place.lat,
         lon: place.lon,
-        url: sourceUrl ?? '',
       });
+      // A pasted/shared URL becomes a link block (WORK 14: pois have no url
+      // field of their own any more).
+      if (sourceUrl) {
+        await addLinkBlock(
+          pb,
+          tripId,
+          { type: 'poi', id: poiId },
+          sourceUrl,
+          place.name,
+        );
+      }
       reloadWishlist();
     });
   }
 
-  function rejectWishlist(id: string) {
-    void rejectWishlistItem(pb, id).then(reloadWishlist);
+  function deleteWishlist(id: string) {
+    void deleteWishlistItem(pb, id).then(reloadWishlist);
   }
 
   // `★ Top choices` toggle (WORK 12.10). Persisted on the poi, then the
@@ -451,7 +473,8 @@ export function TripEditor({
 
   // Placing a wishlist item or a nearby ghost pin is the same ranked
   // placement flow as any other capture (WORK 6.3) — a wishlist item just
-  // arrives with a wishlistId so commitPlacement can mark it scheduled.
+  // arrives with a wishlistId so commitPlacement can re-parent its blocks
+  // and delete it once the new stop lands (WORK 14).
   function placeWishlistItem(item: PoisResponse) {
     if (!item.lat || !item.lon) return;
     beginCapture({
@@ -459,7 +482,6 @@ export function TripEditor({
       kind: item.kind ?? 'uncategorized',
       lat: item.lat,
       lon: item.lon,
-      sourceUrl: item.url || undefined,
       wishlistId: item.id,
     });
   }
@@ -475,14 +497,14 @@ export function TripEditor({
   }
 
   // The merge prompt's resolution: adopt the existing stop (carrying over
-  // the candidate's link and, for a wishlist promotion, marking it
-  // scheduled — the same side effects commitPlacement would have applied to
-  // a newly created stop), override and create a separate stop anyway, or
-  // cancel the capture entirely.
+  // the candidate's link and, for a wishlist promotion, its blocks — the
+  // same side effects commitPlacement would have applied to a newly
+  // created stop), override and create a separate stop anyway, or cancel
+  // the capture entirely.
   function useExistingStop() {
     const check = mergeCheck;
     setMergeCheck(null);
-    if (!check) return;
+    if (!check || !records) return;
     setSelectedStopIds(new Set([check.existingStop.id]));
     if (
       !check.candidate.sourceUrl &&
@@ -496,7 +518,7 @@ export function TripEditor({
         await addLinkBlock(
           pb,
           tripId,
-          check.existingStop.id,
+          { type: 'stop', id: check.existingStop.id },
           check.candidate.sourceUrl,
           check.candidate.name,
         );
@@ -510,7 +532,13 @@ export function TripEditor({
         );
       }
       if (check.candidate.wishlistId) {
-        await markWishlistScheduled(pb, check.candidate.wishlistId);
+        await reparentBlocks(
+          pb,
+          records.blocks,
+          { type: 'poi', id: check.candidate.wishlistId },
+          { type: 'stop', id: check.existingStop.id },
+        );
+        await deleteWishlistItem(pb, check.candidate.wishlistId);
         reloadWishlist();
       }
     });
@@ -1204,7 +1232,7 @@ export function TripEditor({
             closeCard();
           }}
           onReject={() => {
-            if (cardTarget.type === 'wish') rejectWishlist(cardTarget.item.id);
+            if (cardTarget.type === 'wish') deleteWishlist(cardTarget.item.id);
             closeCard();
           }}
           onAddWishlist={() => {
