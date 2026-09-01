@@ -12,15 +12,16 @@ import type { CascadeResult } from '../lib/cascade';
 import type { StopsResponse, PoisResponse } from '../types/pb';
 import {
   addMarkerLayers,
-  buildPinElement,
   buildNumberedPinElement,
+  buildAccessPointElement,
+  buildParkingChipElement,
   compositeNumberBadge,
   compositeWishlistPin,
-  drawEmojiGlyph,
   compositePhotoCircle,
 } from '../lib/map-markers';
-import { queryNearby, type NearbyPoi } from '../lib/overpass';
+import { queryNearby, type NearbyPoi, type ParkingLot } from '../lib/overpass';
 import { categoryColor } from '../lib/map-colors';
+import { formatMeters } from '../lib/format';
 import { loadThumbnailUrl } from '../lib/wikimedia';
 import { pb } from '../lib/pb';
 import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
@@ -108,6 +109,9 @@ export function MapPane({
   selectedWishlistId,
   onSelectDay,
   onAddDay,
+  picking,
+  parkingLots,
+  onPickParking,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -132,6 +136,13 @@ export function MapPane({
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
   onAddDay?: () => void;
+  /** Access-point picking mode (WORK 12.9). When set, the map is zoomed to
+   * the stop and every bare click reports an access point rather than
+   * selecting a pin; `parkingLots` render as clickable chips. Memoised by
+   * the caller so its identity is stable between renders. */
+  picking?: { lat: number; lon: number } | null;
+  parkingLots?: ParkingLot[];
+  onPickParking?: (lot: ParkingLot) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -146,6 +157,11 @@ export function MapPane({
   dragStopRef.current = onDragStop;
   const dragAccessRef = useRef(onDragAccessPoint);
   dragAccessRef.current = onDragAccessPoint;
+  const pickingRef = useRef(picking ?? null);
+  pickingRef.current = picking ?? null;
+  const pickParkingRef = useRef(onPickParking);
+  pickParkingRef.current = onPickParking;
+  const parkingMarkersRef = useRef<maplibregl.Marker[]>([]);
   const selectedStopIdRef = useRef<string | null>(selectedStop?.id ?? null);
   selectedStopIdRef.current = selectedStop?.id ?? null;
   const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -454,6 +470,13 @@ export function MapPane({
     // Click a wishlist or ghost pin to act on it (place / capture); click a
     // marker to select its stop; click empty map to drop a stop.
     map.on('click', (ev) => {
+      // Picking an access point: the whole surface is the target, pins are
+      // irrelevant. A chip click is a DOM button above the canvas and never
+      // reaches here.
+      if (pickingRef.current) {
+        clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
+        return;
+      }
       const wishlistId = wishlistUnder(ev.point);
       if (wishlistId) {
         const poi = wishlistRef.current.find((p) => p.id === wishlistId);
@@ -472,6 +495,10 @@ export function MapPane({
     });
 
     map.on('mousemove', (ev) => {
+      if (pickingRef.current) {
+        map.getCanvas().style.cursor = 'crosshair';
+        return;
+      }
       const id = stopsUnder(ev.point);
       const overGhost = id
         ? false
@@ -491,6 +518,8 @@ export function MapPane({
       poiMarkerRef.current = null;
       accessMarkerRef.current?.remove();
       accessMarkerRef.current = null;
+      for (const m of parkingMarkersRef.current) m.remove();
+      parkingMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
     };
@@ -714,6 +743,45 @@ export function MapPane({
     map.flyTo({ center: [flyTo.lon, flyTo.lat], duration: 600 });
   }, [flyTo]);
 
+  // Access-point picking (WORK 12.9): zoom in on the stop so a car park is
+  // actually findable — you cannot aim at a country-scale view. `picking` is
+  // memoised by the caller, so this only fires on entry / target change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !picking) return;
+    map.easeTo({
+      center: [picking.lon, picking.lat],
+      zoom: 17,
+      duration: 350,
+    });
+  }, [picking]);
+
+  // Parking chips: transient DOM markers, only while picking. Nearest 3–5,
+  // bounded server-side by `parseParking` — deliberately not the raw Nearby
+  // layer. Clicking one sets the access point there.
+  useEffect(() => {
+    const map = mapRef.current;
+    for (const m of parkingMarkersRef.current) m.remove();
+    parkingMarkersRef.current = [];
+    if (!map || !loadedRef.current || !picking) return;
+    for (const lot of parkingLots ?? []) {
+      const el = buildParkingChipElement(
+        lot.name,
+        formatMeters(lot.distanceM),
+        () => pickParkingRef.current?.(lot),
+      );
+      parkingMarkersRef.current.push(
+        new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([lot.lon, lot.lat])
+          .addTo(map),
+      );
+    }
+    return () => {
+      for (const m of parkingMarkersRef.current) m.remove();
+      parkingMarkersRef.current = [];
+    };
+  }, [picking, parkingLots]);
+
   // Fit the map to a day's stops when that day is selected ("move on select").
   useEffect(() => {
     const map = mapRef.current;
@@ -804,12 +872,10 @@ export function MapPane({
 
     if (selectedStop?.access_lat && selectedStop?.access_lon) {
       if (!accessMarkerRef.current) {
-        const element = buildPinElement('#f59e0b', (ctx) =>
-          drawEmojiGlyph(ctx, '🚗'),
-        );
+        const element = buildAccessPointElement();
         const marker = new maplibregl.Marker({
           element,
-          anchor: 'bottom',
+          anchor: 'center',
           draggable: true,
         })
           .setLngLat([selectedStop.access_lon, selectedStop.access_lat])
@@ -847,6 +913,9 @@ export function MapPane({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+      {picking && (
+        <div className="pointer-events-none absolute inset-0 z-30 shadow-[inset_0_0_0_2px_oklch(0.72_0.13_215/0.55)]" />
+      )}
       <DayPills
         days={records.days}
         stops={records.stops}

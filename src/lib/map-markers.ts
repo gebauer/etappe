@@ -12,9 +12,10 @@
  * planner/README.md, WORK 12.4) replaces it with a plain numbered circle,
  * identical across every kind and day, day-scoped by `MapPane` rather than
  * zoom-faded. Identity now lives in the card (WORK 12.2), not painted on the
- * pin. The access-point marker keeps its teardrop pin shape unchanged — the
- * redesign doesn't address it, and it isn't part of the itinerary sequence
- * the numbered pins encode.
+ * pin. The access-point marker is a dashed "P" disc (`buildAccessPointElement`,
+ * WORK 12.9) — it isn't part of the itinerary sequence the numbered pins
+ * encode, and the picking flow it belongs to needs a plain draggable element,
+ * not a symbol image.
  */
 
 import type maplibregl from 'maplibre-gl';
@@ -249,6 +250,96 @@ export function buildNumberedPinElement(seq: number): HTMLCanvasElement {
     drawBadgeNumber(ctx, c, c, String(seq), BADGE_SEL_TEXT, 28);
   }
   return canvas;
+}
+
+// --- access-point picking (design_handoff_map_first_planner, WORK 12.9) ---
+//
+// Plain DOM elements, not canvas pins: both are transient, shown only while
+// picking, and never collide at density — so the symbol-layer machinery the
+// itinerary pins need would be dead weight here.
+
+const PICK_ACCENT = oklchToHex(0.72, 0.13, 215);
+
+/** The dashed "P" disc that marks a stop's set access point — replaces the
+ * earlier car-emoji teardrop (the handoff calls for a dashed accent P).
+ * Draggable; MapPane wires the drag callback. */
+export function buildAccessPointElement(): HTMLDivElement {
+  const el = document.createElement('div');
+  el.textContent = 'P';
+  Object.assign(el.style, {
+    width: '22px',
+    height: '22px',
+    borderRadius: '50%',
+    border: `2px dashed ${PICK_ACCENT}`,
+    background: oklchToHex(0.22, 0.013, 250),
+    color: PICK_ACCENT,
+    font: '600 10px "IBM Plex Mono", ui-monospace, monospace',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'grab',
+    boxShadow: '0 2px 8px rgba(8, 10, 14, 0.5)',
+  });
+  return el;
+}
+
+/** A clickable parking chip anchored at a lot's coordinate during picking:
+ * `P` badge · name · straight-line distance. Clicking sets the access point
+ * there (stopPropagation keeps the map's own click from also firing). */
+export function buildParkingChipElement(
+  name: string,
+  distance: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  Object.assign(btn.style, {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '7px',
+    height: '30px',
+    padding: '0 11px 0 8px',
+    borderRadius: '15px',
+    border: `1px solid ${PICK_ACCENT}`,
+    background: oklchToHex(0.21, 0.013, 250),
+    color: oklchToHex(0.92, 0.006, 250),
+    font: '500 12px "Instrument Sans", system-ui, sans-serif',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    boxShadow: '0 3px 12px rgba(8, 10, 14, 0.55)',
+  });
+
+  const badge = document.createElement('span');
+  badge.textContent = 'P';
+  Object.assign(badge.style, {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '5px',
+    background: PICK_ACCENT,
+    color: oklchToHex(0.16, 0.02, 240),
+    font: '600 10px "IBM Plex Mono", ui-monospace, monospace',
+  });
+
+  const label = document.createElement('span');
+  label.textContent = name;
+
+  const dist = document.createElement('span');
+  dist.textContent = distance;
+  Object.assign(dist.style, {
+    fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+    fontSize: '11px',
+    color: oklchToHex(0.66, 0.01, 250),
+  });
+
+  btn.append(badge, label, dist);
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClick();
+  });
+  return btn;
 }
 
 // --- wishlist pins (design_handoff_map_first_planner, WORK 12.4) ----------

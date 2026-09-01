@@ -27,9 +27,14 @@ spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
 12.1–12.6 are done plus 12.8 (wishlist photos stored server-side) — the
 redesign's desktop shell is in: design tokens,
 unified pin-click card, expanded full-details card, pin visuals, day
-pills/Fit trip, and the map-dominant shell itself. Next is 12.7 (phone
-layout), which is also what fixes the sub-860px view 12.6 deliberately let
-break. The Blocks section
+pills/Fit trip, and the map-dominant shell itself.
+The handoff was revised 2026-09-01 (`design_handoff_map_first_planner`,
+in place — the old copy is superseded) with two new surfaces: a built
+wishlist carousel and a proper access-point picking mode. These are 12.10
+and 12.9 below. **→ Next, in order: 12.9 (access-point picking) →
+12.10 (wishlist carousel) → 12.7 (phone layout, also what fixes the
+sub-860px view 12.6 deliberately let break) → 12.11 (cleanup).**
+The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
 the dark modal worth knowing about. 12.4 retired BUILD §5.3's kind-icon/
@@ -642,11 +647,65 @@ threshold, same step function as the desktop card's `‹`/`›`) and a looping
 chevron nudge as the discoverability cue; edit region uses 44px targets.
 Drag-to-expand and a rubber-band swipe transform are explicitly not built.
 
-**12.8 Cleanup and polish** · Cheap
-Dead-code removal for everything retired in 12.5, keyboard shortcuts
+**12.9 Access-point picking mode** · Standard
+Revised handoff: `Set on map` is unusable from the `All details` modal (it
+covers the map), and even from the inline card you aim at a country-scale
+view with no help finding a car park. Replaces the thin `placingAccessFor`
+top-banner flow with a real mode.
+- `picking` state in `TripEditor` that suppresses the expanded modal, the
+  docked card, the phone card and the wishlist panel while true.
+- `MapPane`: accent inset ring over the canvas; `easeTo` the stop at ~z17
+  (350ms) on entry; a dashed accent `P` circle for the set access point
+  (was a 🚗 teardrop), still draggable with write-back.
+- Nearby parking chips — new `buildParkingQuery`/`parseParking` in
+  `src/lib/overpass.ts` (`amenity=parking` + `parking_entrance`, ~500m,
+  nearest 3–5, carrying `name`/`fee`/`capacity`/`access`/`maxstay`),
+  unit-tested. **Direct browser fetch, no cache** — parity with the
+  existing Nearby call, not the README's "server-cached" phrasing
+  (author's call, 2026-09-01). Rendered only while picking, as ≤5
+  transient DOM markers. Click a chip → set there; click bare map →
+  freehand; zero chips is a valid state.
+- Banner below the day-pill row: "Click the map to set the access point" /
+  "Zoomed to <stop> · nearby parking shown" / Reset (only when set) +
+  Cancel; both return to the modal, Cancel changes nothing. Escape too.
+- `PinCardEdit` + `PinCardExpanded` access rows: show Clear **and** Set on
+  map side by side when set, with a mono value line (coords, or
+  "Not set — routes to the stop itself").
+No cascade or schema change — routing already keys off `access_lat/lon`
+(`pb-stops.ts`, `placement.ts`); Clear keeps writing the `0,0` sentinel.
+
+**12.10 Wishlist carousel + persistent starring** · Standard
+Revised handoff: the "photo wheel" filmstrip, now built and no longer
+optional.
+- `Browse all N ›` footer in `WishlistPanel` opens a new
+  `WishlistCarousel.tsx` — a full-map-width bottom filmstrip on a gradient
+  fade (not a panel): `★ Top choices` filter pill, mono meta line
+  (`6 places · nearest first` / `2 starred · nearest first`), a
+  scroll-snap strip of 178px photo cards each with a 28px star toggle,
+  floating ‹/› arrows (3 cards/press). Order = the cached `wish-order`
+  proximity chain. Opening clears the selection; carousel and panel share
+  the bottom-left slot and are both hidden behind an open card.
+- Hover (a carousel card or a compact-list row) is highlight-only — lifts
+  the card and grows that place's map pin to 36px + amber halo via a new
+  `wishlist-pins-hovered` GL layer mirroring `wishlist-pins-selected`. It
+  never selects, opens a card or moves the map. New `hover` UI state
+  shared by the carousel, the list and the pins.
+- Starring is persistent: new `pois.starred` bool (migration
+  `1788000007`, not required, default false; `npm run types:pb`),
+  `setPoiStarred` in `pb-pois.ts`. A 16px gold star badge shows on the
+  wishlist pin at all times — folded into `compositeWishlistPin` on the
+  same resolve path as 12.8's photo upgrade, so a late photo load can't
+  clobber it. The filter pill narrows the strip only; starred pins stay
+  on the map either way.
+- UI state: `browsing` (desktop only), `hover`, `starOnly`.
+Edits: `WishlistPanel`, `TripEditor`, `MapPane`, `map-markers`,
+`map-features`, plus the new component and migration.
+
+**12.11 Cleanup and polish** · Cheap
+Dead-code removal for everything retired in 12.5/12.6, keyboard shortcuts
 re-verified (`k` still opens the kind picker from the card), `npm run
 check` and `npm run format:check`, this file and `ToDo.md` updated to
-reflect the shipped design.
+reflect the shipped design. (Renumbered from a second "12.8" heading.)
 
 ---
 

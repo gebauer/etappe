@@ -248,20 +248,28 @@ export function PinCardExpanded({
               <div className="col-span-2 flex items-center justify-between gap-3 rounded-[10px] border border-[oklch(0.29_0.012_250)] bg-surface-2 px-3.5 py-2.5">
                 <div className="min-w-0">
                   <div className="text-[12.5px] font-medium">Access point</div>
-                  <div className="mt-0.5 truncate text-[11.5px] text-text-4">
+                  <div className="mt-0.5 truncate font-mono text-[11.5px] text-text-4">
                     {hasAccessPoint
                       ? `${stop.access_lat!.toFixed(5)}, ${stop.access_lon!.toFixed(5)}`
-                      : 'Route to a nearby car park instead'}
+                      : 'Not set — routes to the stop itself'}
                   </div>
                 </div>
-                <button
-                  onClick={
-                    hasAccessPoint ? onClearAccessPoint : onPlaceAccessPoint
-                  }
-                  className="h-8 flex-none whitespace-nowrap rounded-lg border border-border-strong bg-control px-3 text-xs text-text-2 hover:bg-control-hover"
-                >
-                  {hasAccessPoint ? 'Clear' : 'Set on map'}
-                </button>
+                <div className="flex flex-none gap-1.5">
+                  {hasAccessPoint && (
+                    <button
+                      onClick={onClearAccessPoint}
+                      className="h-8 whitespace-nowrap rounded-lg border border-border-strong px-3 text-xs text-text-2 hover:bg-control-hover"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    onClick={onPlaceAccessPoint}
+                    className="h-8 whitespace-nowrap rounded-lg border border-border-strong bg-control px-3 text-xs text-text-2 hover:bg-control-hover"
+                  >
+                    Set on map
+                  </button>
+                </div>
               </div>
             </div>
 

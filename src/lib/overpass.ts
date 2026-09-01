@@ -114,3 +114,95 @@ export async function queryNearby(
   if (!res.ok) throw new Error(`Overpass query failed (${res.status})`);
   return parseOverpass(await res.json(), existingStops);
 }
+
+/**
+ * Nearby parking for access-point picking (WORK 12.9). Deliberately unlike
+ * `queryNearby`: one tag (`amenity=parking`, plus `parking_entrance`), a
+ * small radius around a single stop, and only the nearest few — raw Nearby
+ * returns every tagged POI in a corridor and drew the original "too many
+ * pins" complaint. Rendered only while picking; zero results is a valid
+ * state, freehand clicking is the fallback.
+ *
+ * Not cached (parity with `queryNearby`, which also hits Overpass direct) —
+ * the README's "server-cached" phrasing describes an aspiration, not
+ * today's Nearby.
+ */
+export interface ParkingLot {
+  osmId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  distanceM: number;
+  /** OSM tags surfaced on the chip where present. */
+  fee?: string;
+  capacity?: string;
+  access?: string;
+  maxstay?: string;
+}
+
+export function buildParkingQuery(center: LatLon, radiusM: number): string {
+  const around = `around:${Math.round(radiusM)},${center.lat},${center.lon}`;
+  const clauses = [
+    `node["amenity"="parking"](${around});`,
+    `way["amenity"="parking"](${around});`,
+    `node["amenity"="parking_entrance"](${around});`,
+  ];
+  // `out center` gives ways a single coordinate without their full geometry.
+  return `[out:json][timeout:25];(${clauses.join('')});out center;`;
+}
+
+const ParkingElementSchema = z.object({
+  type: z.string(),
+  id: z.number(),
+  lat: z.number().optional(),
+  lon: z.number().optional(),
+  center: z.object({ lat: z.number(), lon: z.number() }).optional(),
+  tags: z.record(z.string()).optional(),
+});
+const ParkingResponseSchema = z.object({
+  elements: z.array(ParkingElementSchema),
+});
+
+/** Validate a raw Overpass response, resolve way centres, sort by straight-
+ * line distance to `center` and keep the nearest `limit`. Pure; unit-tested. */
+export function parseParking(
+  json: unknown,
+  center: LatLon,
+  limit = 5,
+): ParkingLot[] {
+  const lots: ParkingLot[] = [];
+  for (const el of ParkingResponseSchema.parse(json).elements) {
+    const lat = el.lat ?? el.center?.lat;
+    const lon = el.lon ?? el.center?.lon;
+    if (lat == null || lon == null) continue;
+    const tags = el.tags ?? {};
+    lots.push({
+      osmId: `${el.type}/${el.id}`,
+      name: tags.name ?? 'Parking',
+      lat,
+      lon,
+      distanceM: Math.round(haversineMeters(center, { lat, lon })),
+      fee: tags.fee || undefined,
+      capacity: tags.capacity || undefined,
+      access: tags.access || undefined,
+      maxstay: tags.maxstay || undefined,
+    });
+  }
+  return lots.sort((a, b) => a.distanceM - b.distanceM).slice(0, limit);
+}
+
+/** Queries Overpass for parking near a single point. Thin network wrapper;
+ * not unit-tested (see parseParking/buildParkingQuery, which are). */
+export async function queryParking(
+  center: LatLon,
+  radiusM: number,
+): Promise<ParkingLot[]> {
+  const query = buildParkingQuery(center, radiusM);
+  const res = await fetch(OVERPASS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(query)}`,
+  });
+  if (!res.ok) throw new Error(`Overpass parking query failed (${res.status})`);
+  return parseParking(await res.json(), center);
+}

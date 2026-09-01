@@ -27,7 +27,7 @@ import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
-import type { NearbyPoi } from '../lib/overpass';
+import { queryParking, type NearbyPoi, type ParkingLot } from '../lib/overpass';
 import type { PoisResponse } from '../types/pb';
 import {
   addBlock,
@@ -65,6 +65,10 @@ type CaptureCandidate = PlacementCandidate & {
   wishlistId?: string;
   wikidataId?: string;
 };
+
+/** Radius for the access-point parking lookup (WORK 12.9) — small on
+ * purpose: this is "the car park for this stop", not a corridor scan. */
+const PARKING_RADIUS_M = 600;
 
 export function TripEditor({
   tripId,
@@ -116,10 +120,17 @@ export function TripEditor({
   const [expanded, setExpanded] = useState(false);
   const [kindPickerSignal, setKindPickerSignal] = useState(0);
   const [showUncategorized, setShowUncategorized] = useState(false);
-  const [placingAccessFor, setPlacingAccessFor] = useState<{
-    id: string;
+  // Access-point picking (WORK 12.9): a real mode, not just a banner. While
+  // set, the docked card, the expanded modal and the wishlist panel all hide
+  // and the map is handed back — see the render gates below.
+  const [picking, setPicking] = useState<{
+    stopId: string;
     title: string;
+    lat: number;
+    lon: number;
+    returnToExpanded: boolean;
   } | null>(null);
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
   const [pendingPlacement, setPendingPlacement] =
     useState<CaptureCandidate | null>(null);
   const [mergeCheck, setMergeCheck] = useState<{
@@ -264,16 +275,8 @@ export function TripEditor({
   }
 
   function onMapClick(lat: number, lon: number) {
-    if (placingAccessFor) {
-      const stopId = placingAccessFor.id;
-      setPlacingAccessFor(null);
-      if (!records) return;
-      void run(() =>
-        updateStopAndReroute(pb, routing, records, stopId, {
-          access_lat: lat,
-          access_lon: lon,
-        }),
-      );
+    if (picking) {
+      finishPicking({ access_lat: lat, access_lon: lon });
       return;
     }
     // A bare map click no longer captures anything on its own (WORK 12.2):
@@ -380,6 +383,13 @@ export function TripEditor({
     [wishlist],
   );
 
+  // Stable {lat,lon} identity for MapPane's picking effects — `picking` state
+  // only changes on start/finish, so this memo only recomputes then.
+  const mapPicking = useMemo(
+    () => (picking ? { lat: picking.lat, lon: picking.lon } : null),
+    [picking],
+  );
+
   // Placing a wishlist item or a nearby ghost pin is the same ranked
   // placement flow as any other capture (WORK 6.3) — a wishlist item just
   // arrives with a wishlistId so commitPlacement can mark it scheduled.
@@ -468,8 +478,39 @@ export function TripEditor({
 
   function startPlacingAccessPoint(stopId: string) {
     const stop = records?.stops.find((s) => s.id === stopId);
-    if (!stop) return;
-    setPlacingAccessFor({ id: stopId, title: stop.title });
+    if (!stop || !stop.lat || !stop.lon) return;
+    setPicking({
+      stopId,
+      title: stop.title,
+      lat: stop.lat,
+      lon: stop.lon,
+      returnToExpanded: expanded,
+    });
+    setExpanded(false);
+    setParkingLots([]);
+    // Zero chips in range is a valid state — freehand clicking is the fallback.
+    void queryParking({ lat: stop.lat, lon: stop.lon }, PARKING_RADIUS_M)
+      .then(setParkingLots)
+      .catch(() => setParkingLots([]));
+  }
+
+  /** Leave picking. `patch` writes an access point (a freehand click or a
+   * parking chip); a `0,0` patch clears it (the banner's Reset); `null`
+   * cancels with no change. Returns to the expanded modal when picking
+   * started there. */
+  function finishPicking(
+    patch: { access_lat: number; access_lon: number } | null,
+  ) {
+    const p = picking;
+    if (!p) return;
+    setPicking(null);
+    setParkingLots([]);
+    if (p.returnToExpanded) setExpanded(true);
+    if (patch && records) {
+      void run(() =>
+        updateStopAndReroute(pb, routing, records, p.stopId, patch),
+      );
+    }
   }
 
   function clearAccessPoint(stopId: string) {
@@ -583,8 +624,7 @@ export function TripEditor({
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
-      if (e.key === 'Escape' && placingAccessFor)
-        return setPlacingAccessFor(null);
+      if (e.key === 'Escape' && picking) return finishPicking(null);
       if (e.key === 'Escape' && (wishCard || emptyCard)) return closeCard();
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
       if (e.key === 'Delete' || e.key === 'Backspace')
@@ -624,7 +664,7 @@ export function TripEditor({
     records,
     selectedStopIds,
     selectedDayId,
-    placingAccessFor,
+    picking,
     pendingPlacement,
     mergeCheck,
     wishCard,
@@ -736,24 +776,14 @@ export function TripEditor({
     ? days.findIndex((d) => d.id === activeDay.id)
     : 0;
   const cardOpen = !!cardTarget;
+  const pickingStop = picking
+    ? (stops.find((s) => s.id === picking.stopId) ?? null)
+    : null;
+  const pickingHasAccess =
+    !!pickingStop?.access_lat && !!pickingStop?.access_lon;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg font-sans text-text">
-      {placingAccessFor && (
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-surface-4 px-4 py-1.5 text-xs text-text shadow-card">
-            Click the map for an access point for{' '}
-            <strong>{placingAccessFor.title}</strong>
-            <button
-              onClick={() => setPlacingAccessFor(null)}
-              className="rounded-full bg-white/10 px-2 py-0.5 hover:bg-white/20"
-            >
-              Cancel (Esc)
-            </button>
-          </div>
-        </div>
-      )}
-
       <header className="flex h-[52px] flex-none items-center gap-3.5 border-b border-border bg-surface-2 px-3.5">
         <button
           onClick={onBack}
@@ -834,11 +864,52 @@ export function TripEditor({
                 insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
               )
             }
+            picking={mapPicking}
+            parkingLots={parkingLots}
+            onPickParking={(lot) =>
+              finishPicking({ access_lat: lot.lat, access_lon: lot.lon })
+            }
           />
 
+          {/* Access-point picking banner (WORK 12.9), below the day-pill row. */}
+          {picking && (
+            <div className="pointer-events-none absolute inset-x-0 top-[62px] z-40 flex justify-center px-4">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-[oklch(0.40_0.06_215)] bg-[oklch(0.20_0.013_250/0.95)] py-2.5 pl-4 pr-3 text-text shadow-card backdrop-blur-[12px]">
+                <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border-2 border-dashed border-accent font-mono text-[10px] text-accent">
+                  P
+                </span>
+                <span className="min-w-0">
+                  <span className="block whitespace-nowrap text-[13px] font-medium">
+                    Click the map to set the access point
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11.5px] text-text-4">
+                    Zoomed to {picking.title} · nearby parking shown
+                  </span>
+                </span>
+                <span className="h-[26px] w-px flex-none bg-border-strong" />
+                {pickingHasAccess && (
+                  <button
+                    onClick={() =>
+                      finishPicking({ access_lat: 0, access_lon: 0 })
+                    }
+                    className="h-[30px] flex-none whitespace-nowrap rounded-lg border border-border-strong px-3 text-[12.5px] text-text-2 hover:bg-control-hover"
+                  >
+                    Reset
+                  </button>
+                )}
+                <button
+                  onClick={() => finishPicking(null)}
+                  className="h-[30px] flex-none whitespace-nowrap rounded-lg border border-border-strong px-3 text-[12.5px] text-text-2 hover:bg-control-hover"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Wishlist fallback list and the card share the bottom-left slot;
-              the card wins (design handoff). */}
-          {!cardOpen && (
+              the card wins (design handoff). Both hide while picking. */}
+          {!cardOpen && !picking && (
             <div className="absolute bottom-3.5 left-3.5 z-10">
               <WishlistPanel
                 items={wishlist}
@@ -954,7 +1025,7 @@ export function TripEditor({
           onCancel={() => setMergeCheck(null)}
         />
       )}
-      {cardTarget && (
+      {cardTarget && !picking && (
         <PinCard
           target={cardTarget}
           blocks={
@@ -1023,7 +1094,7 @@ export function TripEditor({
           openKindPickerSignal={kindPickerSignal}
         />
       )}
-      {expanded && cardTarget?.type === 'stop' && (
+      {expanded && !picking && cardTarget?.type === 'stop' && (
         <PinCardExpanded
           stop={cardTarget.stop}
           blocks={blocksFor(records.blocks, 'stop', cardTarget.stop.id)}

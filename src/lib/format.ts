@@ -22,6 +22,12 @@ export function formatDuration(min: number): string {
   return `${h}h ${m}m`;
 }
 
+/** Straight-line distance for a compact chip: "260 m" / "1.1 km". */
+export function formatMeters(m: number): string {
+  if (m < 1000) return `${Math.round(m)} m`;
+  return `${(m / 1000).toFixed(1)} km`;
+}
+
 /** The derived calendar date for a day, formatted for display. Dates are never
  * stored — this is trip.start_date + order_index (BUILD §2). */
 export function formatDayDate(startDate: string, orderIndex: number): string {
