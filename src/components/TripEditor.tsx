@@ -3,6 +3,7 @@ import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
 import { insertDay, deleteDay } from '../lib/pb-days';
+import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import {
   addStopAtEnd,
   addStopAt,
@@ -173,6 +174,7 @@ export function TripEditor({
   // Neutral counterpart to actionError: something happened that the planner
   // should know about but nothing went wrong.
   const [notice, setNotice] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -714,6 +716,33 @@ export function TripEditor({
     });
   }
 
+  /** Download the trip, or just its wishlist, as JSON (WORK 16.3). Files
+   * are not carried — `exportTrip` reports how many it left behind. */
+  function doExport(what: 'trip' | 'wishlist') {
+    setExportOpen(false);
+    if (!records) return;
+    const doc =
+      what === 'trip'
+        ? exportTrip(records)
+        : exportWishlist(wishlist, records.blocks);
+    const blob = new Blob([JSON.stringify(doc, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFilename(records.trip.title, what);
+    a.click();
+    URL.revokeObjectURL(url);
+    const omitted = 'omitted_files' in doc ? (doc.omitted_files ?? 0) : 0;
+    setNotice(
+      omitted
+        ? `Exported. ${omitted} uploaded file${omitted === 1 ? '' : 's'} could not travel in JSON — re-attach them after importing.`
+        : 'Exported.',
+    );
+    window.setTimeout(() => setNotice(null), 6000);
+  }
+
   /** Insert a day at `atIndex` (WORK 16.2). The data layer reindexes the
    * days below it in one batch and hands back the day-parented blocks whose
    * derived date moved as a result — a booking pinned to "day 4" is now a
@@ -1149,6 +1178,40 @@ export function TripEditor({
           >
             Import
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setExportOpen((open) => !open)}
+              title="Download this trip as JSON"
+              className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+            >
+              Export
+            </button>
+            {exportOpen && (
+              <div
+                onMouseLeave={() => setExportOpen(false)}
+                className="absolute right-0 top-[34px] z-40 w-56 overflow-hidden rounded-lg border border-border-strong bg-surface-2 py-1 shadow-card"
+              >
+                <button
+                  onClick={() => doExport('trip')}
+                  className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
+                >
+                  Whole trip
+                  <span className="mt-0.5 block text-[11px] text-text-4">
+                    days, stops, legs, notes and links
+                  </span>
+                </button>
+                <button
+                  onClick={() => doExport('wishlist')}
+                  className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
+                >
+                  Wishlist only
+                  <span className="mt-0.5 block text-[11px] text-text-4">
+                    the Highlights format — pastes back into Import
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           {/* The email never renders as text at any width — the fix for the
               known "phone width breaks the header first" friction. */}
           <span

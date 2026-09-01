@@ -375,6 +375,9 @@ listing just those stops with the grid already expanded per row.
 BUILD §8. Enum-constrained kinds, optional coordinates, `HH:MM` times, day
 indices. The prompt template shipped on the import screen. Export writes the
 same format — round-trip test.
+(The full-format Zod schema and the export half both landed with WORK 16.3
+— `import-trip-doc.ts` and `export-trip.ts`. What is still open here is the
+prompt template on the import screen.)
 (A separate, lighter schema for the Highlights goal — a flat list of POIs,
 no days — shipped as `src/lib/import-highlights.ts` `4adb15d`, with its
 importer + dialog as `8d11bd7`. This full multi-day §8 schema, and its
@@ -1157,7 +1160,7 @@ called those functions before), so `changedBlocks` now feeds a neutral
 `notice` line beside `actionError`: "A new day pushed 1 note onto a
 different date."; `moveDay` is still unwired.
 
-**16.3 Versioned JSON export** · Standard
+**16.3 Versioned JSON export** · Standard · ✅
 Phase 8.1 promised "Export writes the same format — round-trip test" and it
 was never built. Build the export half now, and make version handling
 explicit so the model can move later:
@@ -1176,6 +1179,15 @@ explicit so the model can move later:
 Decide what happens to uploaded files (photos, booking PDFs): either the
 export references them by URL, or it is a JSON-only document that drops
 them and says so on the way out. Lean JSON-only for v1.
+
+**Built as:** `src/lib/export-trip.ts` (`exportTrip`, `exportWishlist`,
+`exportFilename`, `CURRENT_TRIP_VERSION`) and `src/lib/import-trip-doc.ts`
+(`parseTripDoc` — a Zod schema per version behind a version dispatch, which
+is also the §8.1 full-format schema that was never built). An Export menu
+in the editor header downloads either. Files are dropped, with the count
+written into `omitted_files` and reported in the notice line. 15 tests,
+including export → parse → identical cascade output, and validating the
+shipped fixture changing nothing about what it cascades to.
 
 **16.4 Duplicate detection on wishlist import** · Standard
 `import-highlights-commit.ts` creates a `pois` row per highlight
