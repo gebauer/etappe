@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { TAXONOMY, KINDS, isKind, defaultDwell } from './taxonomy';
+import {
+  TAXONOMY,
+  KINDS,
+  isKind,
+  defaultDwell,
+  defaultDwellSeed,
+  isAccommodationKind,
+} from './taxonomy';
 
 describe('taxonomy', () => {
   it('is the closed set of 26 kinds from BUILD §7', () => {
@@ -40,5 +47,25 @@ describe('taxonomy', () => {
   it('exposes dwell via defaultDwell', () => {
     expect(defaultDwell('waterfall')).toBe(45);
     expect(defaultDwell('hotel')).toBeNull();
+  });
+});
+
+describe('isAccommodationKind', () => {
+  it('is true for the kinds you sleep at', () => {
+    expect(isAccommodationKind('hotel')).toBe(true);
+    expect(isAccommodationKind('campsite')).toBe(true);
+  });
+
+  it('is false for everything else', () => {
+    expect(isAccommodationKind('waterfall')).toBe(false);
+    expect(isAccommodationKind('restaurant')).toBe(false);
+    expect(isAccommodationKind('uncategorized')).toBe(false);
+  });
+
+  it('agrees with the dwell seed, which omits accommodation kinds', () => {
+    const seed = defaultDwellSeed();
+    for (const kind of KINDS) {
+      expect(kind in seed).toBe(!isAccommodationKind(kind));
+    }
   });
 });

@@ -64,6 +64,17 @@ export function defaultDwell(kind: Kind): number | null {
   return TAXONOMY[kind].dwell;
 }
 
+/**
+ * Is this a kind you sleep at? The taxonomy already encodes it — an
+ * accommodation kind is exactly the one with no fixed dwell, because its
+ * dwell comes from the overnight rather than a default (see `dwell`
+ * above). Naming it keeps callers from re-deriving `dwell === null` and
+ * guessing at what that means.
+ */
+export function isAccommodationKind(kind: Kind): boolean {
+  return TAXONOMY[kind].dwell === null;
+}
+
 export function iconFor(kind: Kind): string {
   return TAXONOMY[kind].icon;
 }

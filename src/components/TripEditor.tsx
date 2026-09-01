@@ -54,6 +54,8 @@ import { Timeline } from './Timeline';
 import { MapPane } from './MapPane';
 import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 import { MergePrompt } from './MergePrompt';
+import { AccommodationPrompt } from './AccommodationPrompt';
+import { isAccommodationKind, isKind } from '../lib/taxonomy';
 import { findNearbyStop } from '../lib/merge';
 import type { StopsResponse } from '../types/pb';
 
@@ -143,6 +145,13 @@ export function TripEditor({
     existingStop: StopsResponse;
   } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Raised the moment a stop becomes a hotel or campsite — see
+  // AccommodationPrompt for why this is asked rather than assumed.
+  const [accommodationAsk, setAccommodationAsk] = useState<{
+    stopId: string;
+    title: string;
+    dayLabel: string;
+  } | null>(null);
   // Wishlist fallback list, bottom-left over the map — hidden whenever a
   // card is open, since they share that corner (design handoff).
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(true);
@@ -363,6 +372,12 @@ export function TripEditor({
           lon: candidate.lon,
           kind_confirmed: false,
         },
+      );
+      maybeAskAccommodation(
+        stopId,
+        candidate.kind,
+        candidate.name,
+        option.dayId,
       );
       // Promoting a wishlist idea (WORK 14): its blocks — photos,
       // description, links — move onto the new stop wholesale, then the
@@ -634,7 +649,36 @@ export function TripEditor({
     );
   }
 
+  /** Ask about a stop that just became somewhere you sleep. Silent when the
+   * kind isn't one, or when the stop is already the day's accommodation. */
+  function maybeAskAccommodation(
+    stopId: string,
+    kind: string | undefined,
+    title: string,
+    dayId: string,
+  ) {
+    if (!records || !kind || !isKind(kind) || !isAccommodationKind(kind)) {
+      return;
+    }
+    const dayIndex = records.days.findIndex((d) => d.id === dayId);
+    if (dayIndex < 0) return;
+    setAccommodationAsk({
+      stopId,
+      title,
+      dayLabel: `Day ${dayIndex + 1}`,
+    });
+  }
+
   function handleUpdateStop(id: string, patch: StopPatch) {
+    const existing = records?.stops.find((s) => s.id === id);
+    if (existing && !existing.is_accommodation) {
+      maybeAskAccommodation(
+        id,
+        patch.kind,
+        patch.title ?? existing.title,
+        existing.day,
+      );
+    }
     const reroute =
       patch.lat !== undefined ||
       patch.lon !== undefined ||
@@ -1217,6 +1261,19 @@ export function TripEditor({
           onCancel={() => setMergeCheck(null)}
         />
       )}
+      {accommodationAsk && (
+        <AccommodationPrompt
+          title={accommodationAsk.title}
+          dayLabel={accommodationAsk.dayLabel}
+          onConfirm={() => {
+            handleUpdateStop(accommodationAsk.stopId, {
+              is_accommodation: true,
+            });
+            setAccommodationAsk(null);
+          }}
+          onDismiss={() => setAccommodationAsk(null)}
+        />
+      )}
       {cardTarget && !picking && (
         <PinCard
           target={cardTarget}
@@ -1327,7 +1384,7 @@ export function TripEditor({
         <UncategorizedReview
           stops={records.stops.filter((s) => s.kind === 'uncategorized')}
           onUpdateKind={(stopId, kind) =>
-            run(() => updateStop(pb, stopId, { kind, kind_confirmed: true }))
+            handleUpdateStop(stopId, { kind, kind_confirmed: true })
           }
           onSelectStop={(id) => {
             setSelectedStopIds(new Set([id]));
