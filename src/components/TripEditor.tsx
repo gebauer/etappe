@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
-import { insertDay } from '../lib/pb-days';
+import { insertDay, deleteDay } from '../lib/pb-days';
 import {
   addStopAtEnd,
   addStopAt,
@@ -30,7 +30,7 @@ import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
 import { queryParking, type NearbyPoi, type ParkingLot } from '../lib/overpass';
-import type { PoisResponse } from '../types/pb';
+import type { BlocksResponse, PoisResponse } from '../types/pb';
 import {
   addBlock,
   updateBlock,
@@ -170,6 +170,9 @@ export function TripEditor({
   // absorbed someone else's slack. Marked on its cell for a while so it is
   // findable, not just announced once in a dialog.
   const [timingFlash, setTimingFlash] = useState<string | null>(null);
+  // Neutral counterpart to actionError: something happened that the planner
+  // should know about but nothing went wrong.
+  const [notice, setNotice] = useState<string | null>(null);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -711,6 +714,37 @@ export function TripEditor({
     });
   }
 
+  /** Insert a day at `atIndex` (WORK 16.2). The data layer reindexes the
+   * days below it in one batch and hands back the day-parented blocks whose
+   * derived date moved as a result — a booking pinned to "day 4" is now a
+   * day later, which the planner has to be told rather than discover. */
+  function doInsertDay(atIndex: number) {
+    if (!records) return;
+    void run(async () => {
+      const { changedBlocks } = await insertDay(pb, tripId, atIndex, {
+        kind: 'travel',
+      });
+      noteShiftedBlocks(changedBlocks, 'A new day pushed');
+    });
+  }
+
+  function doDeleteDay(dayId: string) {
+    if (!records) return;
+    void run(async () => {
+      const changedBlocks = await deleteDay(pb, tripId, dayId);
+      noteShiftedBlocks(changedBlocks, 'Removing that day pulled');
+      setSelectedStopIds(new Set());
+    });
+  }
+
+  function noteShiftedBlocks(changed: BlocksResponse[], lead: string) {
+    if (changed.length === 0) return setNotice(null);
+    setNotice(
+      `${lead} ${changed.length} note${changed.length === 1 ? '' : 's'} onto a different date.`,
+    );
+    window.setTimeout(() => setNotice(null), 8000);
+  }
+
   /** Writes a plan's changes in one go, then reloads once. */
   function applyTimingChanges(changes: TimingChange[]) {
     if (changes.length === 0) return;
@@ -1131,6 +1165,11 @@ export function TripEditor({
           {actionError}
         </p>
       )}
+      {notice && !actionError && (
+        <p className="flex-none bg-accent-surface px-4 py-1 text-xs text-text-2">
+          {notice}
+        </p>
+      )}
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_400px]">
         <div className="relative min-h-0 overflow-hidden">
@@ -1152,11 +1191,8 @@ export function TripEditor({
             selectedWishlistId={wishCard?.id ?? null}
             hoveredWishlistId={hoveredWishId}
             onSelectDay={(id) => setSelectedDayId(id)}
-            onAddDay={() =>
-              run(() =>
-                insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
-              )
-            }
+            onAddDay={() => doInsertDay(records.days.length)}
+            onInsertDay={doInsertDay}
             picking={mapPicking}
             placing={!!placingWish}
             parkingLots={parkingLots}
@@ -1299,6 +1335,7 @@ export function TripEditor({
             onClearStartPoint={() =>
               activeDay && setStartPoint(activeDay.id, null)
             }
+            onDeleteDay={doDeleteDay}
             onAddStop={(dayId) =>
               runStructural(() =>
                 addStopAtEnd(

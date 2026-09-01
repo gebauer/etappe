@@ -24,6 +24,8 @@ interface Props {
   blocks: BlocksResponse[];
   result: CascadeResult | null;
   onAddStop: (dayId: string) => void;
+  /** Delete the focused day and its stops (WORK 16.2). Confirmed here. */
+  onDeleteDay: (dayId: string) => void;
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
   onRerouteLeg: (legId: string) => void;
   onSetManualLeg: (legId: string, durationMin: number) => void;
@@ -67,6 +69,7 @@ export function Timeline({
   blocks,
   result,
   onAddStop,
+  onDeleteDay,
   onUpdateLeg,
   onRerouteLeg,
   onSetManualLeg,
@@ -83,6 +86,9 @@ export function Timeline({
   onClearStartPoint,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
+  // Two-click confirm rather than a dialog: deleting a day takes its stops
+  // with it, but it is also the kind of thing you undo by adding one back.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -154,11 +160,29 @@ export function Timeline({
             {formatDayDate(trip.start_date, day.order_index)} · {day.kind}
           </div>
         </div>
-        {span && (
-          <span className="flex-none font-mono text-[11.5px] text-text-4">
-            {span}
-          </span>
-        )}
+        <div className="flex flex-none items-center gap-2.5">
+          {span && (
+            <span className="font-mono text-[11.5px] text-text-4">{span}</span>
+          )}
+          <button
+            onClick={() =>
+              confirmingDelete ? onDeleteDay(day.id) : setConfirmingDelete(true)
+            }
+            onBlur={() => setConfirmingDelete(false)}
+            title={
+              confirmingDelete
+                ? 'Click again to delete this day and its stops'
+                : 'Delete this day'
+            }
+            className={`h-[22px] whitespace-nowrap rounded-[7px] border px-2 text-[11px] ${
+              confirmingDelete
+                ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                : 'border-border-strong text-text-4 hover:text-text-2'
+            }`}
+          >
+            {confirmingDelete ? 'Delete day?' : '✕'}
+          </button>
+        </div>
       </div>
 
       <div

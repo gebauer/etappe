@@ -1134,7 +1134,7 @@ Dwell — read-only). One trap worth remembering: the cells are uncontrolled
 inputs, so they need a `key` tied to their value or React reuses the DOM
 node and the previously selected stop's clock stays in the field.
 
-**16.2 Insert a day anywhere in the itinerary** · Cheap
+**16.2 Insert a day anywhere in the itinerary** · Cheap · ✅
 The data layer is already done and unit-tested: `insertDay(pb, tripId,
 atIndex, day)` in `src/lib/pb-days.ts` reindexes via the pure
 `planInsertDay`, in one batch, and returns the day-parented blocks whose
@@ -1146,6 +1146,16 @@ groups. Surface the returned `changedBlocks` in the shift warning the same
 way delete/move do (anything anchored to a day whose date just moved).
 Deleting a day already exists in the data layer too and is likewise not
 wired to any control — do it in the same task, with a confirm.
+
+**Built as:** hairline gaps between the pills, revealed on hover/focus,
+each inserting before that day. The itinerary-column half of the spec was
+dropped: since 12.6 that column renders one focused day, so there are no
+"day groups" to insert between any more — the pills are the only place a
+gap exists. Delete lives in the itinerary header instead, two-click
+confirm. Neither insert nor delete had a shift warning to reuse (nothing
+called those functions before), so `changedBlocks` now feeds a neutral
+`notice` line beside `actionError`: "A new day pushed 1 note onto a
+different date."; `moveDay` is still unwired.
 
 **16.3 Versioned JSON export** · Standard
 Phase 8.1 promised "Export writes the same format — round-trip test" and it

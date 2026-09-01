@@ -132,6 +132,7 @@ export function MapPane({
   hoveredWishlistId,
   onSelectDay,
   onAddDay,
+  onInsertDay,
   picking,
   placing,
   parkingLots,
@@ -164,6 +165,8 @@ export function MapPane({
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
   onAddDay?: () => void;
+  /** Insert a day before the one at this index (WORK 16.2). */
+  onInsertDay?: (atIndex: number) => void;
   /** Access-point picking mode (WORK 12.9). When set, the map is zoomed to
    * the stop and every bare click reports an access point rather than
    * selecting a pin; `parkingLots` render as clickable chips. Memoised by
@@ -1072,6 +1075,7 @@ export function MapPane({
         onSelectDay={(id) => onSelectDay?.(id)}
         onHoverDay={setHoveredDayId}
         onAddDay={() => onAddDay?.()}
+        onInsertDay={(at) => onInsertDay?.(at)}
         onFitTrip={fitTrip}
       />
       {/* Dev-only capture aid, predates the redesign and unaddressed by it —

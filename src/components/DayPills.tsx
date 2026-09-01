@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { DaysResponse, StopsResponse } from '../types/pb';
 
 interface Props {
@@ -9,6 +10,9 @@ interface Props {
    * `legs-hover-halo`. Fires with null when the pointer leaves. */
   onHoverDay?: (dayId: string | null) => void;
   onAddDay: () => void;
+  /** Insert a new day *before* the day at this index. The trailing `+`
+   * appends; these are the gaps between pills. */
+  onInsertDay: (atIndex: number) => void;
   onFitTrip: () => void;
 }
 
@@ -38,6 +42,7 @@ export function DayPills({
   onSelectDay,
   onHoverDay,
   onAddDay,
+  onInsertDay,
   onFitTrip,
 }: Props) {
   return (
@@ -52,23 +57,41 @@ export function DayPills({
             count === 0 ? 'empty' : count === 1 ? '1 stop' : `${count} stops`;
           const active = day.id === activeDayId;
           return (
-            <button
-              key={day.id}
-              onClick={() => onSelectDay(day.id)}
-              onMouseEnter={() => onHoverDay?.(day.id)}
-              onFocus={() => onHoverDay?.(day.id)}
-              onBlur={() => onHoverDay?.(null)}
-              className={`flex h-7 flex-col items-start justify-center rounded-lg px-3 leading-[13px] ${
-                active
-                  ? 'bg-accent text-on-accent'
-                  : 'text-[oklch(0.78_0.008_250)] hover:bg-white/5'
-              }`}
-            >
-              <span className="text-[12.5px] font-semibold">Day {i + 1}</span>
-              <span className="font-mono text-[10.5px] leading-[11px] opacity-70">
-                {meta}
-              </span>
-            </button>
+            <Fragment key={day.id}>
+              {i > 0 && (
+                <button
+                  onClick={() => onInsertDay(i)}
+                  aria-label={`Insert a day before Day ${i + 1}`}
+                  title={`Insert a day before Day ${i + 1}`}
+                  // A hairline that only shows itself on approach: the gaps
+                  // between pills are dead space otherwise, and a day is
+                  // inserted rarely enough that a permanent control for every
+                  // gap would read as clutter.
+                  className="group relative -mx-[3px] h-7 w-[11px] flex-none"
+                >
+                  <span className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-transparent group-hover:bg-accent group-focus-visible:bg-accent" />
+                  <span className="absolute inset-0 hidden items-center justify-center text-[13px] leading-none text-accent group-hover:flex group-focus-visible:flex">
+                    +
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={() => onSelectDay(day.id)}
+                onMouseEnter={() => onHoverDay?.(day.id)}
+                onFocus={() => onHoverDay?.(day.id)}
+                onBlur={() => onHoverDay?.(null)}
+                className={`flex h-7 flex-col items-start justify-center rounded-lg px-3 leading-[13px] ${
+                  active
+                    ? 'bg-accent text-on-accent'
+                    : 'text-[oklch(0.78_0.008_250)] hover:bg-white/5'
+                }`}
+              >
+                <span className="text-[12.5px] font-semibold">Day {i + 1}</span>
+                <span className="font-mono text-[10.5px] leading-[11px] opacity-70">
+                  {meta}
+                </span>
+              </button>
+            </Fragment>
           );
         })}
         <button
