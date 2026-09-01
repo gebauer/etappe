@@ -41,8 +41,11 @@ leg lifecycle+routing, 13.3 rendering+editor.**
 day") is done: 14.1 schema+data layer (this is where the lossless-
 promotion bug fix landed), 14.2 downgrade+stop-card actions, 14.3 starred
 stops+wishlist delete confirm.**
+**Phase 15 (wishlist contributor attribution) queued — from a 2026-09-01
+handoff revision that adds a per-user colour and a contributor mark on
+every wishlist entry (itinerary stops carry none).**
 **→ Next, in order: 12.7 (phone layout, also what fixes the
-sub-860px view 12.6 deliberately let break) → 12.11 (cleanup).**
+sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -994,7 +997,54 @@ current data.
 
 ---
 
-## Noticed
+## Phase 15 — Wishlist contributor attribution
+
+Source: a 2026-09-01 revision of the design handoff
+(`design_handoff_map_first_planner/README.md`, "Contributor identity" in
+State management, plus `CLAUDE_CODE_PROMPT.md`'s "Collaboration
+attribution"). A shared trip is planned by several people; the wishlist is
+where their individual research shows up, so each **wishlist entry** carries
+a small mark for the person who added it. Deliberately wishlist-only — an
+itinerary stop carries no attribution, because the day plan is shared while
+the candidate list is personal.
+
+**Design, from the handoff:**
+- Every `pois` record stores its creator (a user relation, set on create —
+  `blocks.creator` is the existing precedent).
+- Every `users` record stores a **`color`** — a stable oklch string, one per
+  person, so the same contributor reads the same colour in every trip and
+  every surface. Not a name hash, not picked from the palette at render
+  time. Band: L≈0.72–0.75 / C≈0.13, hue only varies, staying clear of the
+  accent (215) and the wishlist amber (80). Prototype pair: Julia
+  `oklch(0.72 0.13 300)` violet, Jan `oklch(0.75 0.13 155)` green. Assign
+  the next free hue in the band on registration.
+- Three marks, all wishlist-only:
+  - **Panel row** (`WishlistPanel`): a right-aligned 18px circular chip
+    with the contributor's initial, filled with their colour,
+    `title="Added by Julia"`.
+  - **Carousel card** (`WishlistCarousel`): a contributor pill bottom-right
+    over the scrim — 7px colour dot + nickname, 10.5px, 20px tall,
+    `radius:10px`, `oklch(0.16 0.014 250 / 0.72)` + `blur(6px)`. The name
+    block's right edge stops at 74px to clear it.
+  - **Docked card** wishlist mode (`PinCard`): a pill on the title row,
+    right-aligned — dot + nickname, 11px, 22px tall, `radius:11px`,
+    background `oklch(0.25 0.012 250)`, border `oklch(0.32 0.012 250)`.
+
+**15.1 Schema + colour**
+Migration: `pois.creator` relation → users (set on create in
+`addWishlistItem` / the Highlights importer / promotion-side... actually a
+promoted stop keeps no attribution, so only the wishlist-create paths set
+it); `users.color` text. A `pb_hooks` `onRecordCreate` for `users` that
+assigns the next band hue (a small ordered hue list in the hook, pick by
+count of existing users, wrap if exhausted). `listWishlist` expands
+`creator`; the trip's members' `{id, name/nickname, color}` need to be
+readable by every trip member — check the `users` view rule. Types regen.
+
+**15.2 Contributor marks**
+The three surfaces above. A shared `<ContributorChip>` / `<ContributorPill>`
+pair (initial-only vs dot+name variants) fed `{name, color}` resolved from
+the expanded creator. No mark when the creator is unknown (older rows
+before the migration, or a since-deleted user).
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.

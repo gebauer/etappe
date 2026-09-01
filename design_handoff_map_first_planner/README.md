@@ -67,6 +67,7 @@ Two things are deliberately unresolved and marked as such below: the photo-wheel
 **Wishlist panel**, bottom-left, `width:236px`, `radius:12px`, same glass treatment, z-index 8:
 - Header button: full width, `padding:9px 11px`, label `WISHLIST · 6` at 12px uppercase `letter-spacing:0.08em`, chevron `▾`/`▸` at right. Toggles the list.
 - Rows: `padding:8px 11px`, `gap:10px` — 34px rounded-7px thumbnail, name 13px/500 (truncating), kind 11.5px `oklch(0.64 0.01 250)`. Selected row background `oklch(0.26 0.02 235)`; hovered row `oklch(0.24 0.013 250)` with an amber thumbnail border.
+- Right-aligned per row: an 18px circular **contributor chip** carrying that user's initial, filled with their assigned colour (`title="Added by Julia"`).
 - Shows the first four, then a full-width **`Browse all N ›`** footer button (`padding:9px 11px`, 12.5px, hover `oklch(0.25 0.013 250)`) opening the carousel below.
 - **Hidden whenever a card is open or the carousel is up** — it occupies the same bottom-left slot.
 
@@ -78,6 +79,7 @@ The "photo wheel" filmstrip, now built and no longer optional. Opens from `Brows
 - Toolbar row, `padding:0 16px 8px`: the **`★ Top choices`** filter pill at the left (30px, `radius:15px`; off = `oklch(0.22 0.013 250 / 0.9)` with `oklch(0.34 0.012 250)` border, on = `oklch(0.78 0.13 80)` fill with `oklch(0.20 0.04 80)` text), a mono meta line (`6 places · nearest first`, or `2 starred · nearest first` when filtered), and a 28px close button at the right.
 - Strip: `display:flex; gap:12px; padding:4px 16px 6px; overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth`.
 - Card: 178px wide, `scroll-snap-align:start`, `radius:13px`. A 136px photo fills it edge to edge — no card chrome, no separate text block. Name (13px/600 `oklch(0.97 0.004 250)`) and kind (11px `oklch(0.82 0.01 250)`) sit over a bottom scrim (`linear-gradient` to `oklch(0.13 0.015 250 / 0.88)`, 58% height). Shadow `0 6px 16px oklch(0.10 0.02 250 / 0.4)`.
+- **Contributor pill**, bottom-right over the scrim: a 7px dot in the user's colour plus their nickname, 10.5px, 20px tall, `radius:10px`, `oklch(0.16 0.014 250 / 0.72)` + `blur(6px)`. The name block's right edge stops at 74px to clear it.
 - **Star button** per card, 28px circle top-right: `oklch(0.78 0.13 80)` filled when starred, `oklch(0.16 0.014 250 / 0.6)` glass when not. Independent of selection.
 - Arrows: 34px round buttons floating over the strip's left and right edges (`oklch(0.20 0.013 250 / 0.92)` + `blur(8px)`), three cards per press.
 - Order is the same cached proximity chain as `‹`/`›` browsing.
@@ -101,7 +103,7 @@ Card: `width:min(382px,100%)`, `max-height:100%`, `display:flex; flex-direction:
 
 **Body**, scrollable, `padding:14px 16px 0`:
 - Sequence badge (stops only): 24px accent circle, 12px mono, dark text.
-- Title `h2`, 19px/600, `letter-spacing:-0.01em`.
+- Title `h2`, 19px/600, `letter-spacing:-0.01em`. For wishlist entries a right-aligned **contributor pill** sits on the same row — the right corner directly below the photo header: dot in the user's colour + nickname, 11px, 22px tall, `radius:11px`, background `oklch(0.25 0.012 250)`, border `oklch(0.32 0.012 250)`.
 - Subtitle 13px `oklch(0.68 0.01 250)` — `Viewpoint · Day 1`, `Waterfall · Wishlist`, or for an empty click `Headland · 63.4028, -19.1264 · identified from Nearby`.
 - **Computed strip** (stops only): three equal cells in a `1px solid oklch(0.29 0.012 250)` rounded-10px box with 1px dividers. Each cell: 10.5px uppercase label `oklch(0.60 0.01 250)`, value 17px mono. Arrive / Depart / Dwell. **All three come from the cascade engine — render, never compute.**
 - **Daylight line** (stops only): 7px dot `oklch(0.78 0.12 90)` + 12.5px text `oklch(0.70 0.01 250)`.
@@ -247,6 +249,8 @@ The prototype needs four pieces of local UI state. None of it belongs in the tri
 - `wishlistPanelOpen: boolean`.
 
 Plus a cached `wishOrder: number[]` (the proximity chain), invalidated only when the wishlist set itself changes.
+
+**Contributor identity** — every wishlist entry carries the user who added it. Colour is a stable per-user assignment, not a hash of the name and not derived from the palette at render time: store it on the user record so the same person reads the same colour in every trip and every surface. Prototype demo pair: Julia `oklch(0.72 0.13 300)` violet, Jan `oklch(0.75 0.13 155)` green — both chosen to stay clear of the accent (215) and the wishlist amber (80). Add further members from the same lightness/chroma band, varying hue only. Contributor marks appear on wishlist entries only; stops in the itinerary carry no attribution (deliberate — the day plan is shared, the candidate list is personal).
 
 **Persistent, not UI state**: a place's starred flag (`★ Top choices`) and a stop's access point both belong in the trip document. Setting an access point must re-run the cascade — it changes routing to and from the stop, and therefore every downstream arrival time.
 
