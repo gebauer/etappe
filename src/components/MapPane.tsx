@@ -183,6 +183,16 @@ export function MapPane({
   // whose star was toggled. Not state: it never drives a render, only how
   // much work the effect does.
   const wishlistPinStateRef = useRef<Map<string, string>>(new Map());
+  // `loadedRef` alone can't drive the effects below: an effect that runs
+  // before the style is up has to be re-run once it is, and a ref doesn't
+  // re-render. With the query cache hydrated from IndexedDB, `records` and
+  // `wishlist` are both there on the very first render — well before
+  // `load` fires — so every one of those effects bailed out and, thanks to
+  // TanStack's structural sharing, the background refetch handed back the
+  // same object identities and never woke them again. That's why a reload
+  // came up with fallback-coloured wishlist pins and no photos until the
+  // next edit.
+  const [mapReady, setMapReady] = useState(false);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
@@ -270,6 +280,7 @@ export function MapPane({
   // Init once.
   useEffect(() => {
     if (!containerRef.current) return;
+    const wishlistPinState = wishlistPinStateRef.current;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: TILE_URL,
@@ -428,6 +439,7 @@ export function MapPane({
       addMarkerLayers(map);
 
       loadedRef.current = true;
+      setMapReady(true);
       maybeFit(map);
 
       // Composite pin images on demand when a layer first references a key —
@@ -536,6 +548,8 @@ export function MapPane({
     return () => {
       ro.disconnect();
       loadedRef.current = false;
+      setMapReady(false);
+      wishlistPinState.clear();
       poiMarkerRef.current?.remove();
       poiMarkerRef.current = null;
       accessMarkerRef.current?.remove();
@@ -557,7 +571,7 @@ export function MapPane({
       source.setData(fc);
       maybeFit(map);
     }
-  }, [fc]);
+  }, [fc, mapReady]);
 
   // Push new stop markers; missing badge images composite via
   // styleimagemissing.
@@ -567,7 +581,7 @@ export function MapPane({
     const source = map.getSource('stops') as
       maplibregl.GeoJSONSource | undefined;
     source?.setData(stopFc);
-  }, [stopFc]);
+  }, [stopFc, mapReady]);
 
   // Push new ghost pins.
   useEffect(() => {
@@ -576,7 +590,7 @@ export function MapPane({
     const source = map.getSource('nearby') as
       maplibregl.GeoJSONSource | undefined;
     source?.setData(nearbyFc);
-  }, [nearbyFc]);
+  }, [nearbyFc, mapReady]);
 
   // Push new wishlist pins.
   useEffect(() => {
@@ -585,7 +599,7 @@ export function MapPane({
     const source = map.getSource('wishlist') as
       maplibregl.GeoJSONSource | undefined;
     source?.setData(wishlistFc);
-  }, [wishlistFc]);
+  }, [wishlistFc, mapReady]);
 
   // Upgrade each wishlist pin from its synchronous category-colour fallback
   // (composited in styleimagemissing) to its real cover photo, once loaded —
@@ -597,7 +611,6 @@ export function MapPane({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    let cancelled = false;
     for (const item of wishlist ?? []) {
       if (!item.lat || !item.lon) continue;
       const cover = blocksFor(recordsRef.current.blocks, 'poi', item.id).find(
@@ -641,19 +654,33 @@ export function MapPane({
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        if (cancelled) return;
+        // Deliberately not gated on an effect-scoped cancel token. This
+        // effect re-runs on every trip-document change, and a token would
+        // abandon every photo still in flight — while the signature set
+        // above had already recorded them as drawn, so the next run skipped
+        // them and they never loaded again. On a wishlist of any size that
+        // left almost every pin on its fallback colour (28 ideas, 4 photos).
+        // What actually has to be checked is narrower: the map these images
+        // belong to is still the live one, and no later edit has changed
+        // what this pin should show.
+        if (mapRef.current !== map) return;
+        if (wishlistPinStateRef.current.get(item.id) !== sig) return;
         try {
           compositeWishlistPin(map, item.id, img, fallback, starred);
         } catch (err) {
           console.error('wishlist photo composite failed for', item.id, err);
         }
       };
+      img.onerror = () => {
+        // Drop the signature so a later run retries, rather than leaving the
+        // pin stuck on its fallback for the life of the session.
+        if (wishlistPinStateRef.current.get(item.id) === sig) {
+          wishlistPinStateRef.current.delete(item.id);
+        }
+      };
       img.src = url;
     }
-    return () => {
-      cancelled = true;
-    };
-  }, [wishlist, records.blocks]);
+  }, [wishlist, records.blocks, mapReady]);
 
   // The bigger/haloed wishlist pin variants follow the selected and the
   // hovered item — mirrors the selected-stop exclusion filter below, but
@@ -687,7 +714,7 @@ export function MapPane({
       ['==', ['get', 'poiId'], hov],
       ['!=', ['get', 'poiId'], sel],
     ]);
-  }, [selectedWishlistId, hoveredWishlistId]);
+  }, [selectedWishlistId, hoveredWishlistId, mapReady]);
 
   // Query Overpass for the focused day's corridor when Nearby is toggled on,
   // or the day/radius changes. Reads records via the ref (not a dependency)
@@ -770,7 +797,7 @@ export function MapPane({
     return () => {
       cancelled = true;
     };
-  }, [nearbyPois, nearbyPhotoIds]);
+  }, [nearbyPois, nearbyPhotoIds, mapReady]);
 
   // Highlight the hovered stop with a ring (a filtered circle layer — reliable,
   // unlike feature-state which several paint props reject).
@@ -782,7 +809,7 @@ export function MapPane({
       ['get', 'stopId'],
       hoveredStopId ?? '',
     ]);
-  }, [hoveredStopId]);
+  }, [hoveredStopId, mapReady]);
 
   // Centre on a point on demand (selecting a wishlist idea, WORK 12.6).
   // Pan only — the zoom stays wherever the user put it. This used to force
@@ -794,7 +821,7 @@ export function MapPane({
     const map = mapRef.current;
     if (!map || !loadedRef.current || !flyTo) return;
     map.flyTo({ center: [flyTo.lon, flyTo.lat], duration: 600 });
-  }, [flyTo]);
+  }, [flyTo, mapReady]);
 
   // Access-point picking (WORK 12.9): zoom in on the stop so a car park is
   // actually findable — you cannot aim at a country-scale view. `picking` is
@@ -807,7 +834,7 @@ export function MapPane({
       zoom: 17,
       duration: 350,
     });
-  }, [picking]);
+  }, [picking, mapReady]);
 
   // Parking chips: transient DOM markers, only while picking. Nearest 3–5,
   // bounded server-side by `parseParking` — deliberately not the raw Nearby
@@ -833,7 +860,7 @@ export function MapPane({
       for (const m of parkingMarkersRef.current) m.remove();
       parkingMarkersRef.current = [];
     };
-  }, [picking, parkingLots]);
+  }, [picking, parkingLots, mapReady]);
 
   // Fit the map to a day's stops when that day is selected ("move on select").
   useEffect(() => {
@@ -846,7 +873,7 @@ export function MapPane({
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 80, maxZoom: 12, duration: 500 });
     }
-  }, [focusDayId]);
+  }, [focusDayId, mapReady]);
 
   // Day-scope the stop pins to whichever day is focused (design handoff,
   // "Day switching": "swaps ... the map's numbered pins to that day") and,
@@ -868,7 +895,7 @@ export function MapPane({
       ['==', ['get', 'dayId'], dayId],
       ['!=', ['get', 'stopId'], selId],
     ] as unknown as maplibregl.FilterSpecification);
-  }, [focusDayId, selectedStop?.id, stopFc]);
+  }, [focusDayId, selectedStop?.id, stopFc, mapReady]);
 
   // Draggable marker for the selected stop only: dragging every marker at
   // once would mean ditching the fast symbol-layer rendering BUILD §5 chose
@@ -962,6 +989,7 @@ export function MapPane({
     selectedStop?.lon,
     selectedStop?.access_lat,
     selectedStop?.access_lon,
+    mapReady,
   ]);
 
   const activeDayId = focusDayId ?? records.days[0]?.id ?? null;
