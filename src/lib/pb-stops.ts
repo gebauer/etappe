@@ -16,6 +16,8 @@ import {
 import type { LatLon, RoutingProvider } from './routing';
 import { planStopMove } from './stop-move';
 import type { TripRecords } from './pb-trip-doc';
+import { reparentBlocks } from './pb-blocks';
+import { addWishlistItem, setPoiStarred } from './pb-pois';
 
 /** Coordinates to route to/from for each stop: the stop's own location, or
  * its `access_lat`/`access_lon` when set — a nearby road or car park for a
@@ -163,6 +165,41 @@ export async function deleteStop(
     );
     await pb.collection('legs').create(record);
   }
+}
+
+/** The mirror of promotion (WORK 14.2): move a stop back to the wishlist.
+ * Creates a poi carrying the stop's shared fields, re-parents its blocks,
+ * then deletes the stop via the normal path above (leg re-merge). If the
+ * stop was some day's `start_stop` or another day's first stop, that
+ * pointer/leading-leg is the caller's `reconcileLeadingLegs`' problem, same
+ * as any other structural stop change. */
+export async function downgradeStopToWishlist(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  stopId: string,
+): Promise<void> {
+  const stop = records.stops.find((s) => s.id === stopId);
+  if (!stop) return;
+  const dayStops = records.stops.filter((s) => s.day === stop.day);
+
+  const poiId = await addWishlistItem(pb, records.trip.id, {
+    title: stop.title,
+    kind: stop.kind,
+    lat: stop.lat || undefined,
+    lon: stop.lon || undefined,
+    address: stop.address || undefined,
+    access_lat: stop.access_lat || undefined,
+    access_lon: stop.access_lon || undefined,
+  });
+  if (stop.starred) await setPoiStarred(pb, poiId, true);
+  await reparentBlocks(
+    pb,
+    records.blocks,
+    { type: 'stop', id: stopId },
+    { type: 'poi', id: poiId },
+  );
+  await deleteStop(pb, provider, dayStops, records.legs, stopId);
 }
 
 /** Move a stop within a day or to another day, reindexing and re-routing the

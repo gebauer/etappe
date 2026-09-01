@@ -42,6 +42,8 @@ interface Props {
   onStep: (direction: -1 | 1) => void;
   onOpenDetails: () => void;
   onRemove: () => void;
+  /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
+  onDowngrade: () => void;
   onAddToItinerary: () => void;
   onReject: () => void;
   onAddWishlist: () => void;
@@ -56,6 +58,8 @@ interface Props {
 const BTN = 'h-[34px] whitespace-nowrap rounded-lg px-3 text-[13px]';
 const PRIMARY = `${BTN} bg-accent font-medium text-on-accent hover:brightness-110`;
 const GHOST = `${BTN} border border-border-strong text-text-2 hover:bg-control`;
+const ICON_BTN =
+  'flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg text-[15px]';
 const GLASS =
   'flex h-7 w-7 items-center justify-center rounded-full bg-glass text-text backdrop-blur-[6px] hover:brightness-125';
 
@@ -72,6 +76,7 @@ export function PinCard({
   onStep,
   onOpenDetails,
   onRemove,
+  onDowngrade,
   onAddToItinerary,
   onReject,
   onAddWishlist,
@@ -292,14 +297,28 @@ export function PinCard({
             <button onClick={onOpenDetails} className={GHOST}>
               All details
             </button>
-            <button
-              onClick={() =>
-                confirmingRemove ? onRemove() : setConfirmingRemove(true)
-              }
-              className={`${BTN} ml-auto border border-danger-border text-danger-text hover:brightness-125`}
-            >
-              {confirmingRemove ? 'Confirm remove' : 'Remove'}
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={onDowngrade}
+                title="Move back to wishlist"
+                className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
+              >
+                ♻
+              </button>
+              <button
+                onClick={() =>
+                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
+                }
+                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
+                className={`${ICON_BTN} border ${
+                  confirmingRemove
+                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                    : 'border-border-strong text-text-2 hover:bg-control'
+                }`}
+              >
+                🗑
+              </button>
+            </div>
           </>
         )}
 

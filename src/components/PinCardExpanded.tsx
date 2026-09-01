@@ -33,6 +33,8 @@ interface Props {
   onClearAccessPoint: () => void;
   onMoveToDay: (dayId: string) => void;
   onRemove: () => void;
+  /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
+  onDowngrade: () => void;
   onAddBlock: (kind: BlockKind) => void;
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -64,6 +66,7 @@ export function PinCardExpanded({
   onClearAccessPoint,
   onMoveToDay,
   onRemove,
+  onDowngrade,
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
@@ -375,14 +378,28 @@ export function PinCardExpanded({
                 </div>
               )}
             </div>
-            <button
-              onClick={() =>
-                confirmingRemove ? onRemove() : setConfirmingRemove(true)
-              }
-              className="ml-auto h-9 whitespace-nowrap rounded-lg border border-danger-border px-3.5 text-[13px] text-danger-text hover:brightness-125"
-            >
-              {confirmingRemove ? 'Confirm remove' : 'Remove'}
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={onDowngrade}
+                title="Move back to wishlist"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-strong text-[15px] text-text-2 hover:bg-control"
+              >
+                ♻
+              </button>
+              <button
+                onClick={() =>
+                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
+                }
+                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-[15px] ${
+                  confirmingRemove
+                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                    : 'border-border-strong text-text-2 hover:bg-control'
+                }`}
+              >
+                🗑
+              </button>
+            </div>
           </div>
         </div>
       </div>

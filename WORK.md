@@ -931,13 +931,25 @@ stop's card — description and link both present, wishlist item gone. No
 console errors. `npm run check` green (194 tests unchanged — nothing new
 to unit-test here, same as `pb-legs`'s async apply functions).
 
-**14.2 Downgrade + stop-card actions**
-New mirror of promotion: `downgradeStopToWishlist(pb, records, stopId)` —
-create the poi (shared fields), `reparentBlocks` stop→poi, then the
-existing `deleteStop` path (leg re-merge + `reconcileLeadingLegs` via
-`runStructural`). Stop card action bar gains a trash button (delete, kept
-confirm) and a `♻` recycle button (downgrade), both with hover tooltips —
-docked card first, expanded card too if cheap.
+**14.2 Downgrade + stop-card actions** · ✅
+`downgradeStopToWishlist(pb, provider, records, stopId)` in `pb-stops.ts` —
+the mirror of promotion: creates the poi with the stop's shared fields
+(+ `setPoiStarred` if it was starred), `reparentBlocks` stop→poi, then the
+existing `deleteStop` (leg re-merge). Wired in `TripEditor` through
+`runStructural` (so `reconcileLeadingLegs` picks up a day that lost its
+start point or first stop) with an explicit `reloadWishlist()` after —
+`reload()` refreshes the cascade doc, not the separately-fetched wishlist.
+
+Both the docked card and the expanded card's action bars gain two icon
+buttons (34px/36px squares, matching each card's existing button height):
+`♻` downgrade and `🗑` delete — the delete button keeps the existing
+click-twice confirm (now shown as a filled danger background rather than
+a text change, since there's no label to swap). Both carry a `title` hover
+tooltip; icons are a placeholder pending a better delete glyph.
+
+Browser-verified: added a stop, opened its card, clicked `♻` — the day
+goes back to empty and the stop reappears as a wishlist row with its
+title. No console errors.
 
 **14.3 Starred stops + wishlist delete confirm**
 `buildStopFeatures` carries `starred`; a `stops-star` overlay layer with a

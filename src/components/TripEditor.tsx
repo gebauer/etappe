@@ -7,6 +7,7 @@ import {
   addStopAtEnd,
   addStopAt,
   deleteStop,
+  downgradeStopToWishlist,
   moveStop,
   updateStop,
   updateStopAndReroute,
@@ -695,6 +696,14 @@ export function TripEditor({
     );
   }
 
+  // The mirror of promotion (WORK 14.2): the ♻ button on the stop card.
+  function downgradeStop(stopId: string) {
+    if (!records) return;
+    void runStructural(() =>
+      downgradeStopToWishlist(pb, routing, records, stopId),
+    ).then(reloadWishlist);
+  }
+
   function doMoveSelected(dir: -1 | 1) {
     if (!records || selectedStopIds.size !== 1) return;
     const id = [...selectedStopIds][0]!;
@@ -1227,6 +1236,10 @@ export function TripEditor({
             if (cardTarget.type === 'stop') deleteOneStop(cardTarget.stop.id);
             closeCard();
           }}
+          onDowngrade={() => {
+            if (cardTarget.type === 'stop') downgradeStop(cardTarget.stop.id);
+            closeCard();
+          }}
           onAddToItinerary={() => {
             if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
             closeCard();
@@ -1292,6 +1305,10 @@ export function TripEditor({
           onMoveToDay={(dayId) => moveStopToDay(cardTarget.stop.id, dayId)}
           onRemove={() => {
             deleteOneStop(cardTarget.stop.id);
+            closeCard();
+          }}
+          onDowngrade={() => {
+            downgradeStop(cardTarget.stop.id);
             closeCard();
           }}
           onAddBlock={(kind) =>
