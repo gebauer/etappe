@@ -4,7 +4,7 @@ Ordered tasks. Do them in sequence; each phase assumes the previous one is
 merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 `CLAUDE.md`.
 
-## Status — updated 2026-08-31
+## Status — updated 2026-09-01
 
 **Phase 6 complete; phase 7 complete (7.1, 7.2, 7.3); Highlights import
 (schema + importer) done; both Highlights follow-ups (wishlist-on-map,
@@ -44,8 +44,16 @@ stops+wishlist delete confirm.**
 **Phase 15 (wishlist contributor attribution) queued — from a 2026-09-01
 handoff revision that adds a per-user colour and a contributor mark on
 every wishlist entry (itinerary stops carry none).**
+**Phase 16 (planning ergonomics, portability, sharing) queued — a
+2026-09-01 author request: an editable timing row, inserting a day
+anywhere, a versioned JSON export, duplicate detection on wishlist import,
+wishlist items getting the full stop card, trip sharing (members by role +
+a public link), and surfacing the `costs` collection that has existed
+unused since phase 1. 16.6 subsumes 9.1/9.2 and phase 11.2's "members";
+16.7 is the entry surface phase 11.1 needs.**
 **→ Next, in order: 12.7 (phone layout, also what fixes the
-sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15.**
+sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15 →
+Phase 16.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1045,6 +1053,220 @@ The three surfaces above. A shared `<ContributorChip>` / `<ContributorPill>`
 pair (initial-only vs dot+name variants) fed `{name, color}` resolved from
 the expanded creator. No mark when the creator is unknown (older rows
 before the migration, or a since-deleted user).
+
+---
+
+## Phase 16 — Planning ergonomics, portability, sharing
+
+Author request, 2026-09-01 (seven items, in the order given). Independent
+of each other; 16.1 and 16.2 are the ones that bite during daily planning,
+so do those first.
+
+**16.1 Make the timing row editable** · Standard
+Today the ARRIVE / DEPART / DWELL row at the top of `PinCard` (and the same
+row in `PinCardExpanded`) is a **read-out of cascade output** — it renders
+`target.timing`, which the engine computed. The editable fields lower down
+are the *inputs*: `dwell_min` (an override of the taxonomy default) and
+`anchor_time` + `anchor_type`. That is why the top row looks like the same
+three fields but does nothing. Right conclusion, wrong ergonomics: the
+read-out should be where you type.
+Make each of the three cells an inline input that writes the input that
+produces it:
+- **Arrive** → `anchor_time = value`, `anchor_type = 'arrival'`.
+- **Depart** → `anchor_time = value`, `anchor_type = 'departure'`.
+- **Dwell** → `dwell_min = value`. Not an anchor — dwell is already a
+  direct input, and a stop can carry a dwell and an anchor at once.
+- Clearing a time cell clears `anchor_time`/`anchor_type`; clearing dwell
+  falls back to the taxonomy default.
+The lower `ANCHOR` / `TYPE` / `DWELL (MIN)` fields then become redundant
+duplicates — delete them rather than keeping both in sync (prefer deleting
+code to adding a flag). Keep the anchor visible as state: an anchored cell
+gets a pin mark and a "pinned" tint so it is obvious which of the two clock
+cells is driving the other.
+
+**Settled (author, 2026-09-01): dwell is held, the other clock moves.** A
+stop has room for exactly one anchor, so the two clock cells can never both
+be pinned. Editing either one moves the anchor to that cell and
+**recalculates the other from the dwell** — arrive 09:00 with a 1 h dwell,
+type 11:00 into Depart, and the stop is now departure-anchored at 11:00
+with arrival recomputed to 10:00. Dwell is never silently rewritten by a
+clock edit; it only changes when you type into the Dwell cell.
+The other reading — pin both clocks and derive dwell from the span — is a
+real feature, just not this one: it needs a second anchor per stop, which
+the schema does not have. Filed as
+[#1](https://github.com/gebauer/etappe/issues/1), not built here.
+
+**Anchoring a stop that is already governed by an anchor upstream** (the
+usual case: the day's first stop is anchored, and you now anchor stop 4).
+The cascade today just lets the later anchor win for everything below it
+and files an `anchorMiss` warning for the gap — silent, and it throws away
+the information that the gap is *slack you could spend*. Instead, prompt
+with the two things the traveller actually means:
+- **Move the whole trip** — shift the upstream anchor by the delta so the
+  chain arrives exactly on time and nothing waits. The plain
+  reschedule-everything option.
+- **Spend the slack as dwell** — offered only when the new anchor is
+  *later* than the natural arrival, i.e. there is genuinely spare time.
+  Absorb the delta into dwell so the day fills the gap instead of idling.
+**Settled (author, 2026-09-01): all of it onto the immediately preceding
+stop, and say so.** Adding the delta to the stop being anchored does
+nothing to its own arrival — dwell runs after arrival — so it can only be
+absorbed *upstream*, and it goes to the one stop directly above rather than
+being spread across the run. One number changes, which is the version a
+traveller can undo.
+"Say so" is part of the task, not polish: the prompt names the stop and the
+new dwell before you commit to it ("Gullfoss gets 45 min more, 1 h 30 →
+2 h 15"), and after the edit the preceding stop's Dwell cell carries a
+brief changed mark. A dwell that grows by three quarters of an hour on a
+stop you were not editing must never be something you discover later.
+Both branches are edits to stored inputs, computed from cascade output —
+the engine itself stays pure and unchanged.
+
+**16.2 Insert a day anywhere in the itinerary** · Cheap
+The data layer is already done and unit-tested: `insertDay(pb, tripId,
+atIndex, day)` in `src/lib/pb-days.ts` reindexes via the pure
+`planInsertDay`, in one batch, and returns the day-parented blocks whose
+derived date shifted. Only the UI is missing — both call sites in
+`TripEditor.tsx` pass `records.days.length`, i.e. append only.
+Add an insert affordance at an arbitrary position: a hairline "+" between
+day pills in `DayPills`, and the same in the itinerary column between day
+groups. Surface the returned `changedBlocks` in the shift warning the same
+way delete/move do (anything anchored to a day whose date just moved).
+Deleting a day already exists in the data layer too and is likewise not
+wired to any control — do it in the same task, with a confirm.
+
+**16.3 Versioned JSON export** · Standard
+Phase 8.1 promised "Export writes the same format — round-trip test" and it
+was never built. Build the export half now, and make version handling
+explicit so the model can move later:
+- Every exported document carries `version` (both import schemas already
+  do: `import-highlights.ts` pins `z.literal(1)`, `import-cascade.ts` reads
+  a numeric `version`). Export always writes the **current** version.
+- Import keeps a parser per version — `parseV1`, `parseV2`, … — and
+  upgrades old documents forward to the current shape at the boundary.
+  A retired version's parser is never deleted; it is the only thing that
+  keeps a two-year-old export openable.
+- Two exports, or one with a flag: the full trip (days, stops, legs,
+  blocks, wishlist) and the wishlist alone, since the wishlist is what gets
+  passed between people.
+- Round-trip test against `fixtures/iceland-day1.json`: export → import →
+  identical cascade output. That fixture stays the canonical case.
+Decide what happens to uploaded files (photos, booking PDFs): either the
+export references them by URL, or it is a JSON-only document that drops
+them and says so on the way out. Lean JSON-only for v1.
+
+**16.4 Duplicate detection on wishlist import** · Standard
+`import-highlights-commit.ts` creates a `pois` row per highlight
+unconditionally, so importing an overlapping list twice silently doubles
+every entry. Add a duplicate check to the import **preview**, before
+commit: for each incoming highlight, look for an existing `pois` (and
+`stops` — since 14.1 they are the same thing) within the merge radius, or
+with a matching title. `findNearbyStop` in `src/lib/merge.ts` (100 m, WORK
+6.5) is the precedent but is stop-only and returns one candidate — extend
+it, or add a poi-aware sibling, and keep it pure and unit-tested.
+Each flagged row gets a per-item choice, defaulting to Merge:
+- **Merge** (author-specified, 2026-09-01) — keep the existing record and
+  treat its own fields as authoritative: a scalar field (title, kind, lat/
+  lon, address, access point) is written **only if the existing one is
+  empty**, never overwritten. Blocks are the opposite — notes, photos and
+  links **accumulate**: every incoming block is appended, deduplicated only
+  on an exact match (same URL for a link or photo, identical text for a
+  note), so a second list of the same place adds what it knows and loses
+  nothing.
+- **Replace** — overwrite the existing record's fields with the incoming
+  ones, keeping its id (so any placement, star, or day assignment
+  survives).
+- **Add anyway** — a second record; two genuinely different places can sit
+  a few metres apart.
+Plus a header control to apply one choice to all flagged rows. The commit
+stays atomic.
+
+**16.5 Wishlist items get the full stop treatment** · Standard
+Since Phase 14 a poi is "a stop without a day", but the UI never caught up:
+in `PinCard`, `PinCardEdit` and `PinCardExpanded` are both gated on
+`target.type === 'stop'`. A wishlist item therefore cannot be renamed, has
+no kind picker, no access point, no All-details view, and no way to add a
+note or a photo — the wish footer offers only Add to itinerary / Delete.
+- Give wish mode the same **Edit** and **All details** buttons, and make
+  `PinCardEdit` / `PinCardExpanded` take a poi or a stop rather than a
+  stop. What genuinely doesn't apply to a poi is the timing row (16.1) and
+  the day/sequence subtitle; everything else does.
+- **Personal notes**: a note block whose `visibility` is `private` is
+  already the mechanism (the field exists, the API rule already hides other
+  people's private blocks). What is missing is a visible affordance — a
+  distinct "My notes" section in both the card and the expanded view, with
+  the private visibility preset, so a personal remark doesn't have to be
+  filed as a trip-wide note and manually toggled. Same section on stops.
+- **More photos**: `+ Photo` already appends photo blocks and 12.10's
+  carousel already renders a set of them; it just needs to be reachable
+  from wish mode too, for both a poi and a stop.
+The point is one card that doesn't care which side of the promotion line
+its subject is on — the remaining `type === 'stop'` branches should reduce
+to the timing row and the itinerary-only actions.
+
+**16.6 Sharing a trip** · Standard
+Three audiences, two mechanisms. Most of the backend already exists and has
+never been given a UI:
+- `trip_members` with `role` ∈ owner | editor | viewer, and API rules that
+  already enforce it (a viewer cannot write — verified in migration
+  `1788000003`).
+- `invites` (`trip`, `email`, `role`, `status`) plus
+  `pb_hooks/membership.pb.js`, which materialises a pending invite into a
+  `trip_members` row when that email registers.
+- `trips.share_token` (autogenerated, unique) and `trips.share_enabled`.
+- `blocks.visibility` ∈ private | trip | public.
+So the work is:
+- **People**: a members panel on the trip — invite by email with a role,
+  change a member's role, revoke, leave. Pending invites listed as pending.
+  Owner-only. This is the "members" line item phase 11.2 lists for trip
+  settings; build it here and cross it off there.
+- **Public link**: the `share_enabled` toggle, the token URL, regenerate.
+  The payload itself is phase 9.1 — `pb_hooks/share.js`, assembled
+  **server-side**, non-negotiable rule 5. The read-only view is 9.2. Doing
+  16.6 means doing 9.1/9.2; they are the same task seen from two sides.
+- **What a public link strips**: only `visibility = 'public'` blocks reach
+  the public payload — bookings, files, personal notes and prices are
+  `trip` or `private` and never leave the hook. Non-obvious consequence
+  worth stating in the UI: a block defaults to `trip`, so a public share
+  starts out showing *nothing* but the route and the stops until blocks are
+  explicitly promoted. `costs` never enters the public payload at all,
+  by rule — see 16.7. A "what will be visible" preview on the share dialog
+  is the honest way to ship this.
+Address the whole-trip shape, not just the button: a viewer opening a trip
+they don't own should get the editor in read-only, not a second view — one
+cascade, one renderer.
+
+**16.7 Surface price tags** · Standard
+Answering "did we have price tags?" — yes, in the schema, and nowhere else.
+Migration `1788000000` created a **`costs`** collection: `trip`,
+`parent_type` ∈ trip | day | stop | leg, `parent_id`, `label`, `amount`,
+`currency`, `category`, `is_estimate`, with membership rules applied
+(`1788000003`). `trips.currency` exists too. `CostsRecord` is in
+`src/types/pb.ts`. **No application code reads or writes any of it** — not
+one reference outside the generated types. It was built in phase 1 for
+phase 11.1 (Budget) and has sat unused since.
+So the cheap, useful half is just to show and edit them where a price is
+actually noticed:
+- A price line on the pin card and the expanded card, for a stop **and** a
+  poi alike (a wishlist entry's admission fee is exactly the thing that
+  decides whether it makes the cut). Same both-sides-of-the-promotion-line
+  rule as 16.5.
+- Add / edit / remove a cost with a label, an amount, and the estimate
+  flag. Currency comes from `trips.currency`; no per-cost currency picker
+  and no conversion (out of scope for v1).
+- A per-day and per-trip total in the itinerary column.
+Full budget breakdown by category stays phase 11.1 — this is the entry
+surface it needs, not the reporting.
+**Settled (author, 2026-09-01): costs are members-only.** `costs` has no
+`visibility` field, unlike `blocks`, and it is not getting one. Prices are
+visible to trip members and **never enter the public payload** — the share
+hook (9.1 / 16.6) does not read the collection at all, which is also the
+cheapest way to be sure the rule holds. A public link shows the route, the
+stops and public blocks; what any of it cost is not part of that document.
+
+---
+
+## Noticed
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
