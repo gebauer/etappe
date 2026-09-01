@@ -1,27 +1,29 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatDayDate } from '../lib/format';
-import type { CascadeResult, Warning } from '../lib/cascade';
+import { formatClock, type CascadeResult } from '../lib/cascade';
+import { warningText } from '../lib/warnings';
+import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { pb } from '../lib/pb';
 import type {
-  TripsResponse,
+  BlocksResponse,
   DaysResponse,
   StopsResponse,
   LegsResponse,
 } from '../types/pb';
-import type { StopPatch, LegPatch } from '../lib/pb-stops';
+import type { TripsResponse } from '../types/pb';
+import type { LegPatch } from '../lib/pb-stops';
 import { StopRow } from './StopRow';
 import { LegRow } from './LegRow';
 
 interface Props {
   trip: TripsResponse;
-  days: DaysResponse[];
+  day: DaysResponse | null;
+  dayIndex: number;
   stops: StopsResponse[];
   legs: LegsResponse[];
+  blocks: BlocksResponse[];
   result: CascadeResult | null;
-  onToggleRail: () => void;
-  onToggleRight: () => void;
   onAddStop: (dayId: string) => void;
-  onDeleteStop: (stopId: string) => void;
-  onUpdateStop: (stopId: string, patch: StopPatch) => void;
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
   onRerouteLeg: (legId: string) => void;
   onSetManualLeg: (legId: string, durationMin: number) => void;
@@ -32,52 +34,41 @@ interface Props {
   ) => void;
   selectedStopIds: Set<string>;
   onSelectStop: (stopId: string, additive: boolean) => void;
-  onOpenSearch: () => void;
-  onOpenUncategorized: () => void;
-  scrollToDayId: string | null;
   scrollToStopId: string | null;
   hoveredStopId: string | null;
   onHoverStop: (stopId: string | null) => void;
 }
 
+/**
+ * The itinerary column (design handoff, "Itinerary column"): the focused
+ * day only, matching the day pills that swap it — not every day stacked,
+ * the way the old centre-column timeline did.
+ *
+ * That costs cross-day drag-and-drop (there's no other day on screen to
+ * drop onto); the expanded card's "Move to day…" (WORK 12.3) is the
+ * replacement, and reordering *within* the day still drags.
+ */
 export function Timeline({
   trip,
-  days,
+  day,
+  dayIndex,
   stops,
   legs,
+  blocks,
   result,
-  onToggleRail,
-  onToggleRight,
   onAddStop,
-  onDeleteStop,
-  onUpdateStop,
   onUpdateLeg,
   onRerouteLeg,
   onSetManualLeg,
   onMoveStop,
   selectedStopIds,
   onSelectStop,
-  onOpenSearch,
-  onOpenUncategorized,
-  scrollToDayId,
   scrollToStopId,
   hoveredStopId,
   onHoverStop,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  // BUILD §7: "the trip header shows an uncategorized counter" — real kind
-  // uncategorized specifically, not kind_confirmed (a separate "auto-
-  // detected, please glance at this" flag shown per-row in the inspector).
-  const uncategorizedCount = stops.filter(
-    (s) => s.kind === 'uncategorized',
-  ).length;
-
-  useEffect(() => {
-    if (!scrollToDayId || !scrollRef.current) return;
-    const el = scrollRef.current.querySelector(`[data-day="${scrollToDayId}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [scrollToDayId]);
 
   useEffect(() => {
     if (!scrollToStopId || !scrollRef.current) return;
@@ -87,192 +78,163 @@ export function Timeline({
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [scrollToStopId]);
 
-  function indexInDay(dayId: string, beforeStopId?: string): number {
-    const list = stops
-      .filter((s) => s.day === dayId && s.id !== dragId)
-      .sort((a, b) => a.order_index - b.order_index);
-    if (!beforeStopId) return list.length; // append
+  if (!day) {
+    return (
+      <div className="flex h-full items-center justify-center bg-surface-1 p-6 text-center text-[13px] text-text-4">
+        No days yet — add one with the <span className="mx-1 font-mono">+</span>{' '}
+        beside the day pills.
+      </div>
+    );
+  }
+
+  const dayStops = stops
+    .filter((s) => s.day === day.id)
+    .sort((a, b) => a.order_index - b.order_index);
+  const dayResult = result?.days.find((d) => d.dayId === day.id);
+  const timingByStop = new Map(
+    dayResult?.stops.map((s) => [s.stopId, s]) ?? [],
+  );
+  const dayWarnings = (result?.warnings ?? []).filter(
+    (w) => w.dayId === day.id,
+  );
+
+  const first = dayResult?.stops[0];
+  const last = dayResult?.stops[dayResult.stops.length - 1];
+  const span =
+    first && last
+      ? `${formatClock(first.arrival)} – ${formatClock(last.departure)}`
+      : '';
+
+  function indexInDay(beforeStopId?: string): number {
+    const list = dayStops.filter((s) => s.id !== dragId);
+    if (!beforeStopId) return list.length;
     const i = list.findIndex((s) => s.id === beforeStopId);
     return i < 0 ? list.length : i;
   }
 
-  function dropBefore(targetStopId: string, targetDayId: string) {
-    if (dragId && dragId !== targetStopId) {
-      onMoveStop(dragId, targetDayId, indexInDay(targetDayId, targetStopId));
-    }
-    setDragId(null);
-  }
-
-  function dropOnDay(dayId: string) {
-    if (dragId) onMoveStop(dragId, dayId, indexInDay(dayId));
-    setDragId(null);
-  }
-
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-slate-50">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
-        <button
-          onClick={onToggleRail}
-          className="rounded border border-slate-300 px-2 py-1 text-xs min-[900px]:hidden"
-        >
-          Days
-        </button>
-        <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
-          {trip.title}
-        </h1>
-        {uncategorizedCount > 0 && (
-          <button
-            onClick={onOpenUncategorized}
-            title="Review and give these stops a kind"
-            className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100"
-          >
-            ⚠ {uncategorizedCount} uncategorized
-          </button>
+    <div className="flex h-full min-h-0 flex-col bg-surface-1 font-sans text-text">
+      <div className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]">
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+            Day {dayIndex + 1}
+            {day.title ? ` · ${day.title}` : ''}
+          </div>
+          <div className="mt-0.5 font-mono text-[11.5px] text-text-4">
+            {formatDayDate(trip.start_date, day.order_index)} · {day.kind}
+          </div>
+        </div>
+        {span && (
+          <span className="flex-none font-mono text-[11.5px] text-text-4">
+            {span}
+          </span>
         )}
-        <button
-          onClick={onOpenSearch}
-          className="rounded border border-slate-300 px-2 py-1 text-xs"
-          title="Search places (⌘K)"
-        >
-          🔍 Search
-        </button>
-        <span
-          className="hidden cursor-help text-xs text-slate-400 min-[900px]:inline"
-          title={
-            'Keyboard:\nn  new stop\nd  new day\nk  change kind (selected stop)\n⌥↑ / ⌥↓  move selected stop\nclick / ⌘-click  select / multi-select\nDel  delete selected stop(s)\nShift↑ / Shift↓  shift selected anchors ±5 min\nEsc  clear selection'
-          }
-        >
-          ⌨
-        </span>
-        <button
-          onClick={onToggleRight}
-          className="rounded border border-slate-300 px-2 py-1 text-xs min-[1280px]:hidden"
-        >
-          Map &amp; details
-        </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {days.length === 0 && (
-          <p className="px-4 py-10 text-center text-sm text-slate-400">
-            No days yet — add one from the rail to start planning.
-          </p>
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-[90px] pt-2"
+      >
+        {dayWarnings
+          .filter((w) => !w.stopId)
+          .map((w, i) => (
+            <div
+              key={`day-${i}`}
+              className="mb-2 flex items-center gap-2 rounded-[9px] border border-warn-border bg-warn-bg px-3 py-2 text-[12.5px] text-warn-text"
+            >
+              <span className="h-[7px] w-[7px] flex-none rounded-full bg-wishlist" />
+              {warningText(w)}
+            </div>
+          ))}
+
+        {dayStops.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-[oklch(0.32_0.012_250)] px-4 py-8 text-center text-[13px] text-text-4">
+            No stops on this day yet.
+            <br />
+            Click the map or a wishlist pin to add one.
+          </div>
+        ) : (
+          dayStops.map((stop, i) => {
+            const next = dayStops[i + 1];
+            const leg = next
+              ? legs.find(
+                  (l) => l.from_stop === stop.id && l.to_stop === next.id,
+                )
+              : undefined;
+            const cover = blocksFor(blocks, 'stop', stop.id).find(
+              (b) => b.kind === 'photo',
+            );
+            const stopWarnings = dayWarnings.filter(
+              (w) => w.stopId === stop.id,
+            );
+            return (
+              <Fragment key={`${stop.id}:${stop.updated}`}>
+                <div
+                  data-stop={stop.id}
+                  draggable
+                  onDragStart={() => setDragId(stop.id)}
+                  onDragEnd={() => setDragId(null)}
+                  onDragOver={(e) => dragId && e.preventDefault()}
+                  onDrop={() => {
+                    if (dragId && dragId !== stop.id) {
+                      onMoveStop(dragId, day.id, indexInDay(stop.id));
+                    }
+                    setDragId(null);
+                  }}
+                  className={dragId === stop.id ? 'opacity-40' : ''}
+                >
+                  <StopRow
+                    stop={stop}
+                    seq={i + 1}
+                    timing={timingByStop.get(stop.id)}
+                    photoUrl={cover ? blockFileUrl(pb, cover, '80x80') : null}
+                    selected={selectedStopIds.has(stop.id)}
+                    hovered={hoveredStopId === stop.id}
+                    onSelect={(additive) => onSelectStop(stop.id, additive)}
+                    onHover={(h) => onHoverStop(h ? stop.id : null)}
+                  />
+                </div>
+
+                {/* A stop's own warnings stay compact — one banner per stop
+                    would drown the column (three stops with no kind yet is
+                    three identical banners). The full banner treatment is
+                    for day-level warnings, which is what the handoff's
+                    example (NO_ACCOMMODATION) actually is. */}
+                {stopWarnings.map((w, wi) => (
+                  <div
+                    key={`w-${wi}`}
+                    className="mb-0.5 ml-[44px] flex items-center gap-1.5 px-[11px] text-[11.5px] text-warn-text"
+                  >
+                    <span className="h-[5px] w-[5px] flex-none rounded-full bg-wishlist" />
+                    {warningText(w)}
+                  </div>
+                ))}
+
+                {next && (
+                  <LegRow
+                    leg={leg}
+                    effectiveDuration={dayResult?.legs[i]?.effectiveDuration}
+                    onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
+                    onReroute={() => leg && onRerouteLeg(leg.id)}
+                    onSetManual={(min) => leg && onSetManualLeg(leg.id, min)}
+                  />
+                )}
+              </Fragment>
+            );
+          })
         )}
 
-        {days.map((day, dayIndex) => {
-          const dayResult = result?.days.find((d) => d.dayId === day.id);
-          const timingByStop = new Map(
-            dayResult?.stops.map((s) => [s.stopId, s]) ?? [],
-          );
-          const dayStops = stops
-            .filter((s) => s.day === day.id)
-            .sort((a, b) => a.order_index - b.order_index);
-
-          const stopWarnings = new Map<string, Warning[]>();
-          const dayLevel: Warning[] = [];
-          for (const w of result?.warnings ?? []) {
-            if (w.dayId !== day.id) continue;
-            if (w.stopId) {
-              const list = stopWarnings.get(w.stopId) ?? [];
-              list.push(w);
-              stopWarnings.set(w.stopId, list);
-            } else {
-              dayLevel.push(w);
-            }
-          }
-
-          return (
-            <section key={day.id} data-day={day.id}>
-              <header
-                onDragOver={(e) => dragId && e.preventDefault()}
-                onDrop={() => dropOnDay(day.id)}
-                className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/90 px-4 py-2 backdrop-blur"
-              >
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Day {dayIndex + 1}
-                  {day.title ? ` · ${day.title}` : ''}
-                </h2>
-                <p className="text-xs text-slate-500">
-                  {formatDayDate(trip.start_date, day.order_index)} · {day.kind}
-                </p>
-                {dayLevel.length > 0 && (
-                  <p className="mt-1 text-xs text-amber-600">
-                    {dayLevel.map((w, i) => (
-                      <span key={i} className="mr-2">
-                        ⚠ {w.code}
-                        {w.deficitMin != null ? ` +${w.deficitMin}m` : ''}
-                      </span>
-                    ))}
-                  </p>
-                )}
-              </header>
-
-              {dayStops.map((stop, i) => {
-                const next = dayStops[i + 1];
-                const leg = next
-                  ? legs.find(
-                      (l) => l.from_stop === stop.id && l.to_stop === next.id,
-                    )
-                  : undefined;
-                return (
-                  <Fragment key={`${stop.id}:${stop.updated}`}>
-                    <div
-                      data-stop={stop.id}
-                      onDragOver={(e) => dragId && e.preventDefault()}
-                      onDrop={() => dropBefore(stop.id, day.id)}
-                      className={dragId === stop.id ? 'opacity-40' : ''}
-                    >
-                      <StopRow
-                        stop={stop}
-                        timing={timingByStop.get(stop.id)}
-                        warnings={stopWarnings.get(stop.id) ?? []}
-                        selected={selectedStopIds.has(stop.id)}
-                        hovered={hoveredStopId === stop.id}
-                        onSelect={(additive) => onSelectStop(stop.id, additive)}
-                        onHover={(h) => onHoverStop(h ? stop.id : null)}
-                        dragHandle={
-                          <span
-                            draggable
-                            onDragStart={() => setDragId(stop.id)}
-                            onDragEnd={() => setDragId(null)}
-                            className="cursor-grab select-none pt-1 text-slate-300 hover:text-slate-500"
-                            title="Drag to reorder"
-                          >
-                            ⠿
-                          </span>
-                        }
-                        onUpdate={(patch) => onUpdateStop(stop.id, patch)}
-                        onDelete={() => onDeleteStop(stop.id)}
-                      />
-                    </div>
-                    {next && (
-                      <LegRow
-                        leg={leg}
-                        effectiveDuration={
-                          dayResult?.legs[i]?.effectiveDuration
-                        }
-                        onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
-                        onReroute={() => leg && onRerouteLeg(leg.id)}
-                        onSetManual={(durationMin) =>
-                          leg && onSetManualLeg(leg.id, durationMin)
-                        }
-                      />
-                    )}
-                  </Fragment>
-                );
-              })}
-
-              <div className="px-4 py-2">
-                <button
-                  onClick={() => onAddStop(day.id)}
-                  className="rounded border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
-                >
-                  + Stop
-                </button>
-              </div>
-            </section>
-          );
-        })}
+        <button
+          onClick={() => onAddStop(day.id)}
+          onDragOver={(e) => dragId && e.preventDefault()}
+          onDrop={() => {
+            if (dragId) onMoveStop(dragId, day.id, indexInDay());
+            setDragId(null);
+          }}
+          className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+        >
+          + Stop
+        </button>
       </div>
     </div>
   );

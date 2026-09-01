@@ -128,8 +128,8 @@ export function MapPane({
   /** Drives the bigger/haloed wishlist pin variant (design handoff, WORK
    * 12.4) — the open card's item, mirroring `selectedStop`. */
   selectedWishlistId?: string | null;
-  /** Day pills (WORK 12.5) — takes over `DayRail`'s day-switching role,
-   * transitionally alongside it until WORK 12.6 retires the rail. */
+  /** Day pills (WORK 12.5) — the trip's only day switcher since WORK 12.6
+   * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
   onAddDay?: () => void;
 }) {

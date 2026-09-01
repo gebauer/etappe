@@ -19,8 +19,8 @@ const GLASS =
 
 /**
  * Day pills docked over the map (design handoff, "Day pills") — takes over
- * `DayRail`'s day-switching role for the map-dominant shell (WORK 12.6);
- * `DayRail` stays alongside it, transitionally, until that task retires it.
+ * the day rail's role for the map-dominant shell — `DayRail` itself was
+ * retired by WORK 12.6, this is the only day switcher now.
  * Rendered by `MapPane` as an absolute overlay, not a standalone panel — it
  * needs the map's own `records` (day/stop counts) and click-through gaps
  * between pills, the same as the existing Nearby toggle.

@@ -11,7 +11,7 @@ interface Props {
 
 /** Icon grid with type-to-filter (BUILD §7: "k opens an icon grid, type to
  * filter, enter"). Presentational only — a parent decides how it's shown
- * (StopInspector expands it inline under the Kind field; the uncategorized
+ * (the card expands it inline under the Kind field; the uncategorized
  * review list shows it open on every row) and what onChange does (update
  * and collapse, or just update). */
 export function KindPicker({ value, onChange, onEscape, autoFocus }: Props) {

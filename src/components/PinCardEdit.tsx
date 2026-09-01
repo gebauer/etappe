@@ -23,8 +23,8 @@ const BLOCK_KINDS: BlockKind[] = ['note', 'link', 'photo', 'file'];
  * fields adjusted constantly while planning; everything else (accommodation,
  * address, coordinates) lives in the expanded full-details card, WORK 12.3.
  *
- * Uncontrolled inputs committing on blur/Enter, matching `StopInspector` and
- * `StopRow` — the parent re-keys this component when the stop changes.
+ * Uncontrolled inputs committing on blur/Enter — the parent re-keys this
+ * component when the stop changes.
  */
 export function PinCardEdit({
   stop,

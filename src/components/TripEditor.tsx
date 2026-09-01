@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
-import { insertDay, deleteDay } from '../lib/pb-days';
+import { useAuth } from '../hooks/useAuth';
+import { insertDay } from '../lib/pb-days';
 import {
   addStopAtEnd,
   addStopAt,
@@ -38,7 +39,6 @@ import {
   type BlockKind,
   type BlockPatch,
 } from '../lib/pb-blocks';
-import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
 import { PinCard, type CardTarget } from './PinCard';
 import { PinCardExpanded } from './PinCardExpanded';
@@ -47,8 +47,7 @@ import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
 import { Timeline } from './Timeline';
-import { RightPane } from './RightPane';
-import { Drawer } from './Drawer';
+import { MapPane } from './MapPane';
 import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 import { MergePrompt } from './MergePrompt';
 import { findNearbyStop } from '../lib/merge';
@@ -69,29 +68,26 @@ type CaptureCandidate = PlacementCandidate & {
 
 export function TripEditor({
   tripId,
+  onBack,
   sharedCapture,
   onSharedCaptureConsumed,
 }: {
   tripId: string;
+  /** Back to the trip list — the header lives here now, not in `App`. */
+  onBack: () => void;
   /** Text/URL handed off from the PWA share target (WORK 6.4) — opens the
    * wishlist capture flow prefilled, once. */
   sharedCapture?: string | null;
   onSharedCaptureConsumed?: () => void;
 }) {
   const { records, result, error, reload } = useTripEditor(tripId);
+  const { user } = useAuth();
   const routing = useMemo(() => createPocketBaseRouting(pb), []);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(
     new Set(),
   );
   const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
-  const [flyTo, setFlyTo] = useState<{
-    lat: number;
-    lon: number;
-    nonce: number;
-  } | null>(null);
-  const [showRail, setShowRail] = useState(false);
-  const [showRight, setShowRight] = useState(false);
   const [showHighlightsImport, setShowHighlightsImport] = useState(false);
   const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
     null,
@@ -123,33 +119,9 @@ export function TripEditor({
     existingStop: StopsResponse;
   } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [railW, setRailW] = useState(() => loadWidths().rail);
-  const [rightW, setRightW] = useState(() => loadWidths().right);
-  const [bp, setBp] = useState({ mid: false, wide: false });
-
-  useEffect(() => {
-    const midQ = matchMedia('(min-width: 900px)');
-    const wideQ = matchMedia('(min-width: 1280px)');
-    const update = () => setBp({ mid: midQ.matches, wide: wideQ.matches });
-    update();
-    midQ.addEventListener('change', update);
-    wideQ.addEventListener('change', update);
-    return () => {
-      midQ.removeEventListener('change', update);
-      wideQ.removeEventListener('change', update);
-    };
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'etappe.paneWidths',
-        JSON.stringify({ rail: railW, right: rightW }),
-      );
-    } catch {
-      /* storage unavailable — non-fatal */
-    }
-  }, [railW, rightW]);
+  // Wishlist fallback list, bottom-left over the map — hidden whenever a
+  // card is open, since they share that corner (design handoff).
+  const [wishlistPanelOpen, setWishlistPanelOpen] = useState(true);
 
   // Wishlist lives outside the cascade-oriented trip doc (it has no day/
   // order_index), so it gets its own small fetch rather than riding along
@@ -649,7 +621,6 @@ export function TripEditor({
   }
 
   const { trip, days, stops, legs } = records;
-  const selectedDay = days.find((d) => d.id === selectedDayId) ?? null;
   const selectedStop =
     selectedStopIds.size === 1
       ? (stops.find((s) => s.id === [...selectedStopIds][0]) ?? null)
@@ -732,54 +703,23 @@ export function TripEditor({
       run(() => uploadBlockPhoto(pb, blockId, file)),
   };
 
-  const rail = (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <DayRail
-          trip={trip}
-          days={days}
-          selectedDayId={selectedDayId}
-          onSelectDay={(id) => {
-            setSelectedDayId(id);
-            setShowRail(false);
-          }}
-          onAddDay={() =>
-            run(() => insertDay(pb, tripId, days.length, { kind: 'travel' }))
-          }
-          onDeleteDay={(id) => run(() => deleteDay(pb, tripId, id))}
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden border-t border-slate-200">
-        <WishlistPanel
-          items={wishlist}
-          blocks={records?.blocks ?? []}
-          onAdd={() => {
-            setShareQuery(null);
-            setSearchMode('wishlist');
-          }}
-          onImport={() => setShowHighlightsImport(true)}
-          onPreview={(item) => openCard(() => setWishCard(item))}
-          onReject={rejectWishlist}
-        />
-      </div>
-    </div>
-  );
+  // BUILD §7: "the trip header shows an uncategorized counter" — real kind
+  // uncategorized specifically, not the kind_confirmed "auto-detected"
+  // flag.
+  const uncategorizedCount = stops.filter(
+    (s) => s.kind === 'uncategorized',
+  ).length;
+  const activeDay = days.find((d) => d.id === selectedDayId) ?? days[0] ?? null;
+  const activeDayIndex = activeDay
+    ? days.findIndex((d) => d.id === activeDay.id)
+    : 0;
+  const cardOpen = !!cardTarget;
 
   return (
-    <div
-      className="grid h-full"
-      style={{
-        gridTemplateRows: 'minmax(0, 1fr)',
-        gridTemplateColumns: bp.wide
-          ? `${railW}px 6px minmax(0,1fr) 6px ${rightW}px`
-          : bp.mid
-            ? `${railW}px 6px minmax(0,1fr)`
-            : '1fr',
-      }}
-    >
+    <div className="flex h-full min-h-0 flex-col bg-bg font-sans text-text">
       {placingAccessFor && (
         <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-1.5 text-xs text-white shadow-lg">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-surface-4 px-4 py-1.5 text-xs text-text shadow-card">
             Click the map for an access point for{' '}
             <strong>{placingAccessFor.title}</strong>
             <button
@@ -791,90 +731,74 @@ export function TripEditor({
           </div>
         </div>
       )}
-      {bp.mid && (
-        <div className="min-h-0 overflow-hidden border-r border-slate-200">
-          {rail}
-        </div>
-      )}
-      {bp.mid && (
-        <ResizeDivider
-          onResize={(dx) => setRailW((w) => clampWidth(w + dx, 160, 420))}
-        />
-      )}
 
-      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-        {actionError && (
-          <p className="bg-red-50 px-4 py-1 text-xs text-red-600">
-            {actionError}
-          </p>
+      <header className="flex h-[52px] flex-none items-center gap-3.5 border-b border-border bg-surface-2 px-3.5">
+        <button
+          onClick={onBack}
+          className="flex-none whitespace-nowrap text-[13px] text-text-3 hover:text-text"
+        >
+          ← Trips
+        </button>
+        <span className="h-5 w-px flex-none bg-[oklch(0.30_0.012_250)]" />
+        <h1 className="min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em]">
+          {trip.title}
+        </h1>
+        <span className="flex-none font-mono text-[11px] text-text-4">
+          {days.length} {days.length === 1 ? 'day' : 'days'} · {stops.length}{' '}
+          {stops.length === 1 ? 'stop' : 'stops'}
+        </span>
+        {uncategorizedCount > 0 && (
+          <button
+            onClick={() => setShowUncategorized(true)}
+            title="Review and give these stops a kind"
+            className="h-[30px] flex-none rounded-lg border border-warn-border bg-warn-bg px-2.5 text-xs text-warn-text"
+          >
+            ⚠ {uncategorizedCount}
+          </button>
         )}
-        <Timeline
-          trip={trip}
-          days={days}
-          stops={stops}
-          legs={legs}
-          result={result}
-          selectedStopIds={selectedStopIds}
-          onSelectStop={toggleSelect}
-          onOpenSearch={() => setSearchMode('placement')}
-          onOpenUncategorized={() => setShowUncategorized(true)}
-          scrollToDayId={selectedDayId}
-          scrollToStopId={
-            selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
-          }
-          hoveredStopId={hoveredStopId}
-          onHoverStop={setHoveredStopId}
-          onToggleRail={() => setShowRail(true)}
-          onToggleRight={() => setShowRight(true)}
-          onAddStop={(dayId) =>
-            run(() =>
-              addStopAtEnd(
-                pb,
-                routing,
-                dayId,
-                stops.filter((s) => s.day === dayId),
-              ),
-            )
-          }
-          onDeleteStop={deleteOneStop}
-          onUpdateStop={handleUpdateStop}
-          onUpdateLeg={(legId, patch: LegPatch) =>
-            run(() => updateLeg(pb, legId, patch))
-          }
-          onRerouteLeg={(legId) =>
-            run(() => rerouteLeg(pb, routing, records, legId))
-          }
-          onSetManualLeg={(legId, durationMin) =>
-            run(() => setLegManual(pb, legId, durationMin))
-          }
-          onMoveStop={(stopId, targetDayId, targetIndex) =>
-            run(() =>
-              moveStop(pb, routing, records, stopId, targetDayId, targetIndex),
-            )
-          }
-        />
-      </div>
+        <div className="ml-auto flex flex-none items-center gap-2">
+          <button
+            onClick={() => setSearchMode('placement')}
+            title="Search places (⌘K)"
+            className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+          >
+            Search
+          </button>
+          <button
+            onClick={() => setShowHighlightsImport(true)}
+            title="Import highlights from pasted JSON"
+            className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+          >
+            Import
+          </button>
+          {/* The email never renders as text at any width — the fix for the
+              known "phone width breaks the header first" friction. */}
+          <span
+            title={user?.email ?? ''}
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[oklch(0.32_0.03_250)] text-[13px] uppercase text-text"
+          >
+            {(user?.email ?? '?').slice(0, 1)}
+          </span>
+        </div>
+      </header>
 
-      {bp.wide && (
-        <ResizeDivider
-          onResize={(dx) => setRightW((w) => clampWidth(w - dx, 280, 680))}
-        />
+      {actionError && (
+        <p className="flex-none bg-warn-bg px-4 py-1 text-xs text-warn-text">
+          {actionError}
+        </p>
       )}
-      {bp.wide && (
-        <aside className="min-h-0 overflow-hidden border-l border-slate-200">
-          <RightPane
+
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_400px]">
+        <div className="relative min-h-0 overflow-hidden">
+          <MapPane
             records={records}
             result={result}
-            selectedDay={selectedDay}
-            selectedStop={selectedStop}
             onMapClick={onMapClick}
-            onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
+            onSelectStop={(id) => toggleSelect(id, false)}
             onHoverStop={setHoveredStopId}
-            onUpdateStop={handleUpdateStop}
-            onDeleteStop={deleteOneStop}
-            onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
-            onPlaceAccessPoint={startPlacingAccessPoint}
-            onClearAccessPoint={clearAccessPoint}
+            hoveredStopId={hoveredStopId}
+            focusDayId={selectedDayId}
+            selectedStop={selectedStop}
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
@@ -887,55 +811,80 @@ export function TripEditor({
                 insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
               )
             }
-            {...blockHandlers}
-            openKindPickerSignal={kindPickerSignal}
+          />
+
+          {/* Wishlist fallback list and the card share the bottom-left slot;
+              the card wins (design handoff). */}
+          {!cardOpen && (
+            <div className="absolute bottom-3.5 left-3.5 z-10">
+              <WishlistPanel
+                items={wishlist}
+                blocks={records.blocks}
+                open={wishlistPanelOpen}
+                onToggle={() => setWishlistPanelOpen((v) => !v)}
+                selectedId={wishCard?.id ?? null}
+                onAdd={() => {
+                  setShareQuery(null);
+                  setSearchMode('wishlist');
+                }}
+                onImport={() => setShowHighlightsImport(true)}
+                onPreview={(item) => openCard(() => setWishCard(item))}
+              />
+            </div>
+          )}
+        </div>
+
+        <aside className="min-h-0 border-l border-border">
+          <Timeline
+            trip={trip}
+            day={activeDay}
+            dayIndex={activeDayIndex}
+            stops={stops}
+            legs={legs}
+            blocks={records.blocks}
+            result={result}
+            selectedStopIds={selectedStopIds}
+            onSelectStop={toggleSelect}
+            scrollToStopId={
+              selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
+            }
             hoveredStopId={hoveredStopId}
-            focusDayId={selectedDayId}
-            flyTo={flyTo}
+            onHoverStop={setHoveredStopId}
+            onAddStop={(dayId) =>
+              run(() =>
+                addStopAtEnd(
+                  pb,
+                  routing,
+                  dayId,
+                  stops.filter((s) => s.day === dayId),
+                ),
+              )
+            }
+            onUpdateLeg={(legId, patch: LegPatch) =>
+              run(() => updateLeg(pb, legId, patch))
+            }
+            onRerouteLeg={(legId) =>
+              run(() => rerouteLeg(pb, routing, records, legId))
+            }
+            onSetManualLeg={(legId, durationMin) =>
+              run(() => setLegManual(pb, legId, durationMin))
+            }
+            onMoveStop={(stopId, targetDayId, targetIndex) =>
+              run(() =>
+                moveStop(
+                  pb,
+                  routing,
+                  records,
+                  stopId,
+                  targetDayId,
+                  targetIndex,
+                ),
+              )
+            }
           />
         </aside>
-      )}
+      </div>
 
-      {showRail && (
-        <Drawer side="left" width="w-64" onClose={() => setShowRail(false)}>
-          {rail}
-        </Drawer>
-      )}
-      {showRight && (
-        <Drawer side="right" width="w-96" onClose={() => setShowRight(false)}>
-          <RightPane
-            records={records}
-            result={result}
-            selectedDay={selectedDay}
-            selectedStop={selectedStop}
-            onMapClick={onMapClick}
-            onSelectStop={(id) => setSelectedStopIds(new Set([id]))}
-            onHoverStop={setHoveredStopId}
-            onUpdateStop={handleUpdateStop}
-            onDeleteStop={deleteOneStop}
-            onZoomStop={(lat, lon) => setFlyTo({ lat, lon, nonce: Date.now() })}
-            onPlaceAccessPoint={startPlacingAccessPoint}
-            onClearAccessPoint={clearAccessPoint}
-            onDragStop={dragStop}
-            onDragAccessPoint={dragAccessPoint}
-            onSelectNearby={selectNearby}
-            wishlist={wishlist}
-            onSelectWishlist={(item) => openCard(() => setWishCard(item))}
-            selectedWishlistId={wishCard?.id ?? null}
-            onSelectDay={(id) => setSelectedDayId(id)}
-            onAddDay={() =>
-              run(() =>
-                insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
-              )
-            }
-            {...blockHandlers}
-            openKindPickerSignal={kindPickerSignal}
-            hoveredStopId={hoveredStopId}
-            focusDayId={selectedDayId}
-            flyTo={flyTo}
-          />
-        </Drawer>
-      )}
       {searchMode && (
         <SearchPalette
           initialQuery={
@@ -1094,51 +1043,5 @@ export function TripEditor({
         />
       )}
     </div>
-  );
-}
-
-function clampWidth(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function loadWidths(): { rail: number; right: number } {
-  try {
-    const raw = localStorage.getItem('etappe.paneWidths');
-    if (raw) {
-      const o = JSON.parse(raw) as { rail?: number; right?: number };
-      return { rail: Number(o.rail) || 220, right: Number(o.right) || 380 };
-    }
-  } catch {
-    /* storage unavailable */
-  }
-  return { rail: 220, right: 380 };
-}
-
-/** A draggable column divider; reports the horizontal delta as the user drags. */
-function ResizeDivider({ onResize }: { onResize: (dx: number) => void }) {
-  function onMouseDown(e: React.MouseEvent) {
-    e.preventDefault();
-    let last = e.clientX;
-    const move = (ev: MouseEvent) => {
-      onResize(ev.clientX - last);
-      last = ev.clientX;
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }
-  return (
-    <div
-      onMouseDown={onMouseDown}
-      className="cursor-col-resize bg-slate-200 transition-colors hover:bg-sky-400"
-      title="Drag to resize"
-    />
   );
 }

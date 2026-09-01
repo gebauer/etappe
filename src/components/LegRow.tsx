@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { formatDuration } from '../lib/format';
 import type { LegsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
@@ -15,6 +15,19 @@ function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
 }
 
+const FIELD =
+  'h-7 rounded-md border border-border-strong bg-field px-2 text-[11.5px] text-text outline-none focus:border-accent';
+
+/**
+ * The connector between two stops in the itinerary column (design handoff,
+ * "Leg row"): a hairline and `18 min · 21 km`, nothing more.
+ *
+ * The handoff gives leg editing — manual duration, surface, buffer, re-route
+ * — no home at all (the card is stop-only), so rather than drop working
+ * capability those controls stay, revealed by clicking the row. Same
+ * progressive-disclosure shape as the card's own edit region, and the
+ * collapsed row still matches the spec.
+ */
 export function LegRow({
   leg,
   effectiveDuration,
@@ -22,80 +35,87 @@ export function LegRow({
   onReroute,
   onSetManual,
 }: Props) {
+  const [open, setOpen] = useState(false);
   const isCar = leg?.mode === 'car';
   const isManual = leg?.routing_source === 'manual';
+  const km = leg?.distance_m ? Math.round(leg.distance_m / 1000) : null;
+
   return (
-    <div className="flex items-center gap-3 px-4 py-1 pl-20 text-xs text-slate-400">
-      <span className="inline-block h-4 border-l border-dashed border-slate-300" />
-      {leg && isManual ? (
-        <label className="flex items-center gap-1">
-          <input
-            type="number"
-            min={0}
-            defaultValue={leg.duration_min || ''}
-            placeholder="min"
-            onBlur={(e) =>
-              onUpdate({ duration_min: Number(e.target.value) || 0 })
-            }
-            onKeyDown={commitOnEnter}
-            className="w-14 rounded border border-slate-200 px-1 py-0.5 text-slate-700"
-          />
-          min
-        </label>
-      ) : (
-        <span className="text-slate-500">
+    <div className="py-[3px] pl-[22px] pr-3">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title={leg ? 'Leg settings' : undefined}
+        disabled={!leg}
+        className="flex items-center gap-2 text-left"
+      >
+        <span className="h-4 w-px flex-none bg-[oklch(0.34_0.012_250)]" />
+        <span className="font-mono text-[11px] text-text-5">
           {effectiveDuration != null ? formatDuration(effectiveDuration) : '—'}
+          {km != null ? ` · ${km} km` : ''}
+          {isManual ? ' · manual' : ''}
         </span>
-      )}
-      <span>{leg?.mode ?? 'car'}</span>
+      </button>
 
-      {isCar && isManual && (
-        <button
-          onClick={onReroute}
-          title="Routing didn't run for this leg — re-run it now. If it's a POI a car can't reach, set an access point in the stop's inspector."
-          className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-700 hover:bg-amber-100"
-        >
-          ⟳ route
-        </button>
-      )}
-      {isCar && !isManual && leg && (
-        <button
-          onClick={() => onSetManual(leg.duration_min)}
-          title="Enter the drive time by hand instead of routing"
-          className="rounded border border-slate-200 px-1.5 py-0.5 text-slate-500 hover:bg-slate-50"
-        >
-          ✎ manual
-        </button>
-      )}
+      {open && leg && (
+        <div className="ml-[9px] mt-1.5 flex flex-wrap items-center gap-2 border-l border-[oklch(0.34_0.012_250)] py-1 pl-3">
+          {isManual ? (
+            <label className="flex items-center gap-1 text-[11.5px] text-text-4">
+              <input
+                type="number"
+                min={0}
+                defaultValue={leg.duration_min || ''}
+                placeholder="min"
+                onBlur={(e) =>
+                  onUpdate({ duration_min: Number(e.target.value) || 0 })
+                }
+                onKeyDown={commitOnEnter}
+                className={`${FIELD} w-16 font-mono`}
+              />
+              min
+            </label>
+          ) : null}
 
-      {leg?.mode === 'car' && (
-        <>
-          <select
-            defaultValue={leg.surface || ''}
-            onChange={(e) =>
-              onUpdate({ surface: e.target.value as LegPatch['surface'] })
-            }
-            className="rounded border border-slate-200 px-1 py-0.5"
-          >
-            <option value="">surface…</option>
-            <option value="paved">paved</option>
-            <option value="gravel">gravel</option>
-            <option value="froad">F-road</option>
-          </select>
-          <label className="flex items-center gap-1">
-            buffer%
-            <input
-              type="number"
-              min={0}
-              defaultValue={leg.buffer_override_pct || ''}
-              onBlur={(e) =>
-                onUpdate({ buffer_override_pct: Number(e.target.value) || 0 })
-              }
-              onKeyDown={commitOnEnter}
-              className="w-12 rounded border border-slate-200 px-1 py-0.5"
-            />
-          </label>
-        </>
+          {isCar && (
+            <>
+              <button
+                onClick={
+                  isManual
+                    ? onReroute
+                    : () => onSetManual(effectiveDuration ?? 0)
+                }
+                className="h-7 rounded-md border border-border-strong px-2 text-[11.5px] text-text-2 hover:bg-control"
+              >
+                {isManual ? '⟳ route' : '✎ manual'}
+              </button>
+              <select
+                defaultValue={leg.surface || ''}
+                onChange={(e) =>
+                  onUpdate({ surface: e.target.value as LegPatch['surface'] })
+                }
+                className={FIELD}
+              >
+                <option value="">surface…</option>
+                <option value="paved">paved</option>
+                <option value="gravel">gravel</option>
+                <option value="froad">F-road</option>
+              </select>
+              <label className="flex items-center gap-1 text-[11.5px] text-text-4">
+                buffer%
+                <input
+                  type="number"
+                  defaultValue={leg.buffer_override_pct || ''}
+                  onBlur={(e) =>
+                    onUpdate({
+                      buffer_override_pct: Number(e.target.value) || 0,
+                    })
+                  }
+                  onKeyDown={commitOnEnter}
+                  className={`${FIELD} w-14 font-mono`}
+                />
+              </label>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

@@ -24,10 +24,11 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.5 are done (design tokens, unified pin-click card, expanded
-full-details card, pin visuals, day pills/Fit trip); next is 12.6
-(map-dominant shell and itinerary column restyle — the big one that
-retires `DayRail`/`RightPane`/`Drawer`/`StopInspector`). The Blocks section
+12.1–12.6 are done — the redesign's desktop shell is in: design tokens,
+unified pin-click card, expanded full-details card, pin visuals, day
+pills/Fit trip, and the map-dominant shell itself. Next is 12.7 (phone
+layout), which is also what fixes the sub-860px view 12.6 deliberately let
+break. The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
 the dark modal worth knowing about. 12.4 retired BUILD §5.3's kind-icon/
@@ -46,7 +47,8 @@ wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
 7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c` ·
 12.1 `3808a09` · handoff revision `b2c85f5` · 12.2 `45baac0` ·
 12.3 `6fc93bd` · chromium/node fix `529b1ac` · README `f90d27c` ·
-12.4 `ffb75da` · whole-trip-pill note `f5345c9`.
+12.4 `ffb75da` · whole-trip-pill note `f5345c9` · 12.5 `86f8133` ·
+reload skill `6e0ad19`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -541,15 +543,40 @@ pattern, found no other instances. Worth remembering for every task after
 this one: never use Tailwind's `/opacity` modifier on these custom oklch
 tokens, only baked-in arbitrary values.
 
-**12.6 Map-dominant shell and itinerary column restyle** · Heavy
-Replaces `TripEditor`'s resizable 3-pane grid with the map-fills-screen
-layout: dark header (avatar instead of an email string — the known "phone
-width breaks the header first" fix), map pane with day pills / wishlist
-fallback list / card docked over it, right 400px itinerary column
-(restyled `Timeline`/`StopRow`/`LegRow` — kept functionally as-is per the
-handoff, restyled only). Retires `DayRail`, `RightPane`, `Drawer`, the
-resize dividers, and `StopInspector` as a standalone pane (its fields move
-into the card's edit region, 12.2).
+**12.6 Map-dominant shell and itinerary column restyle** · Heavy · ✅
+`TripEditor`'s resizable 3-pane grid is gone: dark 52px header (avatar, so
+the email never renders as text at any width), map filling the left with
+day pills / wishlist fallback list / card docked over it, 400px itinerary
+column on the right. `DayRail`, `RightPane` and `StopInspector` are
+deleted. Verified in a browser that a layout rewrite didn't cost the
+behaviours riding on it: row selection opens the card, `n` adds a stop,
+`Delete` removes one, and drag-reorder within a day still reorders (and
+renumbers both the column and the map pins).
+
+Deviations and losses, all deliberate:
+- **The column shows the focused day only**, not every day stacked — the
+  handoff's header is a single day's and the day pills "swap the itinerary
+  column". That costs **cross-day drag-and-drop** (no second day on screen
+  to drop onto); the expanded card's "Move to day…" (12.3) is the
+  replacement, and within-day reordering still drags.
+- **`StopRow` is display-only.** Title/dwell/anchor/type/accommodation were
+  inline-editable there; they're all in the card now (12.2/12.3). The row's
+  delete ✕ is gone too — `Remove` on the card carries the confirmation the
+  ✕ never had, which closes that "Noticed" item for this path.
+- **`LegRow` keeps leg editing behind a click.** The handoff gives manual
+  duration / surface / buffer / re-route no home at all (the card is
+  stop-only), so rather than drop working capability the collapsed row
+  matches the spec and clicking it reveals the controls.
+- **`Drawer` was *not* retired** as this task's original text assumed —
+  `UncategorizedReview` still uses it.
+- **`flyTo` removed.** Its only trigger was the inspector's zoom button,
+  which retired with the inspector; `MapPane` still accepts the prop.
+- **Warning banners are day-level only.** Stop-level warnings render as a
+  compact amber line instead — one banner per stop drowned the column (three
+  stops with no kind yet is three identical banners). The handoff's banner
+  example (NO_ACCOMMODATION) is itself a day-level warning.
+- **Below 860px now looks broken**, by agreement (2026-09-01) — nothing is
+  deployed and only the author sees it. The phone layout is 12.7.
 
 **12.7 Phone layout** · Standard
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
