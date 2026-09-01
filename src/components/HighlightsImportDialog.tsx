@@ -95,7 +95,7 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
       onClick={step.kind === 'importing' ? undefined : onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
+        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 text-slate-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -130,7 +130,7 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
               onChange={(e) => setText(e.target.value)}
               rows={10}
               placeholder='{"version": 1, "highlights": [...]}'
-              className="w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs"
+              className="w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs placeholder:text-slate-400"
             />
             {'errors' in step && step.errors.length > 0 && (
               <ul className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">

@@ -77,7 +77,7 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-xl"
+        className="w-full max-w-lg overflow-hidden rounded-lg bg-white text-slate-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -88,7 +88,7 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
             if (e.key === 'Escape') onClose();
           }}
           placeholder="Search a place, or paste coordinates / a Maps link…"
-          className="w-full border-b border-slate-200 px-4 py-3 text-sm focus:outline-none"
+          className="w-full border-b border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:outline-none"
         />
         {error && <p className="px-4 py-2 text-xs text-red-600">{error}</p>}
 
