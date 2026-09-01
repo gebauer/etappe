@@ -5,7 +5,12 @@ import type { BlockKind, BlockPatch } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { formatDayDate } from '../lib/format';
-import type { BlocksResponse, DaysResponse, StopsResponse } from '../types/pb';
+import type {
+  BlocksResponse,
+  DaysResponse,
+  PoisResponse,
+  StopsResponse,
+} from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
 import { TimingCells } from './TimingCells';
@@ -24,7 +29,11 @@ const FIELD =
 const SECTION_LABEL = 'text-[10.5px] uppercase tracking-[0.08em] text-text-4';
 
 interface Props {
-  stop: StopsResponse;
+  /** A stop, or a wishlist idea. The sections an idea has no fields for —
+   * accommodation, the day it belongs to, its place in the timing chain —
+   * are hidden rather than shown empty (WORK 16.5). */
+  stop: StopsResponse | PoisResponse;
+  isWish?: boolean;
   blocks: BlocksResponse[];
   days: DaysResponse[];
   tripStartDate: string;
@@ -40,6 +49,7 @@ interface Props {
   /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
   onDowngrade: () => void;
   onAddBlock: (kind: BlockKind) => void;
+  onAddPrivateNote: () => void;
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (blockId: string, dir: -1 | 1) => void;
@@ -59,6 +69,7 @@ interface Props {
  */
 export function PinCardExpanded({
   stop,
+  isWish = false,
   blocks,
   days,
   tripStartDate,
@@ -73,6 +84,7 @@ export function PinCardExpanded({
   onRemove,
   onDowngrade,
   onAddBlock,
+  onAddPrivateNote,
   onUpdateBlock,
   onDeleteBlock,
   onMoveBlock,
@@ -81,6 +93,9 @@ export function PinCardExpanded({
 }: Props) {
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  // `isWish` is a flag, not a discriminant TypeScript can narrow on, so the
+  // stop-only sections render off this instead.
+  const asStop = isWish ? null : (stop as StopsResponse);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   useEffect(() => {
@@ -150,47 +165,51 @@ export function PinCardExpanded({
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto px-[22px] pb-[22px] pt-4.5">
-            <div className="mb-4.5">
-              <TimingCells
-                size="expanded"
-                onEdit={onEditTiming}
-                cells={[
-                  ...timingCells(stop, timing).slice(0, 2),
-                  {
-                    label: 'Daylight',
-                    value: daylight ? formatClock(daylight.sunset) : null,
-                    accent: true,
-                  },
-                ]}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-3.5 rounded-[11px] border border-warn-border bg-warn-bg px-[15px] py-3.5">
-              <div className="min-w-0">
-                <div className="text-[13.5px] font-semibold text-warn-text">
-                  Accommodation
-                </div>
-                <div className="mt-[3px] text-xs text-[oklch(0.88_0.07_85/0.8)] [text-wrap:pretty]">
-                  {stop.is_accommodation
-                    ? 'The day ends here. Clears the day’s NO_ACCOMMODATION warning.'
-                    : 'Turn on if the day ends here — this is what clears the day’s NO_ACCOMMODATION warning.'}
-                </div>
+            {asStop && (
+              <div className="mb-4.5">
+                <TimingCells
+                  size="expanded"
+                  onEdit={onEditTiming}
+                  cells={[
+                    ...timingCells(asStop, timing).slice(0, 2),
+                    {
+                      label: 'Daylight',
+                      value: daylight ? formatClock(daylight.sunset) : null,
+                      accent: true,
+                    },
+                  ]}
+                />
               </div>
-              <button
-                onClick={() =>
-                  onUpdate({ is_accommodation: !stop.is_accommodation })
-                }
-                role="switch"
-                aria-checked={stop.is_accommodation}
-                className={`flex h-7 w-12 flex-none items-center rounded-full p-[3px] transition-colors ${
-                  stop.is_accommodation
-                    ? 'justify-end bg-wishlist'
-                    : 'justify-start bg-control'
-                }`}
-              >
-                <span className="h-[22px] w-[22px] rounded-full bg-[oklch(0.97_0.005_250)] shadow-sm" />
-              </button>
-            </div>
+            )}
+
+            {asStop && (
+              <div className="flex items-center justify-between gap-3.5 rounded-[11px] border border-warn-border bg-warn-bg px-[15px] py-3.5">
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-semibold text-warn-text">
+                    Accommodation
+                  </div>
+                  <div className="mt-[3px] text-xs text-[oklch(0.88_0.07_85/0.8)] [text-wrap:pretty]">
+                    {asStop.is_accommodation
+                      ? 'The day ends here. Clears the day’s NO_ACCOMMODATION warning.'
+                      : 'Turn on if the day ends here — this is what clears the day’s NO_ACCOMMODATION warning.'}
+                  </div>
+                </div>
+                <button
+                  onClick={() =>
+                    onUpdate({ is_accommodation: !asStop.is_accommodation })
+                  }
+                  role="switch"
+                  aria-checked={asStop.is_accommodation}
+                  className={`flex h-7 w-12 flex-none items-center rounded-full p-[3px] transition-colors ${
+                    asStop.is_accommodation
+                      ? 'justify-end bg-wishlist'
+                      : 'justify-start bg-control'
+                  }`}
+                >
+                  <span className="h-[22px] w-[22px] rounded-full bg-[oklch(0.97_0.005_250)] shadow-sm" />
+                </button>
+              </div>
+            )}
 
             <div className={`mt-4.5 ${SECTION_LABEL}`}>Place</div>
             <div className="mt-2.5 grid grid-cols-2 gap-3">
@@ -244,7 +263,9 @@ export function PinCardExpanded({
                   <div className="mt-0.5 truncate font-mono text-[11.5px] text-text-4">
                     {hasAccessPoint
                       ? `${stop.access_lat!.toFixed(5)}, ${stop.access_lon!.toFixed(5)}`
-                      : 'Not set — routes to the stop itself'}
+                      : isWish
+                        ? 'Not set — routes to the idea itself'
+                        : 'Not set — routes to the stop itself'}
                   </div>
                 </div>
                 <div className="flex flex-none gap-1.5">
@@ -266,7 +287,11 @@ export function PinCardExpanded({
               </div>
             </div>
 
-            <div className={`mt-5 ${SECTION_LABEL}`}>Timing</div>
+            {/* Kind only. Dwell and anchor lived here as well until WORK
+                16.1 made the clock row itself editable; keeping a second
+                copy of a field that is now typed into directly is exactly
+                the duplication that task removed. */}
+            <div className={`mt-5 ${SECTION_LABEL}`}>Kind</div>
             <div className="mt-2.5 grid grid-cols-3 gap-3">
               <div className="relative block">
                 <span className={FIELD_LABEL}>Kind</span>
@@ -294,32 +319,17 @@ export function PinCardExpanded({
                   </div>
                 )}
               </div>
-              <label className="block">
-                <span className={FIELD_LABEL}>Dwell (min)</span>
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={stop.dwell_override || ''}
-                  onBlur={(e) =>
-                    onUpdate({ dwell_override: Number(e.target.value) || 0 })
-                  }
-                  onKeyDown={commitOnEnter}
-                  className={`${FIELD} font-mono text-[13.5px]`}
-                />
-              </label>
-              <label className="block">
-                <span className={FIELD_LABEL}>Anchor</span>
-                <input
-                  type="time"
-                  defaultValue={stop.anchor_time}
-                  onBlur={(e) => onUpdate({ anchor_time: e.target.value })}
-                  className={`${FIELD} font-mono text-[13.5px]`}
-                />
-              </label>
             </div>
 
             <div className="mt-5 flex items-baseline justify-between gap-2.5">
               <span className={SECTION_LABEL}>Blocks</span>
+              <button
+                onClick={onAddPrivateNote}
+                title="A note only you can see"
+                className="rounded-[7px] border border-dashed border-border-strong px-2 py-1 text-[11px] text-text-2 hover:border-text-5 hover:text-text"
+              >
+                + my note
+              </button>
             </div>
             <div className="mt-2.5">
               <BlockEditor
@@ -340,42 +350,46 @@ export function PinCardExpanded({
             >
               Done
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setDayPickerOpen((open) => !open)}
-                className="h-9 whitespace-nowrap rounded-lg border border-border-strong px-3.5 text-[13px] text-text-2 hover:bg-control"
-              >
-                Move to day…
-              </button>
-              {dayPickerOpen && (
-                <div className="absolute bottom-full left-0 z-10 mb-1 max-h-64 w-56 overflow-auto rounded-lg border border-border-strong bg-surface-2 p-1 shadow-card">
-                  {days.map((day, i) => (
-                    <button
-                      key={day.id}
-                      onClick={() => {
-                        onMoveToDay(day.id);
-                        setDayPickerOpen(false);
-                      }}
-                      disabled={day.id === stop.day}
-                      className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] hover:bg-control disabled:opacity-40"
-                    >
-                      Day {i + 1}
-                      <span className="ml-1.5 font-mono text-[11px] text-text-4">
-                        {formatDayDate(tripStartDate, day.order_index)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {asStop && (
+              <div className="relative">
+                <button
+                  onClick={() => setDayPickerOpen((open) => !open)}
+                  className="h-9 whitespace-nowrap rounded-lg border border-border-strong px-3.5 text-[13px] text-text-2 hover:bg-control"
+                >
+                  Move to day…
+                </button>
+                {dayPickerOpen && (
+                  <div className="absolute bottom-full left-0 z-10 mb-1 max-h-64 w-56 overflow-auto rounded-lg border border-border-strong bg-surface-2 p-1 shadow-card">
+                    {days.map((day, i) => (
+                      <button
+                        key={day.id}
+                        onClick={() => {
+                          onMoveToDay(day.id);
+                          setDayPickerOpen(false);
+                        }}
+                        disabled={day.id === asStop.day}
+                        className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] hover:bg-control disabled:opacity-40"
+                      >
+                        Day {i + 1}
+                        <span className="ml-1.5 font-mono text-[11px] text-text-4">
+                          {formatDayDate(tripStartDate, day.order_index)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={onDowngrade}
-                title="Move back to wishlist"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-strong text-[15px] text-text-2 hover:bg-control"
-              >
-                ♻
-              </button>
+              {asStop && (
+                <button
+                  onClick={onDowngrade}
+                  title="Move back to wishlist"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-strong text-[15px] text-text-2 hover:bg-control"
+                >
+                  ♻
+                </button>
+              )}
               <button
                 onClick={() =>
                   confirmingRemove ? onRemove() : setConfirmingRemove(true)

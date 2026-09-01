@@ -63,6 +63,7 @@ interface Props {
   onPlaceAccessPoint: () => void;
   onClearAccessPoint: () => void;
   onAddBlock: (kind: BlockKind) => void;
+  onAddPrivateNote: () => void;
   openKindPickerSignal?: number;
 }
 
@@ -99,6 +100,7 @@ export function PinCard({
   onPlaceAccessPoint,
   onClearAccessPoint,
   onAddBlock,
+  onAddPrivateNote,
   openKindPickerSignal,
 }: Props) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -117,7 +119,12 @@ export function PinCard({
   const photos = blocks.filter((b) => b.kind === 'photo');
   const cover = photos[0];
   const coverSrc = cover ? blockFileUrl(pb, cover, '640x0') : null;
-  const notes = blocks.filter((b) => b.kind === 'note' && b.body?.trim());
+  const allNotes = blocks.filter((b) => b.kind === 'note' && b.body?.trim());
+  // A private note is only ever returned to the person who wrote it (the
+  // API rule enforces that), so anything private here is mine — worth its
+  // own heading rather than being mixed into the shared description.
+  const notes = allNotes.filter((b) => b.visibility !== 'private');
+  const myNotes = allNotes.filter((b) => b.visibility === 'private');
   // Every link block, not just one — a wishlist idea imported from
   // Highlights routinely carries several (WORK 14: pois have no url field
   // of their own any more, links are blocks on both pois and stops).
@@ -272,6 +279,23 @@ export function PinCard({
           </p>
         )}
 
+        {myNotes.length > 0 && (
+          <div className="mt-3 rounded-[9px] border border-border-strong bg-surface-3 px-3 py-2.5">
+            <div className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+              My notes
+            </div>
+            {myNotes.map((note) => (
+              <div
+                key={note.id}
+                className="prose-note mt-1.5 text-[13.5px] text-text-2 [text-wrap:pretty] [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(note.body ?? ''),
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         {linkBlocks.length > 0 && (
           <div className="mt-2.5 flex flex-col gap-1">
             {linkBlocks.map((b) => (
@@ -288,14 +312,20 @@ export function PinCard({
           </div>
         )}
 
-        {editing && target.type === 'stop' && (
+        {editing && (target.type === 'stop' || target.type === 'wish') && (
           <PinCardEdit
-            key={`${target.stop.id}:${target.stop.updated}`}
-            stop={target.stop}
+            key={
+              target.type === 'stop'
+                ? `${target.stop.id}:${target.stop.updated}`
+                : `${target.item.id}:${target.item.updated}`
+            }
+            stop={target.type === 'stop' ? target.stop : target.item}
+            isWish={target.type === 'wish'}
             onUpdate={onUpdateStop}
             onPlaceAccessPoint={onPlaceAccessPoint}
             onClearAccessPoint={onClearAccessPoint}
             onAddBlock={onAddBlock}
+            onAddPrivateNote={onAddPrivateNote}
             openKindPickerSignal={openKindPickerSignal}
           />
         )}
@@ -340,8 +370,17 @@ export function PinCard({
 
         {target.type === 'wish' && (
           <>
+            <button
+              onClick={onToggleEdit}
+              className={editing ? PRIMARY : GHOST}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
+            <button onClick={onOpenDetails} className={GHOST}>
+              All details
+            </button>
             {located ? (
-              <button onClick={onAddToItinerary} className={PRIMARY}>
+              <button onClick={onAddToItinerary} className={GHOST}>
                 Add to itinerary
               </button>
             ) : (
@@ -357,13 +396,13 @@ export function PinCard({
               onClick={() =>
                 confirmingRemove ? onDelete() : setConfirmingRemove(true)
               }
-              className={`${BTN} ml-auto border ${
+              className={`${ICON_BTN} ml-auto border ${
                 confirmingRemove
                   ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
                   : 'border-border-strong text-text-2 hover:bg-control'
               }`}
             >
-              {confirmingRemove ? 'Confirm delete' : 'Delete'}
+              🗑
             </button>
           </>
         )}

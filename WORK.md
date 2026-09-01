@@ -1228,7 +1228,7 @@ unset number field as `0`, not null, so an unlocated idea reads as latitude
 comparing coordinates has to treat `0` as unset, the way `buildCascadeTrip`
 already does with `s.lat || null`.
 
-**16.5 Wishlist items get the full stop treatment** · Standard
+**16.5 Wishlist items get the full stop treatment** · Standard · ✅
 Since Phase 14 a poi is "a stop without a day", but the UI never caught up:
 in `PinCard`, `PinCardEdit` and `PinCardExpanded` are both gated on
 `target.type === 'stop'`. A wishlist item therefore cannot be renamed, has
@@ -1250,6 +1250,18 @@ note or a photo — the wish footer offers only Add to itinerary / Delete.
 The point is one card that doesn't care which side of the promotion line
 its subject is on — the remaining `type === 'stop'` branches should reduce
 to the timing row and the itinerary-only actions.
+
+**Built as:** `PinCardEdit` and `PinCardExpanded` both take a stop *or* a
+poi behind an `isWish` flag; the stop-only sections (timing cells,
+accommodation, "move to day", downgrade) render off a narrowed `asStop`
+rather than the flag, since a boolean is not something TypeScript can
+narrow a union on. Wish mode's footer gained Edit and All details. "My
+notes" is a private-visibility note block — `addBlock` takes a parent kind
+and a visibility now — with its own section in the card, since a private
+block is only ever returned to the person who wrote it.
+Folded in on the way past: the expanded card still had its own Dwell and
+Anchor fields, the same duplication 16.1 deleted from `PinCardEdit`. Gone;
+its "Timing" section is now just Kind.
 
 **16.6 Sharing a trip** · Standard
 Three audiences, two mechanisms. Most of the backend already exists and has

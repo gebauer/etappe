@@ -1,6 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
-import type { StopsResponse } from '../types/pb';
+import type { PoisResponse, StopsResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import type { BlockKind } from '../lib/pb-blocks';
 import { KindIcon } from './KindIcon';
@@ -33,17 +33,25 @@ const BLOCK_KINDS: BlockKind[] = ['note', 'link', 'photo', 'file'];
  */
 export function PinCardEdit({
   stop,
+  isWish = false,
   onUpdate,
   onPlaceAccessPoint,
   onClearAccessPoint,
   onAddBlock,
+  onAddPrivateNote,
   openKindPickerSignal,
 }: {
-  stop: StopsResponse;
+  /** A stop, or a wishlist idea — since WORK 14 the two share every field
+   * this region edits (WORK 16.5). */
+  stop: StopsResponse | PoisResponse;
+  /** Suppresses the stop-only bits: `kind_confirmed` has no poi column. */
+  isWish?: boolean;
   onUpdate: (patch: StopPatch) => void;
   onPlaceAccessPoint: () => void;
   onClearAccessPoint: () => void;
   onAddBlock: (kind: BlockKind) => void;
+  /** A note nobody else on the trip can read (WORK 16.5). */
+  onAddPrivateNote: () => void;
   /** Bumped by the bare `k` shortcut — a changing number, not a boolean,
    * since the same request can fire again while the picker is open. */
   openKindPickerSignal?: number;
@@ -90,7 +98,7 @@ export function PinCardEdit({
               autoFocus
               onEscape={() => setKindPickerOpen(false)}
               onChange={(kind) => {
-                onUpdate({ kind, kind_confirmed: true });
+                onUpdate(isWish ? { kind } : { kind, kind_confirmed: true });
                 setKindPickerOpen(false);
               }}
             />
@@ -104,7 +112,9 @@ export function PinCardEdit({
           <div className="mt-0.5 truncate font-mono text-[11.5px] text-text-4">
             {hasAccessPoint
               ? `${stop.access_lat!.toFixed(5)}, ${stop.access_lon!.toFixed(5)}`
-              : 'Not set — routes to the stop itself'}
+              : isWish
+                ? 'Not set — routes to the idea itself'
+                : 'Not set — routes to the stop itself'}
           </div>
         </div>
         <div className="flex flex-none gap-1.5">
@@ -135,6 +145,16 @@ export function PinCardEdit({
             + {kind}
           </button>
         ))}
+        {/* Private visibility already exists and is already enforced by the
+            API rule; what was missing was a way to ask for it without
+            filing a trip-wide note and then toggling it (WORK 16.5). */}
+        <button
+          onClick={() => onAddPrivateNote()}
+          title="A note only you can see"
+          className="h-[30px] rounded-[7px] border border-dashed border-border-strong px-[11px] text-xs text-text-2 hover:border-text-5 hover:text-text"
+        >
+          + my note
+        </button>
       </div>
     </div>
   );

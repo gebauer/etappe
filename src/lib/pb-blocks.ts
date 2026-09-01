@@ -74,22 +74,32 @@ export async function uploadBlockPhoto(
   await pb.collection('blocks').update(blockId, form);
 }
 
-/** Append a new block to a stop, ordered after the ones already there. */
+/**
+ * Append a new block to a stop or a wishlist idea, ordered after the ones
+ * already there.
+ *
+ * `visibility` defaults to `trip`. Passing `private` is what the card's "My
+ * notes" writes: the API rule already hides another member's private block
+ * (migration `1788000000`), so a personal remark needs no new mechanism —
+ * only somewhere to be typed (WORK 16.5).
+ */
 export async function addBlock(
   pb: TypedPocketBase,
   tripId: string,
-  stopId: string,
+  parentId: string,
   kind: BlockKind,
   siblingCount: number,
+  parentType: 'stop' | 'poi' = 'stop',
+  visibility: 'private' | 'trip' | 'public' = 'trip',
 ): Promise<void> {
   const user = pb.authStore.record;
   if (!user) return;
   await pb.collection('blocks').create({
     trip: tripId,
-    parent_type: 'stop',
-    parent_id: stopId,
+    parent_type: parentType,
+    parent_id: parentId,
     kind,
-    visibility: 'trip',
+    visibility,
     order_index: siblingCount,
     creator: user.id,
   });

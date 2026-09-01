@@ -83,3 +83,21 @@ export async function setPoiLocation(
 ): Promise<void> {
   await pb.collection('pois').update(poiId, { lat, lon });
 }
+
+/** Field updates for a wishlist idea — the poi half of `updateStop`, needed
+ * now that the card edits an idea the same way it edits a stop (WORK 16.5). */
+export async function updatePoi(
+  pb: TypedPocketBase,
+  poiId: string,
+  patch: {
+    title?: string;
+    kind?: string;
+    lat?: number;
+    lon?: number;
+    access_lat?: number;
+    access_lon?: number;
+    address?: string;
+  },
+): Promise<void> {
+  await pb.collection('pois').update(poiId, patch);
+}

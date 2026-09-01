@@ -24,6 +24,7 @@ import {
   deleteWishlistItem,
   setPoiStarred,
   setPoiLocation,
+  updatePoi,
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
@@ -1071,22 +1072,39 @@ export function TripEditor({
   }
 
   const blockHandlers = {
-    onAddBlock: (stopId: string, kind: BlockKind) =>
+    onAddBlock: (
+      parentId: string,
+      kind: BlockKind,
+      parentType: 'stop' | 'poi' = 'stop',
+      visibility: 'private' | 'trip' | 'public' = 'trip',
+    ) =>
       run(() =>
         addBlock(
           pb,
           tripId,
-          stopId,
+          parentId,
           kind,
-          blocksFor(records.blocks, 'stop', stopId).length,
+          blocksFor(records.blocks, parentType, parentId).length,
+          parentType,
+          visibility,
         ),
       ),
     onUpdateBlock: (blockId: string, patch: BlockPatch) =>
       run(() => updateBlock(pb, blockId, patch)),
     onDeleteBlock: (blockId: string) => run(() => deleteBlock(pb, blockId)),
-    onMoveBlock: (stopId: string, blockId: string, dir: -1 | 1) =>
+    onMoveBlock: (
+      parentId: string,
+      blockId: string,
+      dir: -1 | 1,
+      parentType: 'stop' | 'poi' = 'stop',
+    ) =>
       run(() =>
-        moveBlock(pb, blocksFor(records.blocks, 'stop', stopId), blockId, dir),
+        moveBlock(
+          pb,
+          blocksFor(records.blocks, parentType, parentId),
+          blockId,
+          dir,
+        ),
       ),
     onUploadBlockFile: (blockId: string, file: File) =>
       run(() => uploadBlockPhoto(pb, blockId, file)),
@@ -1604,6 +1622,14 @@ export function TripEditor({
             setEditing(false);
           }}
           onUpdateStop={(patch) => {
+            if (cardTarget.type === 'wish') {
+              const id = cardTarget.item.id;
+              void run(async () => {
+                await updatePoi(pb, id, patch);
+                await reloadWishlist();
+              });
+              return;
+            }
             if (cardTarget.type === 'stop')
               handleUpdateStop(cardTarget.stop.id, patch);
           }}
@@ -1618,7 +1644,70 @@ export function TripEditor({
           onAddBlock={(kind) => {
             if (cardTarget.type === 'stop')
               blockHandlers.onAddBlock(cardTarget.stop.id, kind);
+            else if (cardTarget.type === 'wish')
+              blockHandlers.onAddBlock(cardTarget.item.id, kind, 'poi');
           }}
+          onAddPrivateNote={() => {
+            if (cardTarget.type === 'stop')
+              blockHandlers.onAddBlock(
+                cardTarget.stop.id,
+                'note',
+                'stop',
+                'private',
+              );
+            else if (cardTarget.type === 'wish')
+              blockHandlers.onAddBlock(
+                cardTarget.item.id,
+                'note',
+                'poi',
+                'private',
+              );
+          }}
+          openKindPickerSignal={kindPickerSignal}
+        />
+      )}
+      {expanded && !picking && cardTarget?.type === 'wish' && (
+        <PinCardExpanded
+          stop={cardTarget.item}
+          isWish
+          blocks={blocksFor(records.blocks, 'poi', cardTarget.item.id)}
+          days={days}
+          tripStartDate={trip.start_date}
+          onEditTiming={() => {}}
+          daylight={null}
+          onClose={() => setExpanded(false)}
+          onUpdate={(patch) => {
+            const id = cardTarget.item.id;
+            void run(async () => {
+              await updatePoi(pb, id, patch);
+              await reloadWishlist();
+            });
+          }}
+          onPlaceAccessPoint={() => {}}
+          onClearAccessPoint={() => {}}
+          onMoveToDay={() => {}}
+          onRemove={() => {
+            deleteWishlist(cardTarget.item.id);
+            setExpanded(false);
+          }}
+          onDowngrade={() => {}}
+          onAddBlock={(kind) =>
+            blockHandlers.onAddBlock(cardTarget.item.id, kind, 'poi')
+          }
+          onAddPrivateNote={() =>
+            blockHandlers.onAddBlock(
+              cardTarget.item.id,
+              'note',
+              'poi',
+              'private',
+            )
+          }
+          onUpdateBlock={blockHandlers.onUpdateBlock}
+          onDeleteBlock={blockHandlers.onDeleteBlock}
+          onMoveBlock={(blockId, dir) =>
+            blockHandlers.onMoveBlock(cardTarget.item.id, blockId, dir, 'poi')
+          }
+          onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
         />
       )}
@@ -1648,6 +1737,14 @@ export function TripEditor({
           }}
           onAddBlock={(kind) =>
             blockHandlers.onAddBlock(cardTarget.stop.id, kind)
+          }
+          onAddPrivateNote={() =>
+            blockHandlers.onAddBlock(
+              cardTarget.stop.id,
+              'note',
+              'stop',
+              'private',
+            )
           }
           onUpdateBlock={blockHandlers.onUpdateBlock}
           onDeleteBlock={blockHandlers.onDeleteBlock}
