@@ -55,6 +55,11 @@ describe('buildLegFeatures', () => {
     expect(f.geometry.coordinates).toHaveLength(2);
   });
 
+  it('tags every leg with the day it belongs to, for the hover highlight', () => {
+    const fc = buildLegFeatures(records, result);
+    expect(fc.features.map((x) => x.properties.dayId)).toEqual(['d1', 'd1']);
+  });
+
   it('falls back to a straight manual connector when a leg has no geometry', () => {
     const fc = buildLegFeatures(records, result);
     expect(fc.features).toHaveLength(2);

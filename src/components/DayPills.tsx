@@ -5,6 +5,9 @@ interface Props {
   stops: StopsResponse[];
   activeDayId: string | null;
   onSelectDay: (dayId: string) => void;
+  /** Pointing at a day highlights its route on the map — see MapPane's
+   * `legs-hover-halo`. Fires with null when the pointer leaves. */
+  onHoverDay?: (dayId: string | null) => void;
   onAddDay: () => void;
   onFitTrip: () => void;
 }
@@ -33,12 +36,14 @@ export function DayPills({
   stops,
   activeDayId,
   onSelectDay,
+  onHoverDay,
   onAddDay,
   onFitTrip,
 }: Props) {
   return (
     <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2 font-sans">
       <div
+        onMouseLeave={() => onHoverDay?.(null)}
         className={`pointer-events-auto flex items-center gap-1.5 rounded-[11px] p-[5px] ${GLASS}`}
       >
         {days.map((day, i) => {
@@ -50,6 +55,9 @@ export function DayPills({
             <button
               key={day.id}
               onClick={() => onSelectDay(day.id)}
+              onMouseEnter={() => onHoverDay?.(day.id)}
+              onFocus={() => onHoverDay?.(day.id)}
+              onBlur={() => onHoverDay?.(null)}
               className={`flex h-7 flex-col items-start justify-center rounded-lg px-3 leading-[13px] ${
                 active
                   ? 'bg-accent text-on-accent'

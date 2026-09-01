@@ -69,6 +69,28 @@ const SHADE_OPACITY = [
 // Shared by every routed-leg layer so the manual dashed connector (drawn by
 // its own layer) never doubles up with the day-hue styling.
 const NOT_MANUAL = ['!=', ['get', 'manual'], true];
+// The hover halo drawn under a day's route. Its own top-level zoom
+// interpolate rather than a factor applied to WIDTH: a zoom expression has
+// to be the outermost one, so it cannot be wrapped in arithmetic or a case
+// (the same MapLibre rule that keeps hover off `icon-size`).
+const HALO_WIDTH = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  5,
+  7,
+  10,
+  12,
+  14,
+  18,
+] as unknown as maplibregl.ExpressionSpecification;
+/** Matches no feature — the halo's resting state. */
+const NO_DAY: maplibregl.FilterSpecification = [
+  '==',
+  ['get', 'dayId'],
+  '\u0000',
+] as unknown as maplibregl.FilterSpecification;
+
 const NOT_MANUAL_FILTER =
   NOT_MANUAL as unknown as maplibregl.FilterSpecification;
 const AFTER_DUSK_AND_ROUTED = [
@@ -193,6 +215,10 @@ export function MapPane({
   // came up with fallback-coloured wishlist pins and no photos until the
   // next edit.
   const [mapReady, setMapReady] = useState(false);
+  // Which day's route the pills are pointing at. Map-local: nothing outside
+  // MapPane reacts to it, and it must not touch `focusDayId`, which scopes
+  // the stop pins and is a click, not a hover.
+  const [hoveredDayId, setHoveredDayId] = useState<string | null>(null);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
@@ -296,6 +322,23 @@ export function MapPane({
 
     map.on('load', () => {
       map.addSource('legs', { type: 'geojson', data: fcRef.current });
+      // Hovering a day pill lights up that day's route (and only that) —
+      // a soft casing beneath the lines, so the route reads as raised
+      // without moving or recolouring anything. Deliberately does not touch
+      // the camera: a hover is a look, not a navigation.
+      map.addLayer({
+        id: 'legs-hover-halo',
+        type: 'line',
+        source: 'legs',
+        filter: NO_DAY,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'flat'],
+          'line-width': HALO_WIDTH,
+          'line-opacity': 0.4,
+          'line-blur': 3,
+        },
+      });
       map.addLayer({
         id: 'legs-flat',
         type: 'line',
@@ -682,6 +725,21 @@ export function MapPane({
     }
   }, [wishlist, records.blocks, mapReady]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !map.getLayer('legs-hover-halo')) return;
+    map.setFilter(
+      'legs-hover-halo',
+      hoveredDayId
+        ? ([
+            '==',
+            ['get', 'dayId'],
+            hoveredDayId,
+          ] as unknown as maplibregl.FilterSpecification)
+        : NO_DAY,
+    );
+  }, [hoveredDayId, mapReady]);
+
   // The bigger/haloed wishlist pin variants follow the selected and the
   // hovered item — mirrors the selected-stop exclusion filter below, but
   // wishlist pins never need a draggable DOM twin, so extra GL layers are
@@ -1005,6 +1063,7 @@ export function MapPane({
         stops={records.stops}
         activeDayId={activeDayId}
         onSelectDay={(id) => onSelectDay?.(id)}
+        onHoverDay={setHoveredDayId}
         onAddDay={() => onAddDay?.()}
         onFitTrip={fitTrip}
       />

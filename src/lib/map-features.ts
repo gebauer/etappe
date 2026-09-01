@@ -16,6 +16,9 @@ export interface LegFeature {
   geometry: { type: 'LineString'; coordinates: number[][] };
   properties: {
     legId: string;
+    /** Which day's route this leg belongs to — the hover highlight filters
+     * on it (a leading leg counts as the day it drives *into*). */
+    dayId: string;
     flat: string;
     shade: string;
     afterDusk: boolean;
@@ -100,6 +103,7 @@ export function buildLegFeatures(
         },
         properties: {
           legId: leadLeg?.id ?? `lead:${day.id}`,
+          dayId: day.id,
           flat,
           shade: legColor(hue, 0),
           afterDusk,
@@ -125,7 +129,14 @@ export function buildLegFeatures(
         features.push({
           type: 'Feature',
           geometry,
-          properties: { legId: leg.id, flat, shade, afterDusk, manual: false },
+          properties: {
+            legId: leg.id,
+            dayId: day.id,
+            flat,
+            shade,
+            afterDusk,
+            manual: false,
+          },
         });
         continue;
       }
@@ -143,7 +154,14 @@ export function buildLegFeatures(
               [to.lon, to.lat],
             ],
           },
-          properties: { legId: leg.id, flat, shade, afterDusk, manual: true },
+          properties: {
+            legId: leg.id,
+            dayId: day.id,
+            flat,
+            shade,
+            afterDusk,
+            manual: true,
+          },
         });
       }
     }
