@@ -113,9 +113,17 @@ export function planStopMove(
     }
   }
 
+  // Reconcile only legs that connect two stops inside the affected day(s).
+  // A cross-day leg — i.e. the leading leg (WORK 13.2), from a day's start
+  // point to its first stop — is owned by planLeadingLegs, not this: dropping
+  // it here on a reorder of the dependent day would strand the morning drive.
+  const dayOf = new Map(stops.map((s) => [s.id, s.day]));
   const affected = new Set(newPos.keys());
   const existing = legs.filter(
-    (l) => affected.has(l.from_stop) && affected.has(l.to_stop),
+    (l) =>
+      affected.has(l.from_stop) &&
+      affected.has(l.to_stop) &&
+      dayOf.get(l.from_stop) === dayOf.get(l.to_stop),
   );
   const desired: Array<[string, string]> = [];
   for (const [, list] of lists) {

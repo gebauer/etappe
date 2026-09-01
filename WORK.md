@@ -801,14 +801,33 @@ Notes:
 - `import-cascade.ts` untouched — import days stay islands (the optional
   `CascadeDay` fields default to null).
 
-**13.2 Leg lifecycle + routing** · Standard
+**13.2 Leg lifecycle + routing** · Standard · ✅
 The leading leg is `legs(from_stop = start_stop, to_stop = firstStopOfDay)`
-— a real record, but cross-day. Teach the within-day planners
-(`planInsertBetween`, `planStopMove`, delete/merge in `pb-stops.ts`) to
-ignore legs whose `from_stop` isn't in the day being edited, and add a
-dedicated path that (re)routes the leading leg when: `start_stop` is
-set/cleared, the day's first stop is added / removed / reordered, or the
-referenced stop's coordinates change. ORS via the existing hook + cache.
+— a real record, but cross-day.
+- New pure `planLeadingLegs` (`leading-leg.ts`): diffs every day's current
+  leading leg against what its `start_stop` + first stop imply →
+  create / deleteLegIds / rerouteLegIds. Idempotent. 11 tests covering
+  create, no-op, pointer cleared / moved, first stop reordered / removed,
+  self-pointer, dangling pointer, coord-move reroute, day chains, empty day.
+- New async apply `reconcileLeadingLegs` + `setDayStartStop`
+  (`pb-leading-leg.ts`): fetches fresh trip state, runs the planner, routes
+  new/changed legs through the existing ORS hook + cache, commits one batch.
+- `planStopMove` now filters its `existing` legs to same-day pairs, so a
+  cross-day leading leg is never deleted by a within-day reorder/move
+  (2 tests). `planInsertBetween` needed no change — its callers already
+  pass only within-day `prev`/`next`. `deleteStop` needed none — deleting a
+  first stop cascade-deletes its inbound leading leg (DB), and reconcile
+  recreates it.
+- `TripEditor`: a `runStructural` wrapper = `run` + a leading-leg reconcile,
+  guarded on `records.days.some(d => d.start_stop)` so it's a no-op (and
+  zero extra fetches) until the feature is used. All add / delete / move /
+  coord-edit handlers routed through it; coord edits pass the moved stop id
+  as `rerouteStopIds`.
+
+Inert until 13.3 adds the "Set start point" button — no day can have a
+`start_stop` yet. Verified by the unit tests plus a browser smoke that the
+`runStructural` rewire didn't break add-day / add-stop. `npm run check`
+green (192 tests).
 
 **13.3 Rendering + editor** · Standard
 `buildLegFeatures` emits the leading-leg line in the day's hue (+ test).

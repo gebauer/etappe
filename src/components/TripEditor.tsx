@@ -45,6 +45,7 @@ import { WishlistCarousel } from './WishlistCarousel';
 import { PinCard, type CardTarget } from './PinCard';
 import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
+import { reconcileLeadingLegs } from '../lib/pb-leading-leg';
 import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
@@ -191,6 +192,32 @@ export function TripEditor({
     }
   }
 
+  /** `run` plus a cross-day leading-leg reconcile (WORK 13.2): a structural
+   * edit — adding/removing/reordering/moving a stop, or moving a start-point /
+   * first-stop's coordinates — can leave a day's leading leg pointing at the
+   * wrong stop or needing a re-route. Skipped entirely until some day has a
+   * start point, so it's free for trips that don't use the feature.
+   * `rerouteStopIds` names stops whose coordinates just moved. */
+  async function runStructural(
+    fn: () => Promise<unknown>,
+    rerouteStopIds?: Iterable<string>,
+  ) {
+    try {
+      await fn();
+      if (records?.days.some((d) => d.start_stop)) {
+        await reconcileLeadingLegs(
+          pb,
+          routing,
+          tripId,
+          new Set(rerouteStopIds ?? []),
+        );
+      }
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Action failed.');
+    }
+  }
+
   /** Opening any card clears the other two sources and collapses the edit
    * region — pin, row and wishlist selection are one state, and the design
    * resets `editing` on every selection change. */
@@ -254,7 +281,7 @@ export function TripEditor({
   function doAddStopToFocus() {
     const dayId = focusDayId();
     if (!records || !dayId) return;
-    void run(() =>
+    void runStructural(() =>
       addStopAtEnd(
         pb,
         routing,
@@ -320,7 +347,7 @@ export function TripEditor({
     const targetIndex = option.nextStopId
       ? dayStops.findIndex((s) => s.id === option.nextStopId)
       : dayStops.length;
-    void run(async () => {
+    void runStructural(async () => {
       const stopId = await addStopAt(
         pb,
         routing,
@@ -501,7 +528,7 @@ export function TripEditor({
     if (!records || selectedStopIds.size === 0) return;
     const ids = [...selectedStopIds];
     setSelectedStopIds(new Set());
-    void run(async () => {
+    void runStructural(async () => {
       const batch = pb.createBatch();
       for (const id of ids) batch.collection('stops').delete(id);
       await batch.send();
@@ -539,36 +566,42 @@ export function TripEditor({
     setParkingLots([]);
     if (p.returnToExpanded) setExpanded(true);
     if (patch && records) {
-      void run(() =>
-        updateStopAndReroute(pb, routing, records, p.stopId, patch),
+      void runStructural(
+        () => updateStopAndReroute(pb, routing, records, p.stopId, patch),
+        [p.stopId],
       );
     }
   }
 
   function clearAccessPoint(stopId: string) {
     if (!records) return;
-    void run(() =>
-      updateStopAndReroute(pb, routing, records, stopId, {
-        access_lat: 0,
-        access_lon: 0,
-      }),
+    void runStructural(
+      () =>
+        updateStopAndReroute(pb, routing, records, stopId, {
+          access_lat: 0,
+          access_lon: 0,
+        }),
+      [stopId],
     );
   }
 
   function dragStop(stopId: string, lat: number, lon: number) {
     if (!records) return;
-    void run(() =>
-      updateStopAndReroute(pb, routing, records, stopId, { lat, lon }),
+    void runStructural(
+      () => updateStopAndReroute(pb, routing, records, stopId, { lat, lon }),
+      [stopId],
     );
   }
 
   function dragAccessPoint(stopId: string, lat: number, lon: number) {
     if (!records) return;
-    void run(() =>
-      updateStopAndReroute(pb, routing, records, stopId, {
-        access_lat: lat,
-        access_lon: lon,
-      }),
+    void runStructural(
+      () =>
+        updateStopAndReroute(pb, routing, records, stopId, {
+          access_lat: lat,
+          access_lon: lon,
+        }),
+      [stopId],
     );
   }
 
@@ -578,11 +611,14 @@ export function TripEditor({
       patch.lon !== undefined ||
       patch.access_lat !== undefined ||
       patch.access_lon !== undefined;
-    void run(() =>
-      reroute && records
-        ? updateStopAndReroute(pb, routing, records, id, patch)
-        : updateStop(pb, id, patch),
-    );
+    if (reroute && records) {
+      void runStructural(
+        () => updateStopAndReroute(pb, routing, records, id, patch),
+        [id],
+      );
+    } else {
+      void run(() => updateStop(pb, id, patch));
+    }
   }
 
   // "Move to day…" (WORK 12.3, expanded card): appends to the end of the
@@ -593,7 +629,7 @@ export function TripEditor({
     const targetIndex = records.stops.filter(
       (s) => s.day === targetDayId,
     ).length;
-    void run(() =>
+    void runStructural(() =>
       moveStop(pb, routing, records, stopId, targetDayId, targetIndex),
     );
   }
@@ -602,7 +638,7 @@ export function TripEditor({
   function deleteOneStop(stopId: string) {
     const stop = records?.stops.find((s) => s.id === stopId);
     if (!records || !stop) return;
-    void run(() =>
+    void runStructural(() =>
       deleteStop(
         pb,
         routing,
@@ -624,7 +660,9 @@ export function TripEditor({
     const i = dayStops.findIndex((s) => s.id === id);
     const target = i + dir;
     if (target < 0 || target >= dayStops.length) return;
-    void run(() => moveStop(pb, routing, records, id, stop.day, target));
+    void runStructural(() =>
+      moveStop(pb, routing, records, id, stop.day, target),
+    );
   }
 
   function doBulkShift(delta: number) {
@@ -1005,7 +1043,7 @@ export function TripEditor({
             hoveredStopId={hoveredStopId}
             onHoverStop={setHoveredStopId}
             onAddStop={(dayId) =>
-              run(() =>
+              runStructural(() =>
                 addStopAtEnd(
                   pb,
                   routing,
@@ -1024,7 +1062,7 @@ export function TripEditor({
               run(() => setLegManual(pb, legId, durationMin))
             }
             onMoveStop={(stopId, targetDayId, targetIndex) =>
-              run(() =>
+              runStructural(() =>
                 moveStop(
                   pb,
                   routing,

@@ -71,3 +71,25 @@ describe('planStopMove — across days', () => {
     });
   });
 });
+
+describe('planStopMove — leaves the cross-day leading leg alone (WORK 13.2)', () => {
+  // d1 ends at C (its accommodation); d2 leaves from C via a leading leg.
+  const withLead: LegPair[] = [
+    ...legs,
+    { id: 'CX', from_stop: 'C', to_stop: 'X' },
+  ];
+
+  it('reordering d2 rewires only XY, not the leading leg CX', () => {
+    const plan = planStopMove(stops, withLead, 'Y', 'd2', 0); // d2: Y, X
+    expect(plan.legPlan.deleteLegIds).toEqual(['XY']);
+    expect(plan.legPlan.deleteLegIds).not.toContain('CX');
+    expect(plan.legPlan.create).toEqual([
+      { from_stop: 'Y', to_stop: 'X', mode: 'car', surface: null },
+    ]);
+  });
+
+  it('moving X out of d2 does not delete the leading leg CX', () => {
+    const plan = planStopMove(stops, withLead, 'X', 'd1', 3); // X joins d1 at end
+    expect(plan.legPlan.deleteLegIds).not.toContain('CX');
+  });
+});
