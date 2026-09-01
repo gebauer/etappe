@@ -536,15 +536,29 @@ export function compositeWishlistPin(
     return ctx.getImageData(0, 0, total, total);
   };
 
+  let replaced = false;
   const put = (id: string, data: ImageData | null) => {
     if (!data) return;
-    if (map.hasImage(id)) map.updateImage(id, data);
-    else map.addImage(id, data, { pixelRatio: 2 });
+    if (map.hasImage(id)) {
+      map.updateImage(id, data);
+      replaced = true;
+    } else {
+      map.addImage(id, data, { pixelRatio: 2 });
+    }
   };
 
   put(`w:${poiId}`, variant(WISH_UNSEL_D, 0, WISH_BORDER));
   put(`w:${poiId}:sel`, variant(WISH_SEL_D, WISH_HALO_D, WISH_SEL_BORDER));
   put(`w:${poiId}:hover`, variant(WISH_HOVER_D, WISH_HALO_D, WISH_BORDER));
+
+  // `addImage` marks the style changed and the map redraws itself;
+  // `updateImage` does not — it swaps the texture and sets an internal
+  // `updatedImages` flag, nothing more (maplibre-gl's ImageManager). The map
+  // only paints when something dirties it, so replacing a pin's fallback
+  // with its photo after the load animation has settled left the old picture
+  // on screen until the next pan, hover or edit happened to force a frame.
+  // That is the "no thumbnails until I touch something" report.
+  if (replaced) map.triggerRepaint();
 }
 
 // design_handoff_map_first_planner/README.md's stop pins are a fixed CSS
