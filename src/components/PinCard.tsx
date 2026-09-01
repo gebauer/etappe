@@ -40,6 +40,7 @@ interface Props {
   onClose: () => void;
   /** Steps through the day's stops, or the wishlist proximity chain. */
   onStep: (direction: -1 | 1) => void;
+  onOpenDetails: () => void;
   onRemove: () => void;
   onAddToItinerary: () => void;
   onReject: () => void;
@@ -69,6 +70,7 @@ export function PinCard({
   onToggleEdit,
   onClose,
   onStep,
+  onOpenDetails,
   onRemove,
   onAddToItinerary,
   onReject,
@@ -288,6 +290,9 @@ export function PinCard({
               className={editing ? PRIMARY : GHOST}
             >
               {editing ? 'Done' : 'Edit'}
+            </button>
+            <button onClick={onOpenDetails} className={GHOST}>
+              All details
             </button>
             <button
               onClick={() =>

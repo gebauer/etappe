@@ -41,6 +41,7 @@ import {
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
 import { PinCard, type CardTarget } from './PinCard';
+import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
 import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
@@ -108,6 +109,7 @@ export function TripEditor({
     identifying: boolean;
   } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [kindPickerSignal, setKindPickerSignal] = useState(0);
   const [showUncategorized, setShowUncategorized] = useState(false);
   const [placingAccessFor, setPlacingAccessFor] = useState<{
@@ -196,6 +198,7 @@ export function TripEditor({
     setEmptyCard(null);
     setSelectedStopIds(new Set());
     setEditing(false);
+    setExpanded(false);
     open();
   }
 
@@ -203,6 +206,7 @@ export function TripEditor({
     setWishCard(null);
     setEmptyCard(null);
     setEditing(false);
+    setExpanded(false);
     setSelectedStopIds(new Set());
   }
 
@@ -210,6 +214,7 @@ export function TripEditor({
     setWishCard(null);
     setEmptyCard(null);
     setEditing(false);
+    setExpanded(false);
     setSelectedStopIds((prev) => {
       if (!additive) return new Set([stopId]);
       const next = new Set(prev);
@@ -516,6 +521,19 @@ export function TripEditor({
     );
   }
 
+  // "Move to day…" (WORK 12.3, expanded card): appends to the end of the
+  // target day, reusing the same reindex-and-reroute path drag-and-drop
+  // already relies on (WORK 4.3) — no ranking needed, the day is explicit.
+  function moveStopToDay(stopId: string, targetDayId: string) {
+    if (!records) return;
+    const targetIndex = records.stops.filter(
+      (s) => s.day === targetDayId,
+    ).length;
+    void run(() =>
+      moveStop(pb, routing, records, stopId, targetDayId, targetIndex),
+    );
+  }
+
   // Delete a single stop with proper leg re-merge (row ✕ and inspector).
   function deleteOneStop(stopId: string) {
     const stop = records?.stops.find((s) => s.id === stopId);
@@ -677,6 +695,7 @@ export function TripEditor({
       const next = nextId ? wishlist.find((w) => w.id === nextId) : null;
       if (next) {
         setEditing(false);
+        setExpanded(false);
         setWishCard(next);
       }
       return;
@@ -686,6 +705,7 @@ export function TripEditor({
     const nextId = stepInChain(ids, selectedStop.id, direction);
     if (nextId) {
       setEditing(false);
+      setExpanded(false);
       setSelectedStopIds(new Set([nextId]));
     }
   }
@@ -962,6 +982,7 @@ export function TripEditor({
           onToggleEdit={() => setEditing((v) => !v)}
           onClose={closeCard}
           onStep={stepCard}
+          onOpenDetails={() => setExpanded(true)}
           onRemove={() => {
             if (cardTarget.type === 'stop') deleteOneStop(cardTarget.stop.id);
             closeCard();
@@ -1013,6 +1034,35 @@ export function TripEditor({
             if (cardTarget.type === 'stop')
               blockHandlers.onAddBlock(cardTarget.stop.id, kind);
           }}
+          openKindPickerSignal={kindPickerSignal}
+        />
+      )}
+      {expanded && cardTarget?.type === 'stop' && (
+        <PinCardExpanded
+          stop={cardTarget.stop}
+          blocks={blocksFor(records.blocks, 'stop', cardTarget.stop.id)}
+          days={days}
+          tripStartDate={trip.start_date}
+          timing={cardTarget.timing}
+          daylight={cardTarget.daylight}
+          onClose={() => setExpanded(false)}
+          onUpdate={(patch) => handleUpdateStop(cardTarget.stop.id, patch)}
+          onPlaceAccessPoint={() => startPlacingAccessPoint(cardTarget.stop.id)}
+          onClearAccessPoint={() => clearAccessPoint(cardTarget.stop.id)}
+          onMoveToDay={(dayId) => moveStopToDay(cardTarget.stop.id, dayId)}
+          onRemove={() => {
+            deleteOneStop(cardTarget.stop.id);
+            closeCard();
+          }}
+          onAddBlock={(kind) =>
+            blockHandlers.onAddBlock(cardTarget.stop.id, kind)
+          }
+          onUpdateBlock={blockHandlers.onUpdateBlock}
+          onDeleteBlock={blockHandlers.onDeleteBlock}
+          onMoveBlock={(blockId, dir) =>
+            blockHandlers.onMoveBlock(cardTarget.stop.id, blockId, dir)
+          }
+          onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
         />
       )}

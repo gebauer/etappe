@@ -17,7 +17,7 @@
  *   node driver.mjs
  */
 
-import { chromium } from 'playwright';
+import { firefox } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -113,10 +113,17 @@ async function selectStopByKind(page, kind = 'uncategorized') {
 /** React controlled inputs: use fill()/blur(), not an `eval el.value = ...`
  * — that bypasses React's onChange and the app never sees the new value. */
 async function setStopLatLon(page, lat, lon) {
+  // StopInspector is keyed by `${stop.id}:${stop.updated}` (refreshes
+  // uncontrolled inputs after an external change), so committing lat
+  // remounts the whole form — including the longitude input a locator
+  // captured before the commit. A settle pause between the two fields
+  // avoids racing that remount; without it, longitude intermittently ends
+  // up blank because .fill() lands on a node that's about to be replaced.
   const latInput = page.locator('label:has-text("Latitude") input');
-  const lonInput = page.locator('label:has-text("Longitude") input');
   await latInput.fill(String(lat));
   await latInput.blur();
+  await page.waitForTimeout(400);
+  const lonInput = page.locator('label:has-text("Longitude") input');
   await lonInput.fill(String(lon));
   await lonInput.blur();
   await page.waitForTimeout(500); // let the reroute/reload settle
@@ -157,7 +164,10 @@ async function main() {
 
   const consoleErrors = [];
   const pageErrors = [];
-  const browser = await chromium.launch({
+  // Firefox, not chromium — this machine is missing libnspr4 system-wide
+  // (needs sudo to fix, unavailable), so both the chromium binary and
+  // chrome-headless-shell fail to launch. Firefox bundles its own NSPR.
+  const browser = await firefox.launch({
     headless: HEADLESS,
     args: ['--no-sandbox'],
   });

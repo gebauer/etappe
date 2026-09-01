@@ -16,10 +16,9 @@ Node 20 via nvm (the machine default is older and won't run Vite):
 export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null
 ```
 
-No `apt-get` packages were needed — Playwright's downloaded Chrome for
-Testing launched headless with just `--no-sandbox`; `playwright install
---with-deps` failed here (needs passwordless sudo, not available), but the
-plain install worked without it.
+No `apt-get` packages were needed. `playwright install --with-deps` failed
+here (needs passwordless sudo, not available), but the plain install worked
+without it — for Firefox; see the chromium gotcha below.
 
 ## Setup
 
@@ -28,8 +27,8 @@ app's own dependencies (nothing here touches the project's `package.json`):
 
 ```bash
 cd .claude/skills/run-etappe
-npm install                       # playwright npm package
-npx playwright install chromium   # downloads the browser to ~/.cache/ms-playwright
+npm install                      # playwright npm package
+npx playwright install firefox   # downloads the browser to ~/.cache/ms-playwright
 ```
 
 ## Build
@@ -91,7 +90,12 @@ functions (`selectStopByKind`, `setStopLatLon`, `placeAccessPoint`, ...) are
 the pattern to copy for a new flow — block editor, wishlist, drag-and-drop,
 search palette. Add a new helper following the same
 `page.click`/`page.fill`/`page.locator` shape and call it from `main()`, or
-write a one-off script alongside it that imports `chromium` the same way.
+write a one-off script alongside it that imports `firefox` the same way (see
+the chromium gotcha below for why `firefox`, not `chromium`). Scope
+locators to a specific container (e.g. a fixed-position modal) when a field
+name like "Address" or "Day 2" could also match something already on screen
+behind it — `PinCardExpanded` and `StopInspector` can both be mounted at
+once during the WORK 12.x transition, for example.
 
 ## Run (human path)
 
@@ -121,18 +125,18 @@ replacement for it.
   `dev` skill) so pending migrations actually run. This exact scenario is
   why this skill exists — a real feature looked broken and was actually just
   a stale backend process.
-- **Chromium no longer launches on this machine — use Firefox.** Both the
-  bundled `chrome` and `chrome-headless-shell` die at startup with
-  `error while loading shared libraries: libnspr4.so`, and that library is
-  absent system-wide (`find / -iname 'libnspr4.so*'` returns nothing).
-  Installing it needs sudo, which isn't available. `npx playwright install
-firefox` works and launches cleanly — Firefox bundles its own NSPR. See
-  `card-drive.mjs` for a working `firefox.launch()` drive.
+- **Chromium cannot launch on this machine — that's why `driver.mjs` uses
+  Firefox.** Both the bundled `chrome` and `chrome-headless-shell` die at
+  startup with `error while loading shared libraries: libnspr4.so`, and
+  that library is absent system-wide (`find / -iname 'libnspr4.so*'`
+  returns nothing). Installing it needs sudo, which isn't available.
+  Firefox bundles its own NSPR and launches cleanly — if this skill ever
+  gets ported to a machine where chromium works fine, that's a sign this
+  workaround is no longer needed and `driver.mjs` could switch back.
 - **`npx playwright install --with-deps` needs interactive sudo** and fails
   outright in a non-interactive shell ("a password is required"). Skip
-  `--with-deps` — on this machine the plain `npx playwright install
-chromium` was sufficient; the browser launched headless with no missing
-  `.so` errors.
+  `--with-deps` — the plain `npx playwright install firefox` is sufficient;
+  the browser launches headless with no missing `.so` errors.
 - **React controlled inputs need `.fill()`/`.blur()`**, not
   `eval el.value = '...'` — the latter never fires React's `onChange`, so
   the app's state never updates even though the DOM looks right in a
