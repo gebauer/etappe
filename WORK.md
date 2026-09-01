@@ -51,9 +51,12 @@ Each done task is tagged ✅ below. All pushed to `origin/master`.
   NOT in the fixture — they come from routing (stubbed to §12 in tests).
 
 **How to run / environment**
-- Node 20 via nvm — the machine's default `node` is CCP4's Node 16 and will
-  not work. In non-interactive shells prefix with:
-  `export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null`
+- Node ≥18.18 (`package.json` `engines`) via nvm — the default `node` varies
+  across the author's several dev machines (one defaults to an older system
+  node; others have only nvm, already fine). Use `--lts`, not a pinned
+  version — `nvm use 20` fails outright on a machine that never installed
+  exactly that version. In non-interactive shells prefix with:
+  `export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use --lts >/dev/null`
 - Backend: `npm run pb` (PocketBase 0.40.1 binary in `./bin`; fetch with
   `npm run pb:setup`). Frontend: `npm run dev` (Vite proxies `/api` + `/_`).
 - After any schema migration: `npm run types:pb` regenerates `src/types/pb.ts`.

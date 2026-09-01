@@ -17,7 +17,7 @@
  *   node driver.mjs
  */
 
-import { firefox } from 'playwright';
+import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -164,10 +164,7 @@ async function main() {
 
   const consoleErrors = [];
   const pageErrors = [];
-  // Firefox, not chromium — this machine is missing libnspr4 system-wide
-  // (needs sudo to fix, unavailable), so both the chromium binary and
-  // chrome-headless-shell fail to launch. Firefox bundles its own NSPR.
-  const browser = await firefox.launch({
+  const browser = await chromium.launch({
     headless: HEADLESS,
     args: ['--no-sandbox'],
   });

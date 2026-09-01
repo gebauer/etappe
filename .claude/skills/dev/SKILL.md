@@ -11,14 +11,19 @@ proxies `/api` and `/_` through to PocketBase, so the app runs same-origin.
 
 ## Steps
 
-1. **Node 20.** `npm run dev` needs Node 20 — the machine default is CCP4's
-   Node 16 and will not work. Prefix every Bash call in this skill with:
+1. **Node ≥18.18** (`package.json` `engines`). Which node resolves by default
+   varies by machine — some default to an older system node that won't run
+   Vite, others (nvm with no system node at all) are already fine. Prefix
+   every Bash call in this skill with:
 
    ```
-   export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null
+   export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use --lts >/dev/null
    ```
 
-   (The PocketBase binary is Node-independent, but keep the prefix for
+   `--lts` rather than a pinned version number — a specific version (e.g.
+   `nvm use 20`) fails outright on a machine that never installed it, where
+   nvm's LTS alias reliably resolves to whatever's actually there. (The
+   PocketBase binary is Node-independent, but keep the prefix for
    consistency.)
 
 2. **Ensure the binary exists.** If `./bin/pocketbase` is missing, run

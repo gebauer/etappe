@@ -10,15 +10,17 @@ to the repo root.
 
 ## Prerequisites
 
-Node 20 via nvm (the machine default is older and won't run Vite):
+Node ≥18.18 via nvm — the default `node` varies by machine, so use `--lts`
+rather than a pinned version number (which fails outright if that exact
+version was never installed here):
 
 ```bash
-export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use 20 >/dev/null
+export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"; nvm use --lts >/dev/null
 ```
 
-No `apt-get` packages were needed. `playwright install --with-deps` failed
-here (needs passwordless sudo, not available), but the plain install worked
-without it — for Firefox; see the chromium gotcha below.
+`playwright install --with-deps` fails in a non-interactive shell (needs
+passwordless sudo); see the chromium gotcha below for the one-time manual
+step a human needs to run instead.
 
 ## Setup
 
@@ -27,8 +29,8 @@ app's own dependencies (nothing here touches the project's `package.json`):
 
 ```bash
 cd .claude/skills/run-etappe
-npm install                      # playwright npm package
-npx playwright install firefox   # downloads the browser to ~/.cache/ms-playwright
+npm install                       # playwright npm package
+npx playwright install chromium   # downloads the browser to ~/.cache/ms-playwright
 ```
 
 ## Build
@@ -90,12 +92,11 @@ functions (`selectStopByKind`, `setStopLatLon`, `placeAccessPoint`, ...) are
 the pattern to copy for a new flow — block editor, wishlist, drag-and-drop,
 search palette. Add a new helper following the same
 `page.click`/`page.fill`/`page.locator` shape and call it from `main()`, or
-write a one-off script alongside it that imports `firefox` the same way (see
-the chromium gotcha below for why `firefox`, not `chromium`). Scope
-locators to a specific container (e.g. a fixed-position modal) when a field
-name like "Address" or "Day 2" could also match something already on screen
-behind it — `PinCardExpanded` and `StopInspector` can both be mounted at
-once during the WORK 12.x transition, for example.
+write a one-off script alongside it that imports `chromium` the same way.
+Scope locators to a specific container (e.g. a fixed-position modal) when a
+field name like "Address" or "Day 2" could also match something already on
+screen behind it — `PinCardExpanded` and `StopInspector` can both be
+mounted at once during the WORK 12.x transition, for example.
 
 ## Run (human path)
 
@@ -125,18 +126,21 @@ replacement for it.
   `dev` skill) so pending migrations actually run. This exact scenario is
   why this skill exists — a real feature looked broken and was actually just
   a stale backend process.
-- **Chromium cannot launch on this machine — that's why `driver.mjs` uses
-  Firefox.** Both the bundled `chrome` and `chrome-headless-shell` die at
-  startup with `error while loading shared libraries: libnspr4.so`, and
-  that library is absent system-wide (`find / -iname 'libnspr4.so*'`
-  returns nothing). Installing it needs sudo, which isn't available.
-  Firefox bundles its own NSPR and launches cleanly — if this skill ever
-  gets ported to a machine where chromium works fine, that's a sign this
-  workaround is no longer needed and `driver.mjs` could switch back.
-- **`npx playwright install --with-deps` needs interactive sudo** and fails
-  outright in a non-interactive shell ("a password is required"). Skip
-  `--with-deps` — the plain `npx playwright install firefox` is sufficient;
-  the browser launches headless with no missing `.so` errors.
+- **Chromium needs `libnspr4`/`libnss3` (and friends) installed, and that's
+  a one-time manual step.** Without them, both the bundled `chrome` and
+  `chrome-headless-shell` die at startup with
+  `error while loading shared libraries: libnspr4.so`. `npx playwright
+install --with-deps` would normally handle this but needs interactive
+  sudo, which a non-interactive agent shell doesn't have — so this fails
+  silently to an agent until a human runs, once, from a real terminal:
+  `sudo npx playwright install-deps chromium` (or just
+  `sudo apt-get install -y libnspr4 libnss3`, the two packages that are
+  actually load-bearing; the rest of the `install-deps` list is fonts/X11
+  extras chromium tolerates missing). If a fresh environment hits the
+  `libnspr4.so` error again, that's the fix — point the user at it rather
+  than routing around it (an earlier revision of this skill switched the
+  driver to Firefox instead; don't reintroduce that, it's a second browser
+  to keep working for no benefit once the real dependency is installed).
 - **React controlled inputs need `.fill()`/`.blur()`**, not
   `eval el.value = '...'` — the latter never fires React's `onChange`, so
   the app's state never updates even though the DOM looks right in a
