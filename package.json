@@ -16,7 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "types:pb": "pocketbase-typegen --db pb_data/data.db --out src/types/pb.ts",
+    "types:pb": "npx -y pocketbase-typegen@1.5.0 --db pb_data/data.db --out src/types/pb.ts",
     "test": "vitest run",
     "check": "tsc --noEmit && eslint . && vitest run --passWithNoTests",
     "sprites": "tsx scripts/build-sprites.ts"
@@ -46,7 +46,6 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.12.0",
-    "pocketbase-typegen": "^1.5.0",
     "postcss": "^8.4.49",
     "prettier": "^3.3.3",
     "sharp": "^0.35.4",
