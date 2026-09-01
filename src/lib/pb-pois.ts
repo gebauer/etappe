@@ -65,3 +65,21 @@ export async function setPoiStarred(
 ): Promise<void> {
   await pb.collection('pois').update(poiId, { starred });
 }
+
+/**
+ * Gives a wishlist idea coordinates it never had.
+ *
+ * The Highlights importer geocodes `place_hint` (WORK 8.1) and keeps the
+ * idea even when that comes back empty — a hotel with a description, a
+ * booking link and no dot on the map is still worth having. But a
+ * coordinate-less idea can't be ranked into a gap, so it can never reach
+ * the itinerary until someone says where it is. This is that repair.
+ */
+export async function setPoiLocation(
+  pb: TypedPocketBase,
+  poiId: string,
+  lat: number,
+  lon: number,
+): Promise<void> {
+  await pb.collection('pois').update(poiId, { lat, lon });
+}

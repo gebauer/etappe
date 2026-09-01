@@ -45,6 +45,8 @@ interface Props {
   /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
   onDowngrade: () => void;
   onAddToItinerary: () => void;
+  /** Wishlist idea with no coordinates: start the click-the-map repair. */
+  onSetLocation: () => void;
   /** WORK 14.3: "Reject" renamed "Delete" — a hard delete now that promoted
    * ideas are deleted too rather than marked scheduled (WORK 14.1). */
   onDelete: () => void;
@@ -80,6 +82,7 @@ export function PinCard({
   onRemove,
   onDowngrade,
   onAddToItinerary,
+  onSetLocation,
   onDelete,
   onAddWishlist,
   onAddDay,
@@ -111,12 +114,19 @@ export function PinCard({
   // of their own any more, links are blocks on both pois and stops).
   const linkBlocks = blocks.filter((b) => b.kind === 'link' && b.url);
 
+  // An idea with no coordinates isn't in the proximity chain at all, so the
+  // "nearest" counter has nothing to count it as — it read `0 / 34`, which
+  // looks like a broken index rather than a missing location.
+  const located =
+    target.type !== 'wish' || (!!target.item.lat && !!target.item.lon);
   const hasNav = target.type !== 'empty';
   const navLabel =
     target.type === 'stop'
       ? `STOP ${target.seq} / ${target.total}`
       : target.type === 'wish'
-        ? `NEAREST · ${target.position} / ${target.total}`
+        ? located
+          ? `NEAREST · ${target.position} / ${target.total}`
+          : 'WISHLIST'
         : '';
 
   let title: string;
@@ -126,7 +136,9 @@ export function PinCard({
     subtitle = `${kindLabel(target.stop.kind)} · ${target.dayLabel}`;
   } else if (target.type === 'wish') {
     title = target.item.title;
-    subtitle = `${kindLabel(target.item.kind ?? 'uncategorized')} · Wishlist`;
+    subtitle = located
+      ? `${kindLabel(target.item.kind ?? 'uncategorized')} · Wishlist`
+      : `${kindLabel(target.item.kind ?? 'uncategorized')} · No location yet`;
   } else {
     title = target.place?.name ?? 'Dropped pin';
     const coords = `${target.lat.toFixed(4)}, ${target.lon.toFixed(4)}`;
@@ -337,9 +349,19 @@ export function PinCard({
 
         {target.type === 'wish' && (
           <>
-            <button onClick={onAddToItinerary} className={PRIMARY}>
-              Add to itinerary
-            </button>
+            {located ? (
+              <button onClick={onAddToItinerary} className={PRIMARY}>
+                Add to itinerary
+              </button>
+            ) : (
+              <button
+                onClick={onSetLocation}
+                title="Geocoding found nothing for this one — click the map to say where it is"
+                className={PRIMARY}
+              >
+                Set location on the map
+              </button>
+            )}
             <button
               onClick={() =>
                 confirmingRemove ? onDelete() : setConfirmingRemove(true)

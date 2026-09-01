@@ -133,6 +133,7 @@ export function MapPane({
   onSelectDay,
   onAddDay,
   picking,
+  placing,
   parkingLots,
   onPickParking,
 }: {
@@ -168,6 +169,10 @@ export function MapPane({
    * selecting a pin; `parkingLots` render as clickable chips. Memoised by
    * the caller so its identity is stable between renders. */
   picking?: { lat: number; lon: number } | null;
+  /** Placing a coordinate-less wishlist idea: the next click anywhere on the
+   * map is its location, so pins must not swallow it. Unlike access-point
+   * picking there is nothing to zoom to — that is the whole problem. */
+  placing?: boolean;
   parkingLots?: ParkingLot[];
   onPickParking?: (lot: ParkingLot) => void;
 }) {
@@ -186,6 +191,8 @@ export function MapPane({
   dragAccessRef.current = onDragAccessPoint;
   const pickingRef = useRef(picking ?? null);
   pickingRef.current = picking ?? null;
+  const placingRef = useRef(placing ?? false);
+  placingRef.current = placing ?? false;
   const pickParkingRef = useRef(onPickParking);
   pickParkingRef.current = onPickParking;
   const parkingMarkersRef = useRef<maplibregl.Marker[]>([]);
@@ -550,7 +557,7 @@ export function MapPane({
       // Picking an access point: the whole surface is the target, pins are
       // irrelevant. A chip click is a DOM button above the canvas and never
       // reaches here.
-      if (pickingRef.current) {
+      if (pickingRef.current || placingRef.current) {
         clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
         return;
       }
@@ -572,7 +579,7 @@ export function MapPane({
     });
 
     map.on('mousemove', (ev) => {
-      if (pickingRef.current) {
+      if (pickingRef.current || placingRef.current) {
         map.getCanvas().style.cursor = 'crosshair';
         return;
       }

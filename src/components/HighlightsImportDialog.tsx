@@ -245,13 +245,25 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
                   map pins.
                 </span>
               )}
-              {step.results.some((r) => r.geocodeFailed) && (
-                <>
-                  {' '}
-                  {step.results.filter((r) => r.geocodeFailed).length} couldn't
-                  be located automatically — edit them to add coordinates before
-                  placing.
-                </>
+              {step.results.some((r) => !r.located) && (
+                <span className="mt-2 block rounded border border-amber-300 bg-amber-50 p-2 text-amber-800">
+                  <strong>
+                    {step.results.filter((r) => !r.located).length} of{' '}
+                    {step.results.length} have no location.
+                  </strong>{' '}
+                  A place hint like &ldquo;X, near Y, Region&rdquo; often finds
+                  nothing — the name on its own usually does better. These are
+                  on the wishlist with their notes and links, but they have no
+                  map pin and can&rsquo;t be added to a day until they have one:
+                  open each from the wishlist and use{' '}
+                  <em>Set location on the map</em>.
+                  <span className="mt-1 block">
+                    {step.results
+                      .filter((r) => !r.located)
+                      .map((r) => r.title)
+                      .join(', ')}
+                  </span>
+                </span>
               )}
             </p>
             <div className="flex justify-end">

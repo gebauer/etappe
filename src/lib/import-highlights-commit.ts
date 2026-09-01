@@ -16,6 +16,12 @@ import { fetchPhotoFile } from './pb-photo-fetch';
 export interface HighlightImportResult {
   title: string;
   poiId: string;
+  /** Did it end up with coordinates at all? Wider than `!geocodeFailed`: a
+   * highlight with neither lat/lon nor a `place_hint` never attempts a
+   * geocode, so it fails nothing and still lands on no map. Without
+   * coordinates an idea can't be ranked into a gap, so it can't reach the
+   * itinerary until someone places it by hand. */
+  located: boolean;
   geocoded: boolean;
   geocodeFailed: boolean;
   /** Photos whose bytes the server couldn't pull down (dead link, hotlink
@@ -150,6 +156,7 @@ export async function importHighlights(
     results.push({
       title: h.title,
       poiId,
+      located: coords.lat !== undefined && coords.lon !== undefined,
       geocoded: coords.geocoded,
       geocodeFailed: coords.geocodeFailed,
       photosFailed,

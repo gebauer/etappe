@@ -22,6 +22,7 @@ import {
   addWishlistItem,
   deleteWishlistItem,
   setPoiStarred,
+  setPoiLocation,
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
@@ -145,6 +146,13 @@ export function TripEditor({
     existingStop: StopsResponse;
   } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Repairing a wishlist idea the importer couldn't geocode: the next map
+  // click is its location. Separate from access-point `picking`, which zooms
+  // to a stop it already has coordinates for.
+  const [placingWish, setPlacingWish] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -167,18 +175,24 @@ export function TripEditor({
   // Wishlist lives outside the cascade-oriented trip doc (it has no day/
   // order_index), so it gets its own small fetch rather than riding along
   // with useTripEditor's reload.
+  /** Returns the fresh list too, for callers that must act on the item they
+   * just changed (re-opening its card, say) rather than the stale copy. */
   const reloadWishlist = useCallback(() => {
-    listWishlist(pb, tripId)
-      .then(setWishlist)
+    return listWishlist(pb, tripId)
+      .then((items) => {
+        setWishlist(items);
+        return items;
+      })
       .catch((err) => {
-        if (isAbortError(err)) return; // benign under StrictMode double-render
+        if (isAbortError(err)) return null; // benign under StrictMode
         setActionError(
           err instanceof Error ? err.message : 'Failed to load wishlist.',
         );
+        return null;
       });
   }, [tripId]);
   useEffect(() => {
-    reloadWishlist();
+    void reloadWishlist();
   }, [reloadWishlist]);
 
   // A share-target capture opens the wishlist search prefilled, once. Copied
@@ -327,6 +341,17 @@ export function TripEditor({
   function onMapClick(lat: number, lon: number) {
     if (picking) {
       finishPicking({ access_lat: lat, access_lon: lon });
+      return;
+    }
+    if (placingWish) {
+      const { id } = placingWish;
+      setPlacingWish(null);
+      void run(async () => {
+        await setPoiLocation(pb, id, lat, lon);
+        const items = await reloadWishlist();
+        const placed = items?.find((i) => i.id === id);
+        if (placed) openCard(() => setWishCard(placed));
+      });
       return;
     }
     // A bare map click no longer captures anything on its own (WORK 12.2):
@@ -793,6 +818,7 @@ export function TripEditor({
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
+      if (e.key === 'Escape' && placingWish) return setPlacingWish(null);
       if (e.key === 'Escape' && picking) return finishPicking(null);
       if (e.key === 'Escape' && browsing) return setBrowsing(false);
       if (e.key === 'Escape' && (wishCard || emptyCard)) return closeCard();
@@ -835,6 +861,7 @@ export function TripEditor({
     selectedStopIds,
     selectedDayId,
     picking,
+    placingWish,
     pendingPlacement,
     mergeCheck,
     wishCard,
@@ -1065,12 +1092,38 @@ export function TripEditor({
               )
             }
             picking={mapPicking}
+            placing={!!placingWish}
             parkingLots={parkingLots}
             onPickParking={(lot) =>
               finishPicking({ access_lat: lot.lat, access_lon: lot.lon })
             }
           />
 
+          {placingWish && (
+            <div className="pointer-events-none absolute inset-x-0 top-[62px] z-40 flex justify-center px-4">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-[oklch(0.42_0.08_80)] bg-[oklch(0.20_0.013_250/0.95)] py-2.5 pl-4 pr-3 text-text shadow-card backdrop-blur-[12px]">
+                <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border-2 border-dashed border-wishlist font-mono text-[10px] text-wishlist">
+                  ?
+                </span>
+                <span className="min-w-0">
+                  <span className="block whitespace-nowrap text-[13px] font-medium">
+                    Click the map to place {placingWish.title}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11.5px] text-text-4">
+                    The import couldn&rsquo;t find this one — zoom in and put it
+                    where it belongs
+                  </span>
+                </span>
+                <span className="h-[26px] w-px flex-none bg-border-strong" />
+                <button
+                  onClick={() => setPlacingWish(null)}
+                  className="h-[30px] flex-none whitespace-nowrap rounded-lg border border-border-strong px-3 text-[12.5px] text-text-2 hover:bg-control-hover"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           {/* Access-point picking banner (WORK 12.9), below the day-pill row. */}
           {picking && (
             <div className="pointer-events-none absolute inset-x-0 top-[62px] z-40 flex justify-center px-4">
@@ -1299,6 +1352,14 @@ export function TripEditor({
           }}
           onAddToItinerary={() => {
             if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
+            closeCard();
+          }}
+          onSetLocation={() => {
+            if (cardTarget.type !== 'wish') return;
+            setPlacingWish({
+              id: cardTarget.item.id,
+              title: cardTarget.item.title,
+            });
             closeCard();
           }}
           onDelete={() => {
