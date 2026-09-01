@@ -25,6 +25,11 @@ const BLOCK_KINDS: BlockKind[] = ['note', 'link', 'photo', 'file'];
  *
  * Uncontrolled inputs committing on blur/Enter — the parent re-keys this
  * component when the stop changes.
+ *
+ * Dwell, anchor time and anchor type used to live here as a second set of
+ * fields duplicating the card's ARRIVE / DEPART / DWELL read-out. WORK 16.1
+ * made that read-out editable and deleted these rather than keeping the two
+ * in sync.
  */
 export function PinCardEdit({
   stop,
@@ -65,7 +70,7 @@ export function PinCardEdit({
         />
       </label>
 
-      <div className="relative block">
+      <div className="relative col-span-2 block">
         <span className={LABEL}>Kind</span>
         <button
           type="button"
@@ -92,46 +97,6 @@ export function PinCardEdit({
           </div>
         )}
       </div>
-
-      <label className="block">
-        <span className={LABEL}>Dwell (min)</span>
-        <input
-          type="number"
-          min={0}
-          defaultValue={stop.dwell_override || ''}
-          onBlur={(e) =>
-            onUpdate({ dwell_override: Number(e.target.value) || 0 })
-          }
-          onKeyDown={commitOnEnter}
-          className={`${FIELD} font-mono`}
-        />
-      </label>
-
-      <label className="block">
-        <span className={LABEL}>Anchor</span>
-        <input
-          type="time"
-          defaultValue={stop.anchor_time}
-          onBlur={(e) => onUpdate({ anchor_time: e.target.value })}
-          className={`${FIELD} font-mono`}
-        />
-      </label>
-
-      <label className="block">
-        <span className={LABEL}>Type</span>
-        <select
-          defaultValue={stop.anchor_type || 'arrival'}
-          onChange={(e) =>
-            onUpdate({
-              anchor_type: e.target.value as StopPatch['anchor_type'],
-            })
-          }
-          className={FIELD}
-        >
-          <option value="arrival">arrival</option>
-          <option value="departure">departure</option>
-        </select>
-      </label>
 
       <div className="col-span-2 flex items-center justify-between gap-3 rounded-[9px] border border-border-strong bg-surface-4 px-3 py-2.5">
         <div className="min-w-0">

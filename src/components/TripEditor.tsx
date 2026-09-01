@@ -56,6 +56,14 @@ import { MapPane } from './MapPane';
 import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 import { MergePrompt } from './MergePrompt';
 import { AccommodationPrompt } from './AccommodationPrompt';
+import { TimingConflictPrompt } from './TimingConflictPrompt';
+import {
+  planTimingEdit,
+  type TimingCell,
+  type TimingChange,
+  type TimingEditPlan,
+  type TimingStop,
+} from '../lib/timing-edit';
 import { isAccommodationKind, isKind } from '../lib/taxonomy';
 import { findNearbyStop } from '../lib/merge';
 import type { StopsResponse } from '../types/pb';
@@ -153,6 +161,15 @@ export function TripEditor({
     id: string;
     title: string;
   } | null>(null);
+  // A timing edit that needs a decision before it can be written (WORK 16.1).
+  const [timingConflict, setTimingConflict] = useState<Extract<
+    TimingEditPlan,
+    { kind: 'conflict' }
+  > | null>(null);
+  // The stop a timing edit changed *without* being asked to — the dwell that
+  // absorbed someone else's slack. Marked on its cell for a while so it is
+  // findable, not just announced once in a dialog.
+  const [timingFlash, setTimingFlash] = useState<string | null>(null);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -694,6 +711,53 @@ export function TripEditor({
     });
   }
 
+  /** Writes a plan's changes in one go, then reloads once. */
+  function applyTimingChanges(changes: TimingChange[]) {
+    if (changes.length === 0) return;
+    void run(async () => {
+      for (const change of changes) {
+        await updateStop(pb, change.stopId, change.patch);
+      }
+    });
+  }
+
+  /** A timing cell was typed into. The three cells are cascade output, so
+   * this translates the edit back into the stored fields that produce it —
+   * and asks first when the result would fight an anchor further up the day
+   * (WORK 16.1, `planTimingEdit`). */
+  function editTiming(stopId: string, cell: TimingCell, value: string) {
+    if (!records || !result) return;
+    const stop = records.stops.find((s) => s.id === stopId);
+    if (!stop) return;
+    const dayStops = records.stops
+      .filter((s) => s.day === stop.day)
+      .sort((a, b) => a.order_index - b.order_index);
+    const dayResult = result.days.find((d) => d.dayId === stop.day);
+    const timingById = new Map(
+      dayResult?.stops.map((t) => [t.stopId, t]) ?? [],
+    );
+    const timingStops: TimingStop[] = dayStops.map((s) => {
+      const t = timingById.get(s.id);
+      return {
+        id: s.id,
+        title: s.title,
+        anchorTime: s.anchor_time?.trim() ? s.anchor_time : null,
+        dwell: t?.dwell ?? 0,
+        arrival: t?.arrival ?? 0,
+        departure: t?.departure ?? 0,
+      };
+    });
+    const plan = planTimingEdit({
+      stops: timingStops,
+      index: dayStops.findIndex((s) => s.id === stopId),
+      cell,
+      value,
+    });
+    if (plan.kind === 'noop') return;
+    if (plan.kind === 'apply') return applyTimingChanges(plan.changes);
+    setTimingConflict(plan);
+  }
+
   function handleUpdateStop(id: string, patch: StopPatch) {
     const existing = records?.stops.find((s) => s.id === id);
     if (existing && !existing.is_accommodation) {
@@ -818,6 +882,7 @@ export function TripEditor({
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
+      if (e.key === 'Escape' && timingConflict) return setTimingConflict(null);
       if (e.key === 'Escape' && placingWish) return setPlacingWish(null);
       if (e.key === 'Escape' && picking) return finishPicking(null);
       if (e.key === 'Escape' && browsing) return setBrowsing(false);
@@ -862,6 +927,7 @@ export function TripEditor({
     selectedDayId,
     picking,
     placingWish,
+    timingConflict,
     pendingPlacement,
     mergeCheck,
     wishCard,
@@ -1314,6 +1380,24 @@ export function TripEditor({
           onCancel={() => setMergeCheck(null)}
         />
       )}
+      {timingConflict && (
+        <TimingConflictPrompt
+          plan={timingConflict}
+          onShift={() => {
+            applyTimingChanges([timingConflict.anchor, timingConflict.shift]);
+            setTimingConflict(null);
+          }}
+          onAbsorb={() => {
+            const absorb = timingConflict.absorb;
+            if (!absorb) return;
+            applyTimingChanges([timingConflict.anchor, absorb]);
+            setTimingFlash(absorb.stopId);
+            window.setTimeout(() => setTimingFlash(null), 8000);
+            setTimingConflict(null);
+          }}
+          onCancel={() => setTimingConflict(null)}
+        />
+      )}
       {accommodationAsk && (
         <AccommodationPrompt
           title={accommodationAsk.title}
@@ -1354,6 +1438,12 @@ export function TripEditor({
             if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
             closeCard();
           }}
+          onEditTiming={(cell, value) => {
+            if (cardTarget.type === 'stop') {
+              editTiming(cardTarget.stop.id, cell, value);
+            }
+          }}
+          timingFlashStopId={timingFlash}
           onSetLocation={() => {
             if (cardTarget.type !== 'wish') return;
             setPlacingWish({
@@ -1414,6 +1504,9 @@ export function TripEditor({
           blocks={blocksFor(records.blocks, 'stop', cardTarget.stop.id)}
           days={days}
           tripStartDate={trip.start_date}
+          onEditTiming={(cell, value) =>
+            editTiming(cardTarget.stop.id, cell, value)
+          }
           timing={cardTarget.timing}
           daylight={cardTarget.daylight}
           onClose={() => setExpanded(false)}

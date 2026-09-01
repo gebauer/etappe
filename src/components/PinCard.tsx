@@ -4,11 +4,13 @@ import { renderMarkdown } from '../lib/markdown';
 import { blockFileUrl, type BlockKind } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
-import { formatDuration } from '../lib/format';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
 import type { PlaceResult } from '../lib/photon';
 import type { StopPatch } from '../lib/pb-stops';
 import { PinCardEdit } from './PinCardEdit';
+import { TimingCells } from './TimingCells';
+import { timingCells } from '../lib/timing-cells';
+import type { TimingCell } from '../lib/timing-edit';
 
 /** What was clicked. One component, three action sets — the whole point of
  * the unified card (design handoff, "The unified card"). */
@@ -53,6 +55,11 @@ interface Props {
   onAddWishlist: () => void;
   onAddDay: () => void;
   onUpdateStop: (patch: StopPatch) => void;
+  /** A timing cell was typed into — see `planTimingEdit`. */
+  onEditTiming: (cell: TimingCell, value: string) => void;
+  /** Stop whose dwell was just changed on its behalf — marked while it
+   * matters, so the change is findable and not only announced once. */
+  timingFlashStopId?: string | null;
   onPlaceAccessPoint: () => void;
   onClearAccessPoint: () => void;
   onAddBlock: (kind: BlockKind) => void;
@@ -87,6 +94,8 @@ export function PinCard({
   onAddWishlist,
   onAddDay,
   onUpdateStop,
+  onEditTiming,
+  timingFlashStopId,
   onPlaceAccessPoint,
   onClearAccessPoint,
   onAddBlock,
@@ -226,33 +235,15 @@ export function PinCard({
 
         {target.type === 'stop' && (
           <>
-            <div className="mt-3 flex overflow-hidden rounded-[10px] border border-border-strong">
-              {[
-                {
-                  label: 'Arrive',
-                  value: target.timing && formatClock(target.timing.arrival),
-                },
-                {
-                  label: 'Depart',
-                  value: target.timing && formatClock(target.timing.departure),
-                },
-                {
-                  label: 'Dwell',
-                  value: target.timing && formatDuration(target.timing.dwell),
-                },
-              ].map((cell, i) => (
-                <div
-                  key={cell.label}
-                  className={`flex-1 px-3 py-2.5 ${i > 0 ? 'border-l border-border-strong' : ''}`}
-                >
-                  <div className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
-                    {cell.label}
-                  </div>
-                  <div className="mt-0.5 font-mono text-[17px]">
-                    {cell.value ?? '—'}
-                  </div>
-                </div>
-              ))}
+            <div className="mt-3">
+              <TimingCells
+                cells={timingCells(
+                  target.stop,
+                  target.timing,
+                  timingFlashStopId === target.stop.id,
+                )}
+                onEdit={onEditTiming}
+              />
             </div>
 
             {target.daylight && (

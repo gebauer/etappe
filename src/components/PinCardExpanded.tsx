@@ -8,6 +8,9 @@ import { formatDayDate } from '../lib/format';
 import type { BlocksResponse, DaysResponse, StopsResponse } from '../types/pb';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
+import { TimingCells } from './TimingCells';
+import { timingCells } from '../lib/timing-cells';
+import type { TimingCell } from '../lib/timing-edit';
 import { KindPicker } from './KindPicker';
 import { BlockEditor } from './BlockEditor';
 
@@ -29,6 +32,7 @@ interface Props {
   daylight: Daylight | null;
   onClose: () => void;
   onUpdate: (patch: StopPatch) => void;
+  onEditTiming: (cell: TimingCell, value: string) => void;
   onPlaceAccessPoint: () => void;
   onClearAccessPoint: () => void;
   onMoveToDay: (dayId: string) => void;
@@ -62,6 +66,7 @@ export function PinCardExpanded({
   daylight,
   onClose,
   onUpdate,
+  onEditTiming,
   onPlaceAccessPoint,
   onClearAccessPoint,
   onMoveToDay,
@@ -145,34 +150,19 @@ export function PinCardExpanded({
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto px-[22px] pb-[22px] pt-4.5">
-            <div className="mb-4.5 flex overflow-hidden rounded-[10px] border border-border-strong">
-              {[
-                {
-                  label: 'Arrive',
-                  value: timing && formatClock(timing.arrival),
-                },
-                {
-                  label: 'Depart',
-                  value: timing && formatClock(timing.departure),
-                },
-                {
-                  label: 'Daylight',
-                  value: daylight && formatClock(daylight.sunset),
-                  accent: true,
-                },
-              ].map((cell, i) => (
-                <div
-                  key={cell.label}
-                  className={`flex-1 px-3.5 py-2.5 ${i > 0 ? 'border-l border-border-strong' : ''}`}
-                >
-                  <div className={SECTION_LABEL}>{cell.label}</div>
-                  <div
-                    className={`mt-0.5 font-mono text-[18px] ${cell.accent ? 'text-daylight' : ''}`}
-                  >
-                    {cell.value ?? '—'}
-                  </div>
-                </div>
-              ))}
+            <div className="mb-4.5">
+              <TimingCells
+                size="expanded"
+                onEdit={onEditTiming}
+                cells={[
+                  ...timingCells(stop, timing).slice(0, 2),
+                  {
+                    label: 'Daylight',
+                    value: daylight ? formatClock(daylight.sunset) : null,
+                    accent: true,
+                  },
+                ]}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-3.5 rounded-[11px] border border-warn-border bg-warn-bg px-[15px] py-3.5">

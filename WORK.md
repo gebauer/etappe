@@ -53,7 +53,7 @@ unused since phase 1. 16.6 subsumes 9.1/9.2 and phase 11.2's "members";
 16.7 is the entry surface phase 11.1 needs.**
 **→ Next, in order: 12.7 (phone layout, also what fixes the
 sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15 →
-Phase 16.**
+the rest of Phase 16 (16.1 is done).**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1062,7 +1062,7 @@ Author request, 2026-09-01 (seven items, in the order given). Independent
 of each other; 16.1 and 16.2 are the ones that bite during daily planning,
 so do those first.
 
-**16.1 Make the timing row editable** · Standard
+**16.1 Make the timing row editable** · Standard · ✅
 Today the ARRIVE / DEPART / DWELL row at the top of `PinCard` (and the same
 row in `PinCardExpanded`) is a **read-out of cascade output** — it renders
 `target.timing`, which the engine computed. The editable fields lower down
@@ -1074,7 +1074,8 @@ Make each of the three cells an inline input that writes the input that
 produces it:
 - **Arrive** → `anchor_time = value`, `anchor_type = 'arrival'`.
 - **Depart** → `anchor_time = value`, `anchor_type = 'departure'`.
-- **Dwell** → `dwell_min = value`. Not an anchor — dwell is already a
+- **Dwell** → `dwell_override = value` (the field is `dwell_override`, not
+  `dwell_min` as first written here). Not an anchor — dwell is already a
   direct input, and a stop can carry a dwell and an anchor at once.
 - Clearing a time cell clears `anchor_time`/`anchor_type`; clearing dwell
   falls back to the taxonomy default.
@@ -1121,6 +1122,17 @@ brief changed mark. A dwell that grows by three quarters of an hour on a
 stop you were not editing must never be something you discover later.
 Both branches are edits to stored inputs, computed from cascade output —
 the engine itself stays pure and unchanged.
+
+**Built as:** `src/lib/timing-edit.ts` (pure, 17 tests) turns a cell edit
+into the record changes that produce it and reports the conflict;
+`src/lib/timing-cells.ts` builds the three cell specs; `TimingCells`
+renders them; `TimingConflictPrompt` puts the two branches to the user;
+`TripEditor.editTiming` wires it up. The lower `ANCHOR` / `TYPE` /
+`DWELL (MIN)` fields are gone from `PinCardEdit`, and the expanded card's
+Arrive/Depart cells are editable too (its third cell is Daylight, not
+Dwell — read-only). One trap worth remembering: the cells are uncontrolled
+inputs, so they need a `key` tied to their value or React reuses the DOM
+node and the previously selected stop's clock stays in the field.
 
 **16.2 Insert a day anywhere in the itinerary** · Cheap
 The data layer is already done and unit-tested: `insertDay(pb, tripId,
