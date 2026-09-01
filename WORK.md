@@ -862,6 +862,77 @@ fast-follow — the button only ever points at the previous accommodation.
 
 ---
 
+## Phase 14 — Unify wishlist ideas and stops
+
+Author request, 2026-09-01. A wishlist idea (`pois`) and a stop describe
+the same real-world place, but promoting an idea to a stop silently loses
+its photos, description and links — only title/kind/coords carry over
+(`commitPlacement` in `TripEditor`; the idea's blocks stay on the now-
+hidden `scheduled` poi). And the two schemas drift: `pois` keeps free text
+and a link in scalar fields (`notes`, `url`) while stops use blocks; stops
+have `access_lat/lon` / `address` and an accommodation flag that a
+pre-placement idea can't hold.
+
+**Target: a POI is a stop without a day.** They share title, kind, lat/lon,
+address, access point, star, and the whole block system. A stop adds
+`day` / `order_index` / `anchor` / `dwell` / `is_accommodation` /
+`kind_confirmed`; a POI adds nothing of its own once `status` is gone.
+
+**Decisions, confirmed with the author:**
+- Drop `pois.url` and `pois.notes` — links are `link` blocks, free text is
+  `note` blocks, on both. `PinCard` already renders every note block; make
+  it render every link block too (was `.find`, first only).
+- Drop `pois.status` entirely. It only ever hid a promoted idea, and
+  nothing reads `scheduled`. `listWishlist` becomes "pois for this trip".
+- Add `pois.access_lat` / `pois.access_lon` / `pois.address`.
+- Add `stops.starred`. The star carries over on promotion and shows on the
+  stop the same way it does on a wishlist pin (gold badge on the map pin +
+  a marker in the itinerary row) and stays toggleable from the stop card.
+- **Promote** POI → Stop: create the stop with the shared fields, re-parent
+  its blocks (`reparentBlocks`, already added), **delete the POI** — no
+  tombstone.
+- **Downgrade** Stop → POI: the mirror — create a POI with the shared
+  fields, re-parent blocks back, delete the stop (legs re-merge as any
+  stop deletion). On the stop card, a trash button (delete, keeps the
+  existing confirm) and a recycle `♻` button (downgrade), both with hover
+  tooltips.
+- The wishlist card's **"Reject" becomes "Delete"** — a hard delete
+  (`deleteWishlistItem`) with a confirm.
+
+**14.1 Schema + data layer**
+Migration `1788000009`: `pois` drop `url` / `notes` / `status`, add
+`access_lat` / `access_lon` / `address`; `stops` add `starred` (bool, not
+required). Up-migration first deletes any `pois` with `status != 'idea'`
+(hidden history nothing shows). `npm run types:pb`. `pb-pois.ts`:
+`listWishlist` loses the status filter, `addWishlistItem` its `notes` /
+`url` / `status` payload; delete `markWishlistScheduled` and
+`rejectWishlistItem` (callers move to `deleteWishlistItem`). `setStopStarred`
+in `pb-stops.ts`. Generalise `addLinkBlock` / `addNoteBlock` to any block
+parent (poi or stop). Sweep for remaining `.url` / `.notes` / `.status` on
+pois.
+
+**14.2 Promote, downgrade, capture, importer**
+`commitPlacement` / `useExistingStop`: copy title/kind/lat/lon/address/
+access/starred, `reparentBlocks` poi→stop, delete the poi (drop
+`markWishlistScheduled`). New `downgradeStopToWishlist(pb, records, stopId)`
+— create the poi, re-parent blocks back, then the existing `deleteStop`
+path (leg re-merge + `reconcileLeadingLegs` via `runStructural`). Hand
+capture (`commitWishlistPick`, share-target) creates a `link` block instead
+of setting `pois.url`; the Highlights importer routes `h.notes` to a note
+block. Stop card action bar gains the trash + `♻` buttons (docked card;
+expanded card too if cheap).
+
+**14.3 Card rendering + starred stops**
+`PinCard`: drop the `target.item.url` / `target.item.notes` scalar
+branches, render all link blocks, "Reject" → "Delete" + confirm.
+`buildStopFeatures` carries `starred`; a `stops-star` overlay layer with a
+shared composited gold-star image (`icon-offset` top-right, filtered to
+starred ids) — not folded into `n:<seq>` since that image is shared across
+same-numbered stops. `StopRow` shows a star when `stop.starred`; the stop
+card gets a star toggle (`setStopStarred`).
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the
