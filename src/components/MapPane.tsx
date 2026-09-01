@@ -4,31 +4,32 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   buildLegFeatures,
   buildStopFeatures,
+  buildWishlistFeatures,
   type StopFeatureCollection,
 } from '../lib/map-features';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
 import type { StopsResponse, PoisResponse } from '../types/pb';
 import {
-  TIER_OPACITY,
-  loadAtlas,
-  compositeMarker,
   addMarkerLayers,
   buildPinElement,
-  drawAtlasGlyph,
+  buildNumberedPinElement,
+  compositeNumberBadge,
+  compositeWishlistPin,
   drawEmojiGlyph,
   compositePhotoCircle,
-  type SpriteEntry,
 } from '../lib/map-markers';
 import { queryNearby, type NearbyPoi } from '../lib/overpass';
 import { categoryColor } from '../lib/map-colors';
 import { loadThumbnailUrl } from '../lib/wikimedia';
+import { pb } from '../lib/pb';
+import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
 
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
   'https://tiles.openfreemap.org/styles/liberty';
 
-const STOP_LAYERS = ['stops-accom', 'stops-other'];
+const STOP_LAYERS = ['stops'];
 
 // Line width grows with zoom; shared by every leg layer.
 const WIDTH = [
@@ -88,8 +89,6 @@ const NOT_HAS_PHOTO = [
   true,
 ] as unknown as maplibregl.FilterSpecification;
 
-export type MarkerMode = 'auto' | 'icons' | 'thumbnails';
-
 export function MapPane({
   records,
   result,
@@ -105,6 +104,7 @@ export function MapPane({
   onSelectNearby,
   wishlist,
   onSelectWishlist,
+  selectedWishlistId,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -122,6 +122,9 @@ export function MapPane({
    * unlike Nearby's raw Overpass results which are gated behind a toggle. */
   wishlist?: PoisResponse[];
   onSelectWishlist?: (poi: PoisResponse) => void;
+  /** Drives the bigger/haloed wishlist pin variant (design handoff, WORK
+   * 12.4) — the open card's item, mirroring `selectedStop`. */
+  selectedWishlistId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -142,7 +145,15 @@ export function MapPane({
   const poiMarkerStopIdRef = useRef<string | null>(null);
   const accessMarkerRef = useRef<maplibregl.Marker | null>(null);
   const draggingRef = useRef(false);
-  const [markerMode, setMarkerMode] = useState<MarkerMode>('auto');
+  const selectedWishlistIdRef = useRef<string | null>(
+    selectedWishlistId ?? null,
+  );
+  selectedWishlistIdRef.current = selectedWishlistId ?? null;
+  // Wishlist cover photos resolve async (a PocketBase thumb fetch), so this
+  // just gates re-fetching one already resolved (or confirmed absent) —
+  // mirrors nearbyPhotoIds below, but doesn't need to be state: it never
+  // drives a render, only whether the compositing effect does more work.
+  const wishlistCoverResolvedRef = useRef<Set<string>>(new Set());
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
@@ -185,25 +196,8 @@ export function MapPane({
   );
   const nearbyFcRef = useRef(nearbyFc);
   nearbyFcRef.current = nearbyFc;
-  // Wishlist ideas with real coordinates only — a freshly-added item defaults
-  // to lat/lon 0,0 until placed or edited, which would otherwise paint a pin
-  // in the Gulf of Guinea.
   const wishlistFc = useMemo(
-    () => ({
-      type: 'FeatureCollection' as const,
-      features: (wishlist ?? [])
-        .filter((p) => p.lat && p.lon)
-        .map((p) => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
-          properties: {
-            poiId: p.id,
-            title: p.title,
-            kind: p.kind,
-            color: categoryColor(p.kind),
-          },
-        })),
-    }),
+    () => buildWishlistFeatures(wishlist ?? []),
     [wishlist],
   );
   const wishlistFcRef = useRef(wishlistFc);
@@ -211,10 +205,6 @@ export function MapPane({
   const fittedRef = useRef(false);
   const recordsRef = useRef(records);
   recordsRef.current = records;
-  const atlasRef = useRef<{
-    img: HTMLImageElement;
-    json: Record<string, SpriteEntry>;
-  } | null>(null);
 
   // Frame the whole trip once, when features first arrive. Not on every edit,
   // so the map stays where the user left it. (Fit-to-day is 5.4.)
@@ -335,68 +325,77 @@ export function MapPane({
         },
       });
 
-      // Wishlist pins (WORK 8.1 follow-up): same ghost-circle styling as
-      // Nearby, but a solid dark stroke instead of white — these are
-      // already-curated ideas, not raw discovery results, so they read as
-      // more "committed" than a Nearby suggestion.
+      // Wishlist pins (design handoff, WORK 12.4): square photo thumbnails
+      // with an amber border — always a symbol layer (unlike Nearby's
+      // circle/symbol split) since even an unphotographed item still needs
+      // the square-with-border shape, not a plain dot. Two layers so the
+      // selected item can render bigger with a halo without touching every
+      // other pin's paint — same technique as excluding the selected stop
+      // from its GL layer below.
       map.addSource('wishlist', {
         type: 'geojson',
         data: wishlistFcRef.current,
+        promoteId: 'poiId',
       });
       map.addLayer({
         id: 'wishlist-pins',
-        type: 'circle',
+        type: 'symbol',
         source: 'wishlist',
-        paint: {
-          'circle-radius': 7,
-          'circle-color': ['get', 'color'],
-          'circle-stroke-color': '#1e293b',
-          'circle-stroke-width': 2,
-          'circle-opacity': 0.9,
+        layout: {
+          'icon-image': ['get', 'iconImage'],
+          'icon-allow-overlap': true,
         },
       });
+      map.addLayer({
+        id: 'wishlist-pins-selected',
+        type: 'symbol',
+        source: 'wishlist',
+        filter: ['==', ['get', 'poiId'], ''],
+        layout: {
+          'icon-image': ['get', 'iconImageSelected'],
+          'icon-allow-overlap': true,
+        },
+      });
+
+      map.addSource('stops', {
+        type: 'geojson',
+        data: stopFcRef.current,
+        promoteId: 'stopId',
+      });
+      addMarkerLayers(map);
 
       loadedRef.current = true;
       maybeFit(map);
 
-      // Composite each marker image on demand (day hue ring + kind glyph) when
-      // the symbol layer first references it — robust to timing/failures.
+      // Composite pin images on demand when a layer first references a key —
+      // robust to timing/failures, and means nothing has to pre-fetch a
+      // sprite sheet before the first pin can render.
       map.on('styleimagemissing', (e) => {
-        const atlas = atlasRef.current;
-        if (!atlas || !e.id.startsWith('m:') || map.hasImage(e.id)) return;
+        if (map.hasImage(e.id)) return;
         try {
-          compositeMarker(map, atlas, e.id);
+          if (e.id.startsWith('n:')) {
+            compositeNumberBadge(map, e.id);
+            return;
+          }
+          if (e.id.startsWith('w:')) {
+            // "w:<poiId>" or "w:<poiId>:sel" — either way, composite both
+            // variants now (idempotent — see compositeWishlistPin) so
+            // selecting the item never has to wait on a second missing-image
+            // round trip. No photo yet: the wishlistCoverEffect below
+            // upgrades this in place once (if) one loads.
+            const poiId = e.id.slice('w:'.length).split(':')[0] ?? '';
+            const item = wishlistRef.current.find((w) => w.id === poiId);
+            compositeWishlistPin(
+              map,
+              poiId,
+              null,
+              categoryColor(item?.kind ?? 'uncategorized'),
+            );
+          }
         } catch (err) {
-          console.error('marker composite failed for', e.id, err);
+          console.error('pin composite failed for', e.id, err);
         }
       });
-
-      loadAtlas()
-        .then((atlas) => {
-          atlasRef.current = atlas;
-          if (!map.getSource('stops')) {
-            map.addSource('stops', {
-              type: 'geojson',
-              data: stopFcRef.current,
-              promoteId: 'stopId',
-            });
-          }
-          // Labels live on their own source, deliberately not fused into the
-          // icon layers: a symbol layer whose text glyph 404s can abort its
-          // *whole source's* worker tile (see ToDo.md — this already silently
-          // dropped the leg lines once). Isolating labels here means a bad
-          // glyph can only ever cost the labels, never the icons.
-          if (!map.getSource('stops-labels')) {
-            map.addSource('stops-labels', {
-              type: 'geojson',
-              data: stopFcRef.current,
-              promoteId: 'stopId',
-            });
-          }
-          addMarkerLayers(map);
-          maybeFit(map);
-        })
-        .catch((err) => console.error('sprite atlas failed to load', err));
     });
 
     const stopsUnder = (point: maplibregl.Point): string | null => {
@@ -416,10 +415,11 @@ export function MapPane({
     };
 
     const wishlistUnder = (point: maplibregl.Point): string | null => {
-      if (!map.getLayer('wishlist-pins')) return null;
-      const hits = map.queryRenderedFeatures(point, {
-        layers: ['wishlist-pins'],
-      });
+      const layers = ['wishlist-pins', 'wishlist-pins-selected'].filter((l) =>
+        map.getLayer(l),
+      );
+      if (layers.length === 0) return null;
+      const hits = map.queryRenderedFeatures(point, { layers });
       return (hits[0]?.properties?.poiId as string | undefined) ?? null;
     };
 
@@ -480,16 +480,14 @@ export function MapPane({
     }
   }, [fc]);
 
-  // Push new stop markers; missing images composite via styleimagemissing.
+  // Push new stop markers; missing badge images composite via
+  // styleimagemissing.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     const source = map.getSource('stops') as
       maplibregl.GeoJSONSource | undefined;
     source?.setData(stopFc);
-    const labelSource = map.getSource('stops-labels') as
-      maplibregl.GeoJSONSource | undefined;
-    labelSource?.setData(stopFc);
   }, [stopFc]);
 
   // Push new ghost pins.
@@ -509,6 +507,71 @@ export function MapPane({
       maplibregl.GeoJSONSource | undefined;
     source?.setData(wishlistFc);
   }, [wishlistFc]);
+
+  // Upgrade each wishlist pin from its synchronous category-colour fallback
+  // (composited in styleimagemissing) to its real cover photo, once loaded —
+  // via updateImage, not a fresh addImage, since the key already exists.
+  // Reads `records.blocks` for the cover photo the way the card does
+  // (`blocksFor`), not Wikidata like Nearby's ghost-pin thumbnails: a
+  // wishlist item's photo is whatever block the capture/import pipeline (or
+  // the card's own block editor) attached to it, not an external lookup.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    let cancelled = false;
+    for (const item of wishlist ?? []) {
+      if (
+        !item.lat ||
+        !item.lon ||
+        wishlistCoverResolvedRef.current.has(item.id)
+      ) {
+        continue;
+      }
+      const cover = blocksFor(recordsRef.current.blocks, 'poi', item.id).find(
+        (b) => b.kind === 'photo',
+      );
+      const url = cover ? blockFileUrl(pb, cover, '80x80') : null;
+      wishlistCoverResolvedRef.current.add(item.id);
+      if (!url) continue;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (cancelled) return;
+        try {
+          compositeWishlistPin(
+            map,
+            item.id,
+            img,
+            categoryColor(item.kind ?? 'uncategorized'),
+          );
+        } catch (err) {
+          console.error('wishlist photo composite failed for', item.id, err);
+        }
+      };
+      img.src = url;
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [wishlist, records.blocks]);
+
+  // The bigger/haloed wishlist pin variant follows the selected item —
+  // mirrors the selected-stop exclusion filter below, but wishlist pins
+  // never need a draggable DOM twin, so a second GL layer is enough.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (
+      !map ||
+      !loadedRef.current ||
+      !map.getLayer('wishlist-pins') ||
+      !map.getLayer('wishlist-pins-selected')
+    ) {
+      return;
+    }
+    const id = selectedWishlistId ?? '';
+    map.setFilter('wishlist-pins', ['!=', ['get', 'poiId'], id]);
+    map.setFilter('wishlist-pins-selected', ['==', ['get', 'poiId'], id]);
+  }, [selectedWishlistId]);
 
   // Query Overpass for the focused day's corridor when Nearby is toggled on,
   // or the day/radius changes. Reads records via the ref (not a dependency)
@@ -629,61 +692,41 @@ export function MapPane({
     }
   }, [focusDayId]);
 
-  // Always show the focused day's first and last stop, even if the collision
-  // engine would otherwise hide them — the start/end of the day you're
-  // looking at shouldn't disappear just because the route is dense.
+  // Day-scope the stop pins to whichever day is focused (design handoff,
+  // "Day switching": "swaps ... the map's numbered pins to that day") and,
+  // within that, hide the selected stop's own pin — its DOM twin below
+  // stands in for it so it can be dragged. One filter, both conditions,
+  // because setFilter replaces the whole expression: a second effect
+  // touching the same layer would just clobber whichever ran last.
+  //
+  // Falls back to the trip's first day when nothing is explicitly focused
+  // (day pills don't exist yet — WORK 12.6 — so nothing guarantees a day is
+  // ever selected before then) rather than rendering no pins at all.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !map.getLayer('stops-label-pinned')) {
-      return;
-    }
-    const dayStops = focusDayId
-      ? recordsRef.current.stops
-          .filter((s) => s.day === focusDayId)
-          .sort((a, b) => a.order_index - b.order_index)
-      : [];
-    const ids = [...new Set([dayStops[0]?.id, dayStops.at(-1)?.id])].filter(
-      (id): id is string => !!id,
-    );
-    map.setFilter('stops-label-pinned', [
-      'in',
-      ['get', 'stopId'],
-      ['literal', ids],
+    if (!map || !loadedRef.current || !map.getLayer('stops')) return;
+    const dayId = focusDayId ?? recordsRef.current.days[0]?.id ?? '';
+    const selId = selectedStop?.id ?? '';
+    map.setFilter('stops', [
+      'all',
+      ['==', ['get', 'dayId'], dayId],
+      ['!=', ['get', 'stopId'], selId],
     ] as unknown as maplibregl.FilterSpecification);
-  }, [focusDayId, stopFc]);
+  }, [focusDayId, selectedStop?.id, stopFc]);
 
   // Draggable marker for the selected stop only: dragging every marker at
   // once would mean ditching the fast symbol-layer rendering BUILD §5 chose
-  // for potentially many stops. It's the stop's real pin (same shape/icon/
-  // hue as the GL layer, built from the same atlas) so dragging it reads as
-  // moving the actual marker, not a generic overlay — the GL layer hides
-  // this one stop's icon underneath while its DOM twin is shown. Its access
-  // point, once set, gets a second draggable pin with a car glyph instead.
-  // Dropping calls back with the new point; the caller re-routes
-  // automatically, the same "did it resolve?" feedback the click-to-place
-  // flow already gives — no live snap-to-road.
+  // for potentially many stops. It's the stop's real pin (same shape/number
+  // as the GL layer) so dragging it reads as moving the actual marker, not
+  // a generic overlay — the GL layer hides this one stop's badge underneath
+  // while its DOM twin is shown. Its access point, once set, gets a second
+  // draggable pin with a car glyph instead. Dropping calls back with the
+  // new point; the caller re-routes automatically, the same "did it
+  // resolve?" feedback the click-to-place flow already gives — no live
+  // snap-to-road.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-
-    // Layers are added asynchronously after the sprite atlas fetch resolves
-    // (see the init effect), so there's a real window — especially under
-    // StrictMode's dev-only double-mount — where loadedRef is already true
-    // but stops-accom/stops-other don't exist yet. Skip the filter update
-    // rather than crash; the next selection change re-runs this once they do.
-    const selId = selectedStop?.id ?? '';
-    if (map.getLayer('stops-accom') && map.getLayer('stops-other')) {
-      map.setFilter('stops-accom', [
-        'all',
-        ['==', ['get', 'isAccommodation'], true],
-        ['!=', ['get', 'stopId'], selId],
-      ] as unknown as maplibregl.FilterSpecification);
-      map.setFilter('stops-other', [
-        'all',
-        ['==', ['get', 'isAccommodation'], false],
-        ['!=', ['get', 'stopId'], selId],
-      ] as unknown as maplibregl.FilterSpecification);
-    }
 
     if (draggingRef.current) return;
 
@@ -696,17 +739,10 @@ export function MapPane({
         const feature = stopFcRef.current.features.find(
           (f) => f.properties.stopId === selectedStop.id,
         );
-        const atlas = atlasRef.current;
-        const element = buildPinElement(
-          feature?.properties.hue ?? '#0284c7',
-          (ctx) => {
-            if (atlas && feature)
-              drawAtlasGlyph(ctx, atlas, feature.properties.icon);
-          },
-        );
+        const element = buildNumberedPinElement(feature?.properties.seq ?? 1);
         const marker = new maplibregl.Marker({
           element,
-          anchor: 'bottom',
+          anchor: 'center',
           draggable: true,
         })
           .setLngLat([selectedStop.lon, selectedStop.lat])
@@ -771,33 +807,10 @@ export function MapPane({
     selectedStop?.access_lon,
   ]);
 
-  // The auto/icons/thumbnails control overrides the zoom tier for non-
-  // accommodation markers (thumbnails behaves as icons until photos exist).
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loadedRef.current || !map.getLayer('stops-other')) return;
-    map.setPaintProperty(
-      'stops-other',
-      'icon-opacity',
-      markerMode === 'auto' ? TIER_OPACITY : 1,
-    );
-  }, [markerMode]);
-
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute left-2 top-2 flex overflow-hidden rounded border border-slate-300 bg-white text-xs shadow">
-        {(['auto', 'icons', 'thumbnails'] as MarkerMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMarkerMode(m)}
-            className={`px-2 py-1 ${markerMode === m ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-      <div className="absolute left-2 top-11 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
+      <div className="absolute left-2 top-2 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
         <button
           onClick={() => setNearbyEnabled((v) => !v)}
           className={
@@ -821,7 +834,7 @@ export function MapPane({
         )}
       </div>
       {nearbyEnabled && !focusDayId && (
-        <div className="absolute left-2 top-[4.75rem] rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
+        <div className="absolute left-2 top-11 rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
           Select a day to see nearby POIs
         </div>
       )}

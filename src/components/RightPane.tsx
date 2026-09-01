@@ -26,6 +26,7 @@ interface Props {
   onSelectNearby: (poi: NearbyPoi) => void;
   wishlist?: PoisResponse[];
   onSelectWishlist?: (poi: PoisResponse) => void;
+  selectedWishlistId?: string | null;
   onAddBlock: (stopId: string, kind: BlockKind) => void;
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -58,6 +59,7 @@ export function RightPane({
   onSelectNearby,
   wishlist,
   onSelectWishlist,
+  selectedWishlistId,
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
@@ -90,6 +92,7 @@ export function RightPane({
           onSelectNearby={onSelectNearby}
           wishlist={wishlist}
           onSelectWishlist={onSelectWishlist}
+          selectedWishlistId={selectedWishlistId}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">

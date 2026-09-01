@@ -1,24 +1,24 @@
 /**
- * Stop marker rendering (BUILD §5.3): the sprite atlas loader, the pin
- * drawing routines shared by the GL symbol layer and the draggable DOM
- * markers, and the layers that put them on the map. Split out of MapPane
- * (WORK 6.4) once the file passed ~800 lines — no behaviour change, just
- * giving the map-click/nearby/labels concerns in MapPane room to grow
- * without this drawing code buried in the middle of it.
+ * Marker rendering: the sprite atlas loader (still used by `KindIcon` for
+ * the kind picker), the pin drawing routines shared by the GL symbol layer
+ * and the draggable DOM markers, and the layers that put them on the map.
+ * Split out of MapPane (WORK 6.4) once the file passed ~800 lines — no
+ * behaviour change, just giving the map-click/nearby/labels concerns in
+ * MapPane room to grow without this drawing code buried in the middle of it.
+ *
+ * BUILD §5.3's zoom-tiered, kind-icon pin (`compositeMarker`,
+ * `drawAtlasGlyph`, the accommodation/other layer split, `TIER_OPACITY`) is
+ * retired here, not restyled — the redesign (design_handoff_map_first_
+ * planner/README.md, WORK 12.4) replaces it with a plain numbered circle,
+ * identical across every kind and day, day-scoped by `MapPane` rather than
+ * zoom-faded. Identity now lives in the card (WORK 12.2), not painted on the
+ * pin. The access-point marker keeps its teardrop pin shape unchanged — the
+ * redesign doesn't address it, and it isn't part of the itinerary sequence
+ * the numbered pins encode.
  */
 
 import type maplibregl from 'maplibre-gl';
-
-// Non-accommodation markers fade in past z6 (the trip-overview zoom).
-export const TIER_OPACITY = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  5,
-  0,
-  6,
-  1,
-] as unknown as maplibregl.ExpressionSpecification;
+import { oklchToHex } from './map-colors';
 
 export interface SpriteEntry {
   x: number;
@@ -101,30 +101,6 @@ function drawWhiteGlyph(
   ctx.drawImage(scratch, PIN_W / 2 - GLYPH_SIZE / 2, HEAD_CY - GLYPH_SIZE / 2);
 }
 
-/** Draws a taxonomy sprite glyph, recoloured white, centred in the pin's
- * head. */
-export function drawAtlasGlyph(
-  ctx: CanvasRenderingContext2D,
-  atlas: Atlas,
-  icon: string,
-) {
-  const e = atlas.json[icon];
-  if (!e) return;
-  drawWhiteGlyph(ctx, (sctx) => {
-    sctx.drawImage(
-      atlas.img,
-      e.x,
-      e.y,
-      e.width,
-      e.height,
-      0,
-      0,
-      GLYPH_SIZE,
-      GLYPH_SIZE,
-    );
-  });
-}
-
 /** Draws a plain glyph (e.g. an emoji), recoloured white, centred in the
  * pin's head — used for markers that aren't a taxonomy kind, like the
  * access-point car. */
@@ -135,22 +111,6 @@ export function drawEmojiGlyph(ctx: CanvasRenderingContext2D, emoji: string) {
     sctx.textBaseline = 'middle';
     sctx.fillText(emoji, GLYPH_SIZE / 2, GLYPH_SIZE / 2 + 1);
   });
-}
-
-/** Composite one marker image ("m:<icon>:<hue>") for the GL symbol layer.
- * Called on demand via styleimagemissing. */
-export function compositeMarker(map: maplibregl.Map, atlas: Atlas, id: string) {
-  const parts = id.split(':'); // ["m", icon, "#rrggbb"]
-  const icon = parts[1] ?? 'marker';
-  const hue = parts[2] ?? '#64748b';
-  const canvas = document.createElement('canvas');
-  canvas.width = PIN_W;
-  canvas.height = PIN_H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  drawPinBase(ctx, hue);
-  drawAtlasGlyph(ctx, atlas, icon);
-  map.addImage(id, ctx.getImageData(0, 0, PIN_W, PIN_H), { pixelRatio: 2 });
 }
 
 /** Builds a standalone pin canvas for a draggable DOM marker — same shape as
@@ -174,76 +134,277 @@ export function buildPinElement(
   return canvas;
 }
 
+// --- numbered stop pins (design_handoff_map_first_planner, WORK 12.4) -----
+//
+// Device px at pixelRatio 2, matching the rest of this file's convention
+// (canvas dimensions and draw coordinates are device px directly; the CSS
+// display size is exactly half). Colours are the redesign's oklch tokens
+// (tailwind.config.js), converted once through oklchToHex — MapLibre and
+// Canvas 2D both need concrete colours, not the CSS custom properties
+// Tailwind generates.
+const BADGE_UNSEL_D = 52; // -> 26px CSS
+const BADGE_SEL_D = 68; // -> 34px CSS
+const BADGE_BORDER_D = 4; // -> 2px CSS
+const BADGE_HALO_D = 16; // -> 8px CSS halo width
+export const BADGE_CSS_UNSEL = BADGE_UNSEL_D / 2;
+export const BADGE_CSS_SEL = BADGE_SEL_D / 2;
+
+const BADGE_BG = oklchToHex(0.24, 0.013, 250); // control
+const BADGE_BORDER = oklchToHex(0.72, 0.13, 215); // accent
+const BADGE_TEXT = oklchToHex(0.92, 0.006, 250); // text
+const BADGE_SEL_BG = oklchToHex(0.72, 0.13, 215); // accent
+const BADGE_SEL_BORDER = oklchToHex(0.96, 0.01, 240);
+const BADGE_SEL_TEXT = oklchToHex(0.16, 0.02, 240); // on-accent
+const BADGE_HALO = oklchToHex(0.72, 0.13, 215); // accent, alpha applied separately
+
+function fillCircle(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  fill: string,
+) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function strokeCircle(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  color: string,
+  width: number,
+) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.lineWidth = width;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+}
+
+function drawBadgeNumber(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  text: string,
+  color: string,
+  px: number,
+) {
+  ctx.fillStyle = color;
+  ctx.font = `600 ${px}px "IBM Plex Mono", ui-monospace, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, cy + 1);
+}
+
+/** Composites the unselected numbered badge ("n:<seq>") for the GL symbol
+ * layer. Called on demand via styleimagemissing — one image per distinct
+ * sequence number, shared across every day/stop that happens to land on it,
+ * since the badge carries no day- or kind-specific styling any more. */
+export function compositeNumberBadge(map: maplibregl.Map, id: string) {
+  const seq = id.slice('n:'.length);
+  const d = BADGE_UNSEL_D;
+  const r = d / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = d;
+  canvas.height = d;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  fillCircle(ctx, r, r, r - BADGE_BORDER_D / 2, BADGE_BG);
+  strokeCircle(ctx, r, r, r - BADGE_BORDER_D / 2, BADGE_BORDER, BADGE_BORDER_D);
+  drawBadgeNumber(ctx, r, r, seq, BADGE_TEXT, 24);
+  map.addImage(id, ctx.getImageData(0, 0, d, d), { pixelRatio: 2 });
+}
+
+/** Builds the selected stop's draggable DOM marker: bigger badge, brighter
+ * border, plus the spec's 8px accent halo at 16% alpha baked into the same
+ * canvas (simpler than a second underlying layer for one always-DOM
+ * marker). Centre-anchored, like the GL badge — see `MARKER_LAYOUT`. */
+export function buildNumberedPinElement(seq: number): HTMLCanvasElement {
+  const d = BADGE_SEL_D + BADGE_HALO_D * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = d;
+  canvas.height = d;
+  canvas.style.width = `${d / 2}px`;
+  canvas.style.height = `${d / 2}px`;
+  canvas.style.cursor = 'grab';
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const c = d / 2;
+    ctx.globalAlpha = 0.16;
+    fillCircle(ctx, c, c, BADGE_SEL_D / 2 + BADGE_HALO_D / 2, BADGE_HALO);
+    ctx.globalAlpha = 1;
+    fillCircle(ctx, c, c, BADGE_SEL_D / 2 - BADGE_BORDER_D / 2, BADGE_SEL_BG);
+    strokeCircle(
+      ctx,
+      c,
+      c,
+      BADGE_SEL_D / 2 - BADGE_BORDER_D / 2,
+      BADGE_SEL_BORDER,
+      BADGE_BORDER_D,
+    );
+    drawBadgeNumber(ctx, c, c, String(seq), BADGE_SEL_TEXT, 28);
+  }
+  return canvas;
+}
+
+// --- wishlist pins (design_handoff_map_first_planner, WORK 12.4) ----------
+//
+// Square photo thumbnails, not dots — the amber border is the entire visual
+// distinction from a stop pin (per the handoff, deliberately: no
+// clustering, no zoom-gating, ~100 hand-curated pins read fine). Composited
+// the same on-demand way as the numbered badges, but per wishlist item
+// rather than per shared value, since each item's cover photo differs.
+const WISH_UNSEL_D = 60; // -> 30px CSS
+const WISH_SEL_D = 76; // -> 38px CSS
+const WISH_BORDER_D = 4; // -> 2px CSS
+const WISH_RADIUS_D = 18; // -> 9px CSS corner radius
+const WISH_HALO_D = 12; // -> 6px CSS outline
+
+const WISH_BORDER = oklchToHex(0.78, 0.13, 80); // wishlist (amber)
+const WISH_SEL_BORDER = oklchToHex(0.9, 0.1, 85);
+const WISH_HALO = oklchToHex(0.78, 0.13, 80); // wishlist, alpha applied separately
+
+function roundedRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/** Cover-fits `img` (or, with no image, just fills with `fallbackColor`)
+ * into a rounded square of side `size` at origin `(x,y)`, then strokes the
+ * amber border. Shared by the unselected/selected wishlist composites and
+ * by the initial synchronous fallback (drawn before any photo has loaded —
+ * `img` is null), so all three read as the same shape. */
+function drawWishSquare(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  radius: number,
+  border: string,
+  borderWidth: number,
+  img: HTMLImageElement | null,
+  fallbackColor: string,
+) {
+  roundedRectPath(ctx, x, y, size, size, radius);
+  if (img) {
+    ctx.save();
+    ctx.clip();
+    const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
+    ctx.drawImage(img, x + (size - w) / 2, y + (size - h) / 2, w, h);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = fallbackColor;
+    ctx.fill();
+  }
+  roundedRectPath(
+    ctx,
+    x + borderWidth / 2,
+    y + borderWidth / 2,
+    size - borderWidth,
+    size - borderWidth,
+    Math.max(0, radius - borderWidth / 2),
+  );
+  ctx.lineWidth = borderWidth;
+  ctx.strokeStyle = border;
+  ctx.stroke();
+}
+
+/** Composites both the unselected ("w:<id>") and selected ("w:<id>:sel")
+ * images for one wishlist item in one pass — `img` is null until its cover
+ * photo has loaded, in which case the caller draws the plain fallback first
+ * and re-calls this once the photo resolves (`updateImage`, not `addImage`,
+ * for the already-added keys — see MapPane). */
+export function compositeWishlistPin(
+  map: maplibregl.Map,
+  poiId: string,
+  img: HTMLImageElement | null,
+  fallbackColor: string,
+) {
+  const unselCanvas = document.createElement('canvas');
+  unselCanvas.width = WISH_UNSEL_D;
+  unselCanvas.height = WISH_UNSEL_D;
+  const unselCtx = unselCanvas.getContext('2d');
+  if (unselCtx) {
+    drawWishSquare(
+      unselCtx,
+      0,
+      0,
+      WISH_UNSEL_D,
+      WISH_RADIUS_D,
+      WISH_BORDER,
+      WISH_BORDER_D,
+      img,
+      fallbackColor,
+    );
+    const data = unselCtx.getImageData(0, 0, WISH_UNSEL_D, WISH_UNSEL_D);
+    const id = `w:${poiId}`;
+    if (map.hasImage(id)) map.updateImage(id, data);
+    else map.addImage(id, data, { pixelRatio: 2 });
+  }
+
+  const d = WISH_SEL_D + WISH_HALO_D * 2;
+  const selCanvas = document.createElement('canvas');
+  selCanvas.width = d;
+  selCanvas.height = d;
+  const selCtx = selCanvas.getContext('2d');
+  if (selCtx) {
+    const inset = WISH_HALO_D;
+    selCtx.globalAlpha = 0.18;
+    roundedRectPath(selCtx, 0, 0, d, d, WISH_RADIUS_D + WISH_HALO_D);
+    selCtx.fillStyle = WISH_HALO;
+    selCtx.fill();
+    selCtx.globalAlpha = 1;
+    drawWishSquare(
+      selCtx,
+      inset,
+      inset,
+      WISH_SEL_D,
+      WISH_RADIUS_D,
+      WISH_SEL_BORDER,
+      WISH_BORDER_D,
+      img,
+      fallbackColor,
+    );
+    const data = selCtx.getImageData(0, 0, d, d);
+    const id = `w:${poiId}:sel`;
+    if (map.hasImage(id)) map.updateImage(id, data);
+    else map.addImage(id, data, { pixelRatio: 2 });
+  }
+}
+
+// design_handoff_map_first_planner/README.md's stop pins are a fixed CSS
+// size regardless of zoom (unlike BUILD §5.3's zoom-scaling teardrop) — an
+// HTML-overlay-like presentation, matching the day pills/card/wishlist
+// panel that are all fixed-size DOM. Centre-anchored, not tip/bottom: a
+// numbered dot has no meaningful "tip", and the spec's own
+// `transform: translate(-50%,-50%)` is exactly a centre anchor.
 const MARKER_LAYOUT = {
   'icon-image': ['get', 'iconImage'],
-  'icon-anchor': 'bottom',
-  'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.3, 14, 1.6],
-  'icon-allow-overlap': false,
-  'symbol-sort-key': ['get', 'sortKey'],
+  'icon-anchor': 'center',
+  'icon-allow-overlap': true,
 } as unknown as maplibregl.SymbolLayerSpecification['layout'];
 
-const HOVER_RADIUS = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  5,
-  10,
-  10,
-  16,
-  14,
-  22,
-] as unknown as maplibregl.ExpressionSpecification;
-
-// Eligible from just above the initial trip-overview zoom — the collision
-// engine, not a zoom floor, is what decides whether there's room for a given
-// label, so pull this down and let it do that job at any reasonable zoom.
-const LABEL_MINZOOM = 5;
-// Mirrors MARKER_LAYOUT's icon-size curve (1 -> 1.3 -> 1.6), scaled by 10, so
-// text-size and the pin's rendered height stay in constant proportion across
-// zoom (pin height / text size = PIN_CSS_H / 10 = 3, always). That's what
-// makes a single fixed text-offset below correct at every zoom instead of
-// only the one it happened to be tuned against — a mismatch here is exactly
-// what let the label sit low enough to cover the icon instead of clearing it.
-const LABEL_SIZE = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  5,
-  10,
-  10,
-  13,
-  14,
-  16,
-] as unknown as maplibregl.ExpressionSpecification;
-// >= 3em clears the pin's full height at any zoom (see LABEL_SIZE); the
-// extra 0.6 is breathing room between the label and the pin's tip.
-const LABEL_OFFSET = [0, -3.6];
-
-const LABEL_LAYOUT = {
-  'text-field': ['get', 'title'],
-  'text-font': ['Noto Sans Regular'],
-  'text-size': LABEL_SIZE,
-  'text-anchor': 'bottom',
-  'text-offset': LABEL_OFFSET,
-  // The collision engine is the "only if there's enough space" behaviour:
-  // it hides whichever labels don't fit rather than overlapping them.
-  'text-allow-overlap': false,
-  'text-optional': true,
-  'symbol-sort-key': ['get', 'sortKey'],
-} as unknown as maplibregl.SymbolLayerSpecification['layout'];
-
-// A day's first and last stop always get their label, bypassing collision,
-// while that day is focused (day-rail click) — the pinned filter starts
-// empty and is set by the "focused day" effect in MapPane.
-const PINNED_LABEL_LAYOUT = {
-  'text-field': ['get', 'title'],
-  'text-font': ['Noto Sans Regular'],
-  'text-size': LABEL_SIZE,
-  'text-anchor': 'bottom',
-  'text-offset': LABEL_OFFSET,
-  'text-allow-overlap': true,
-  'symbol-sort-key': ['get', 'sortKey'],
-} as unknown as maplibregl.SymbolLayerSpecification['layout'];
+// Roughly the unselected badge's radius (BADGE_UNSEL_D/2 in CSS px) plus a
+// few px of margin — fixed, not zoom-interpolated, to match the pins.
+const HOVER_RADIUS = 16;
 
 export function addMarkerLayers(map: maplibregl.Map) {
   // Hover highlight: a ring under the markers, shown for the hovered stop via
@@ -263,53 +424,17 @@ export function addMarkerLayers(map: maplibregl.Map) {
       },
     });
   }
-  // Two layers because a zoom expression must be top-level, not nested in a
-  // case: accommodation is always visible, other kinds fade in past z6.
-  if (!map.getLayer('stops-accom')) {
+  // One layer for every stop pin — no more accommodation/other split (that
+  // existed only to let one layer bypass the now-removed zoom fade) and no
+  // text-label layers: the number on the pin is the identifier, matching
+  // the itinerary column's own sequence badge (WORK 12.6) rather than
+  // repeating the title on the map.
+  if (!map.getLayer('stops')) {
     map.addLayer({
-      id: 'stops-accom',
+      id: 'stops',
       type: 'symbol',
       source: 'stops',
-      filter: ['==', ['get', 'isAccommodation'], true],
       layout: MARKER_LAYOUT,
-    });
-  }
-  if (!map.getLayer('stops-other')) {
-    map.addLayer({
-      id: 'stops-other',
-      type: 'symbol',
-      source: 'stops',
-      filter: ['==', ['get', 'isAccommodation'], false],
-      layout: MARKER_LAYOUT,
-      paint: { 'icon-opacity': TIER_OPACITY },
-    });
-  }
-  if (!map.getLayer('stops-label')) {
-    map.addLayer({
-      id: 'stops-label',
-      type: 'symbol',
-      source: 'stops-labels',
-      minzoom: LABEL_MINZOOM,
-      layout: LABEL_LAYOUT,
-      paint: {
-        'text-color': '#1e293b',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1.2,
-      },
-    });
-  }
-  if (!map.getLayer('stops-label-pinned')) {
-    map.addLayer({
-      id: 'stops-label-pinned',
-      type: 'symbol',
-      source: 'stops-labels',
-      filter: ['==', ['get', 'stopId'], ''],
-      layout: PINNED_LABEL_LAYOUT,
-      paint: {
-        'text-color': '#1e293b',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1.2,
-      },
     });
   }
 }

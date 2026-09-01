@@ -10,7 +10,6 @@
 import type { CascadeResult } from './cascade';
 import type { TripRecords } from './pb-trip-doc';
 import { dayHue, flatColor, legColor } from './map-colors';
-import { TAXONOMY, type Kind } from './taxonomy';
 
 export interface LegFeature {
   type: 'Feature';
@@ -110,7 +109,7 @@ export function buildLegFeatures(
   return { type: 'FeatureCollection', features };
 }
 
-// --- stop markers (BUILD §5) -----------------------------------------------
+// --- stop markers (design_handoff_map_first_planner, WORK 12.4) -----------
 
 export interface StopFeature {
   type: 'Feature';
@@ -118,12 +117,11 @@ export interface StopFeature {
   properties: {
     stopId: string;
     title: string;
-    icon: string;
-    hue: string;
+    dayId: string;
+    /** 1-indexed position within its day — the number painted on the pin,
+     * matching the itinerary column's sequence badge (WORK 12.6). */
+    seq: number;
     iconImage: string;
-    isAccommodation: boolean;
-    anchored: boolean;
-    sortKey: number;
   };
 }
 
@@ -132,36 +130,98 @@ export interface StopFeatureCollection {
   features: StopFeature[];
 }
 
-/** One Point per stop with coordinates, carrying its kind icon, day-hue ring
- * colour and a collision sort key (accommodation first, then anchored). The
- * iconImage key names the composited circle+icon the map builds on demand. */
+/** One Point per stop with coordinates. All days are built into one
+ * collection (seq is stable per day regardless of which day is focused);
+ * `MapPane` filters the rendered layer to the focused day (design handoff:
+ * "clicking a day pill swaps ... the map's numbered pins to that day").
+ * The pin no longer carries a kind icon or a day hue — the redesign's pins
+ * are plain numbered circles, identical across days and kinds; identity
+ * lives in the card, not painted on the map (BUILD §5's kind-icon pins are
+ * superseded here, not merely restyled). iconImage names the composited
+ * numbered badge the map builds on demand. */
 export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
   const features: StopFeature[] = [];
   const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
 
-  days.forEach((day, dayIndex) => {
-    const hue = flatColor(dayHue(dayIndex));
-    for (const s of records.stops.filter((x) => x.day === day.id)) {
+  for (const day of days) {
+    const dayStops = records.stops
+      .filter((s) => s.day === day.id)
+      .sort((a, b) => a.order_index - b.order_index);
+    let seq = 0;
+    for (const s of dayStops) {
       if (!s.lat || !s.lon) continue;
-      const icon = TAXONOMY[s.kind as Kind]?.icon ?? 'marker';
-      const isAccommodation = !!s.is_accommodation;
-      const anchored = !!s.anchor_time;
+      seq += 1;
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
         properties: {
           stopId: s.id,
           title: s.title,
-          icon,
-          hue,
-          iconImage: `m:${icon}:${hue}`,
-          isAccommodation,
-          anchored,
-          sortKey: isAccommodation ? 0 : anchored ? 1 : 2,
+          dayId: day.id,
+          seq,
+          iconImage: `n:${seq}`,
         },
       });
     }
-  });
+  }
 
+  return { type: 'FeatureCollection', features };
+}
+
+// --- wishlist pins (design_handoff_map_first_planner, WORK 12.4) ----------
+
+export interface WishlistFeature {
+  type: 'Feature';
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: {
+    poiId: string;
+    title: string;
+    kind: string;
+    /** Composited square-thumbnail image key for this item, unselected
+     * variant — one image per item (MapPane upgrades it in place from a
+     * category-colour fallback to the real cover photo once loaded, via
+     * `updateImage`, rather than encoding the photo in the key). */
+    iconImage: string;
+    /** Selected variant's key (bigger, brighter border, halo baked in) —
+     * MapPane swaps to this via a filtered second layer. */
+    iconImageSelected: string;
+  };
+}
+
+export interface WishlistFeatureCollection {
+  type: 'FeatureCollection';
+  features: WishlistFeature[];
+}
+
+/** One Point per wishlist idea with real coordinates — a freshly-added item
+ * defaults to lat/lon 0,0 until placed or edited, which would otherwise
+ * paint a pin in the Gulf of Guinea. Stays a pure function like its stop/leg
+ * counterparts even though the actual photo lookup (which needs `blocks`)
+ * happens in `MapPane` — this just names the image keys. */
+export function buildWishlistFeatures(
+  wishlist: Array<{
+    id: string;
+    title: string;
+    kind?: string | null;
+    lat?: number | null;
+    lon?: number | null;
+  }>,
+): WishlistFeatureCollection {
+  const features: WishlistFeature[] = wishlist
+    .filter((p) => p.lat && p.lon)
+    .map((p) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [p.lon!, p.lat!] as [number, number],
+      },
+      properties: {
+        poiId: p.id,
+        title: p.title,
+        kind: p.kind ?? 'uncategorized',
+        iconImage: `w:${p.id}`,
+        iconImageSelected: `w:${p.id}:sel`,
+      },
+    }));
   return { type: 'FeatureCollection', features };
 }

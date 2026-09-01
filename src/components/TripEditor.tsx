@@ -880,6 +880,7 @@ export function TripEditor({
             onSelectNearby={selectNearby}
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
+            selectedWishlistId={wishCard?.id ?? null}
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
@@ -914,6 +915,7 @@ export function TripEditor({
             onSelectNearby={selectNearby}
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
+            selectedWishlistId={wishCard?.id ?? null}
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}

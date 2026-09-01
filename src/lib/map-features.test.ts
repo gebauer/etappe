@@ -98,12 +98,15 @@ describe('buildLegFeatures', () => {
   });
 });
 
-import { buildStopFeatures } from './map-features';
+import { buildStopFeatures, buildWishlistFeatures } from './map-features';
 
 describe('buildStopFeatures', () => {
   const recs = {
     trip: { id: 't', start_date: '2026-09-12' },
-    days: [{ id: 'd1', order_index: 0, kind: 'travel' }],
+    days: [
+      { id: 'd1', order_index: 0, kind: 'travel' },
+      { id: 'd2', order_index: 1, kind: 'travel' },
+    ],
     stops: [
       {
         id: 'A',
@@ -123,7 +126,6 @@ describe('buildStopFeatures', () => {
         lat: 63,
         lon: -21,
         is_accommodation: true,
-        anchor_time: '18:00',
       },
       {
         id: 'C',
@@ -133,7 +135,16 @@ describe('buildStopFeatures', () => {
         kind: 'town',
         lat: 0,
         lon: 0,
-      }, // no coords
+      }, // no coords, skipped — and doesn't consume a sequence number
+      {
+        id: 'D',
+        day: 'd2',
+        order_index: 0,
+        title: 'Gullfoss',
+        kind: 'waterfall',
+        lat: 64.3,
+        lon: -20.1,
+      },
     ],
     legs: [],
     activities: [],
@@ -141,19 +152,51 @@ describe('buildStopFeatures', () => {
 
   it('emits a marker per stop with coordinates', () => {
     const fc = buildStopFeatures(recs);
-    expect(fc.features.map((f) => f.properties.stopId)).toEqual(['A', 'B']);
+    expect(fc.features.map((f) => f.properties.stopId)).toEqual([
+      'A',
+      'B',
+      'D',
+    ]);
     expect(fc.features.map((f) => f.properties.title)).toEqual([
       'Skógafoss',
       'Hótel Skálholt',
+      'Gullfoss',
     ]);
   });
 
-  it('maps the kind icon and ranks accommodation first', () => {
-    const [a, b] = buildStopFeatures(recs).features;
-    expect(a!.properties.icon).toBe('waterfall');
-    expect(b!.properties.icon).toBe('lodging'); // hotel -> lodging
-    expect(b!.properties.isAccommodation).toBe(true);
-    expect(b!.properties.sortKey).toBe(0); // accommodation ranks first
-    expect(a!.properties.sortKey).toBe(2); // plain stop
+  it('numbers stops in sequence order, restarting each day', () => {
+    const fc = buildStopFeatures(recs);
+    const byId = new Map(fc.features.map((f) => [f.properties.stopId, f]));
+    expect(byId.get('A')!.properties.seq).toBe(1);
+    expect(byId.get('B')!.properties.seq).toBe(2); // C has no coords, doesn't take a number
+    expect(byId.get('D')!.properties.seq).toBe(1); // restarts on day 2
+    expect(byId.get('A')!.properties.dayId).toBe('d1');
+    expect(byId.get('D')!.properties.dayId).toBe('d2');
+  });
+
+  it('names the composited badge image after the sequence number', () => {
+    const fc = buildStopFeatures(recs);
+    const a = fc.features.find((f) => f.properties.stopId === 'A')!;
+    const d = fc.features.find((f) => f.properties.stopId === 'D')!;
+    expect(a.properties.iconImage).toBe('n:1');
+    expect(d.properties.iconImage).toBe('n:1'); // same key, different day — fine, badges carry no day-specific styling
+  });
+});
+
+describe('buildWishlistFeatures', () => {
+  const items = [
+    { id: 'W1', title: 'Jökulsárlón', kind: 'lake', lat: 64.05, lon: -16.18 },
+    { id: 'W2', title: 'Unplaced idea', kind: 'hike', lat: 0, lon: 0 },
+  ];
+
+  it('skips items without real coordinates', () => {
+    const fc = buildWishlistFeatures(items);
+    expect(fc.features.map((f) => f.properties.poiId)).toEqual(['W1']);
+  });
+
+  it('names distinct unselected/selected image keys per item', () => {
+    const fc = buildWishlistFeatures(items);
+    expect(fc.features[0]!.properties.iconImage).toBe('w:W1');
+    expect(fc.features[0]!.properties.iconImageSelected).toBe('w:W1:sel');
   });
 });

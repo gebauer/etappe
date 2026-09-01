@@ -24,11 +24,13 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.3 are done (design tokens, unified pin-click card, expanded
-full-details card); next is 12.4 (pin visuals). The Blocks section of the
-expanded card reuses `BlockEditor` as-is (light-themed) rather than
-restyling it — out of this bundle's scope, and a visible mismatch inside
-the dark modal worth knowing about.
+12.1–12.4 are done (design tokens, unified pin-click card, expanded
+full-details card, pin visuals); next is 12.5 (day pills and Fit trip). The
+Blocks section of the expanded card reuses `BlockEditor` as-is
+(light-themed) rather than restyling it — out of this bundle's scope, and a
+visible mismatch inside the dark modal worth knowing about. 12.4 retired
+BUILD §5.3's kind-icon/zoom-tier marker system entirely rather than
+restyling it — see that task's entry for why.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -37,7 +39,8 @@ v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 
 Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
 wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
 7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c` ·
-12.1 `3808a09` · handoff revision `b2c85f5` · 12.2 `45baac0`.
+12.1 `3808a09` · handoff revision `b2c85f5` · 12.2 `45baac0` ·
+12.3 `6fc93bd` · chromium/node fix `529b1ac` · README `f90d27c`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -252,6 +255,11 @@ the crossfade — and each is tedious to unpick later.
 Three zoom tiers, symbol layer with `map.addImage`, offscreen-canvas compositing
 of crop, ring and badge, IndexedDB cache keyed by file hash, collision via
 `symbol-sort-key`. Not DOM markers — see BUILD §5 for why.
+**Retired by 12.4** (2026-09-01): the redesign's stop pin is a plain
+day-scoped numbered circle, not a zoom-tiered kind-icon pin, so the tier
+system, the accommodation/other layer split and the auto/icons/thumbnails
+control described here no longer exist. `map.addImage`/offscreen-canvas
+compositing and "not DOM markers" both still hold — see 12.4's entry.
 
 **5.4 Map interaction** · Standard · ✅ `f0478c4`
 Hover linking both directions, click to select, fit to day bounds, the
@@ -468,12 +476,36 @@ dragging the marker writes back. Adds `expanded: boolean` to the card's UI
 state. Not offered on phone (the strip's inline form covers the planning
 fields; accommodation/address/coords are desktop-set values).
 
-**12.4 Pin visuals** · Standard
-Stop pin unselected/selected sizing + accent halo per spec; wishlist pins
-become square photo thumbnails with an amber border (reuse the existing
-`nearby-photo` Wikimedia-thumbnail compositing pattern) instead of the
-current plain circles. Touches `map-markers.ts`, `map-features.ts`,
-`MapPane.tsx`.
+**12.4 Pin visuals** · Standard · ✅
+Turned out bigger than "restyle": the handoff's stop pin is a plain numbered
+circle (26px unselected / 34px + halo selected), not the existing kind-icon
+teardrop pin sized/recoloured — BUILD §5.3's zoom-tiered marker system
+(three density tiers, the accommodation/other layer split, the
+auto/icons/thumbnails control) is retired, not adapted, since identity now
+lives in the card (12.2) and the pin only needs to show sequence order.
+Text labels on stop pins are also removed (not explicitly specced either
+way — the call made here is that they're superseded by the itinerary
+column's own sequence numbers, WORK 12.6, once it exists). Numbers are
+day-scoped per the handoff's "Day switching" line ("swaps ... the map's
+numbered pins to that day") — `MapPane` filters the `stops` layer to
+`focusDayId`, falling back to the trip's first day when nothing is
+explicitly focused yet (day pills/default-day-selection is 12.5/12.6, not
+built), so the map isn't empty on first load. Wishlist pins become square
+rounded photo thumbnails with an amber border and a category-colour
+fallback fill when no cover photo exists yet — composited per item
+(`compositeWishlistPin`, `map-markers.ts`), upgraded from fallback to real
+photo via `updateImage` once the cover loads from `records.blocks`, not
+Wikidata like Nearby's ghost pins. Selected variants (bigger badge/pin,
+brighter border, halo) render via a second GL layer filtered to the
+selected id, mirroring the existing selected-stop-exclusion technique;
+wishlist selection is a new `selectedWishlistId` prop threaded
+TripEditor → RightPane → MapPane. Verified in a real browser: two stops on
+one day both render and number correctly, a second day's stop is invisible
+while day 1 is focused and vice versa, and the wishlist pin's fallback/
+selected states both composite correctly (screenshots taken, not
+committed). Touches `map-markers.ts`, `map-features.ts`, `MapPane.tsx`,
+`RightPane.tsx`, `TripEditor.tsx`; `map-features.test.ts` rewritten for the
+new stop/wishlist feature shape.
 
 **12.5 Day pills and Fit trip** · Standard
 New map-overlay component taking over `DayRail`'s role: a pill row (day
