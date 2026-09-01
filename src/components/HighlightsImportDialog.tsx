@@ -235,6 +235,16 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
             <p className="text-sm text-slate-700">
               Imported {step.results.length} highlight
               {step.results.length === 1 ? '' : 's'} to the wishlist.
+              {step.results.some((r) => r.photosFailed > 0) && (
+                <span className="mt-1 block text-amber-700">
+                  {step.results.reduce((n, r) => n + r.photosFailed, 0)} photo
+                  {step.results.reduce((n, r) => n + r.photosFailed, 0) === 1
+                    ? ''
+                    : 's'}{' '}
+                  couldn't be downloaded — they still show, but won't appear on
+                  map pins.
+                </span>
+              )}
               {step.results.some((r) => r.geocodeFailed) && (
                 <>
                   {' '}

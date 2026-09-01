@@ -11,12 +11,17 @@ import type { TypedPocketBase } from '../types/pb';
 import type { Highlight, HighlightsDoc } from './import-highlights';
 import { addWishlistItem } from './pb-pois';
 import { photonSearch } from './photon';
+import { fetchPhotoFile } from './pb-photo-fetch';
 
 export interface HighlightImportResult {
   title: string;
   poiId: string;
   geocoded: boolean;
   geocodeFailed: boolean;
+  /** Photos whose bytes the server couldn't pull down (dead link, hotlink
+   * protection, not an image). They keep their URL, so they still display —
+   * they just can't become a map-pin thumbnail. */
+  photosFailed: number;
 }
 
 async function resolveCoords(h: Highlight): Promise<{
@@ -51,7 +56,7 @@ async function createHighlightBlocks(
   poiId: string,
   creatorId: string,
   h: Highlight,
-): Promise<void> {
+): Promise<string[]> {
   const base = {
     trip: tripId,
     parent_type: 'poi' as const,
@@ -75,8 +80,9 @@ async function createHighlightBlocks(
       url: link.url,
     });
   }
+  const photoBlockIds: string[] = [];
   for (const photo of h.photos) {
-    await pb.collection('blocks').create({
+    const created = await pb.collection('blocks').create({
       ...base,
       kind: 'photo',
       title: photo.title ?? '',
@@ -85,7 +91,9 @@ async function createHighlightBlocks(
       attribution_licence: photo.licence ?? '',
       attribution_url: photo.source_url ?? '',
     });
+    photoBlockIds.push(created.id);
   }
+  return photoBlockIds;
 }
 
 /** Imports every highlight in `doc` as a wishlist idea, sequentially (so a
@@ -112,12 +120,29 @@ export async function importHighlights(
       lon: coords.lon,
       notes: h.notes,
     });
-    await createHighlightBlocks(pb, tripId, poiId, user.id, h);
+    const photoBlockIds = await createHighlightBlocks(
+      pb,
+      tripId,
+      poiId,
+      user.id,
+      h,
+    );
+    // Pull each photo onto the server (WORK 12.8). A highlight's photos are
+    // third-party URLs; storing the bytes is what makes map-pin thumbnails
+    // possible at all, and stops the trip depending on someone else's
+    // webserver. Failures are reported, never thrown — one dead link
+    // shouldn't fail an import of thirty.
+    let photosFailed = 0;
+    for (const blockId of photoBlockIds) {
+      const outcome = await fetchPhotoFile(pb, blockId);
+      if (!outcome.fetched && outcome.reason) photosFailed += 1;
+    }
     results.push({
       title: h.title,
       poiId,
       geocoded: coords.geocoded,
       geocodeFailed: coords.geocodeFailed,
+      photosFailed,
     });
   }
   return results;

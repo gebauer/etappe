@@ -24,7 +24,8 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.6 are done — the redesign's desktop shell is in: design tokens,
+12.1–12.6 are done plus 12.8 (wishlist photos stored server-side) — the
+redesign's desktop shell is in: design tokens,
 unified pin-click card, expanded full-details card, pin visuals, day
 pills/Fit trip, and the map-dominant shell itself. Next is 12.7 (phone
 layout), which is also what fixes the sub-860px view 12.6 deliberately let
@@ -594,6 +595,44 @@ idea into view shouldn't throw away the zoom you were working at.
 "Fit trip" deliberately does **not** widen to the wishlist (tried, reverted
 on author's call): fit-the-trip should mean the trip, and a country-wide
 idea list would zoom straight past the days you asked to see.
+
+**12.8 Wishlist photos stored server-side** · Standard · ✅
+Author report: "wasn't the idea that the wishlist pins have tiny thumbnails
+instead of differently coloured areas?" — correct, and two separate bugs
+were in the way.
+
+1. **The importer never downloaded photos**, contrary to the assumption it
+   did: `import-highlights-commit.ts` stored `url: photo.url` and nothing
+   else (the real `island` trip: 18 photo blocks, 0 with a file). Imported
+   photos are third-party URLs, and those hosts routinely send no CORS
+   header — verified, roads-and-rivers.com sends none. Without CORS the
+   browser will happily *display* such an image but may neither `fetch` its
+   bytes nor read them back off a canvas, and compositing a pin thumbnail
+   needs exactly that. Hence photos in the list rows and card (plain
+   `<img>`) but flat category colours on the pins. It can't be fixed
+   client-side at all — the browser can't download those bytes either. New
+   `pb_hooks/photo.pb.js` (`POST /api/photo-fetch`) fetches server-side via
+   `$filesystem.fileFromURL` and stores the result as the block's `file`;
+   the import loop calls it per photo. Idempotent, membership-checked, and
+   a dead link reports `{fetched:false, reason}` rather than failing an
+   import of thirty. Storing the bytes also buys the PocketBase `80x80`
+   thumb the pin wants instead of a 300 KB JPEG, and stops the trip
+   depending on someone else's webserver.
+2. **A race in 12.4's own compositing effect**: it marked an item "resolved"
+   *before* checking whether a photo URL existed. The wishlist and the trip
+   document arrive from two separate fetches, so the effect routinely ran
+   with the item present but its blocks not yet loaded — pinning it to the
+   colour fallback permanently, even once the photo arrived. Now it only
+   marks resolved once there's something to load.
+
+Verified end-to-end with the author's real Highlights JSON: 4 photo blocks,
+4 files stored, and the pins render actual thumbnails (Seljalandsfoss,
+Skógafoss, Dyrhólaey, Jökulsárlón) with the amber border.
+
+**Not backfilled**: the 18 already-imported photos on `island` still have
+no file, so those pins stay colour-only until re-imported or a backfill is
+added. `pendingPhotoBlocks()` in `src/lib/pb-photo-fetch.ts` exists for
+that; wiring a "fetch missing photos" action is not built.
 
 **12.7 Phone layout** · Standard
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below

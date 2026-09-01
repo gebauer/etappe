@@ -559,8 +559,14 @@ export function MapPane({
         (b) => b.kind === 'photo',
       );
       const url = cover ? blockFileUrl(pb, cover, '80x80') : null;
-      wishlistCoverResolvedRef.current.add(item.id);
+      // Only mark it done once there's actually something to load. The
+      // wishlist and the trip document arrive from two separate fetches, so
+      // this effect regularly runs with the item present but its blocks not
+      // loaded yet — marking it resolved there stuck the pin on its colour
+      // fallback permanently, even after the photo showed up. Re-checking an
+      // item with no photo costs one array filter and no network.
       if (!url) continue;
+      wishlistCoverResolvedRef.current.add(item.id);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
