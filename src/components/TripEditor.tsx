@@ -88,6 +88,14 @@ export function TripEditor({
     new Set(),
   );
   const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
+  // Centres the map on demand. Its old trigger (the inspector's zoom
+  // button) retired with the inspector; now it's wishlist selection, where
+  // the item is regularly outside the current view.
+  const [flyTo, setFlyTo] = useState<{
+    lat: number;
+    lon: number;
+    nonce: number;
+  } | null>(null);
   const [showHighlightsImport, setShowHighlightsImport] = useState(false);
   const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
     null,
@@ -172,6 +180,17 @@ export function TripEditor({
     setEditing(false);
     setExpanded(false);
     open();
+  }
+
+  /** Opening a wishlist idea also centres the map on it. Ideas sit
+   * anywhere in the trip's country, routinely outside the current view, so
+   * without this, picking one from the list (or stepping to it with the
+   * card's ‹/›) looks like nothing happened. */
+  function showWishlistItem(item: PoisResponse) {
+    openCard(() => setWishCard(item));
+    if (item.lat && item.lon) {
+      setFlyTo({ lat: item.lat, lon: item.lon, nonce: Date.now() });
+    }
   }
 
   function closeCard() {
@@ -668,6 +687,9 @@ export function TripEditor({
         setEditing(false);
         setExpanded(false);
         setWishCard(next);
+        if (next.lat && next.lon) {
+          setFlyTo({ lat: next.lat, lon: next.lon, nonce: Date.now() });
+        }
       }
       return;
     }
@@ -804,6 +826,7 @@ export function TripEditor({
             onSelectNearby={selectNearby}
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
+            flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
             onSelectDay={(id) => setSelectedDayId(id)}
             onAddDay={() =>
@@ -828,7 +851,7 @@ export function TripEditor({
                   setSearchMode('wishlist');
                 }}
                 onImport={() => setShowHighlightsImport(true)}
-                onPreview={(item) => openCard(() => setWishCard(item))}
+                onPreview={showWishlistItem}
               />
             </div>
           )}

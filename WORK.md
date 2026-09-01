@@ -579,13 +579,18 @@ Deviations and losses, all deliberate:
   deployed and only the author sees it. The phone layout is 12.7.
 
 Follow-up (same day, author report "I don't see any wishlist markers"): not
-a rendering bug — the map only ever fitted to stops and legs, and on the
-real `island` trip *all 25* wishlist ideas with coordinates fall outside the
-3 stops' bounding box (ideas span 63.4–66.0°N, the stops sit around
-Reykjavík), so every pin was simply off-screen. "Fit trip" now includes
-wishlist pins; the automatic open-a-trip fit deliberately still frames only
-the itinerary, so opening a trip doesn't zoom out to a country-wide idea
-list.
+a rendering bug — the map only ever fits to stops and legs, and on the real
+`island` trip *all 25* wishlist ideas with coordinates fall outside the 3
+stops' bounding box (ideas span 63.4–66.0°N, the stops sit around
+Reykjavík), so every pin was simply off-screen. Fixed by **flying to an
+idea when it's picked from the wishlist list** (and when the card's ‹/›
+steps to one, which can land off-screen just as easily), reusing the
+`flyTo` prop the retired inspector's zoom button used to drive. Clicking a
+wishlist *pin* doesn't fly — it's already in view.
+
+"Fit trip" deliberately does **not** widen to the wishlist (tried, reverted
+on author's call): fit-the-trip should mean the trip, and a country-wide
+idea list would zoom straight past the days you asked to see.
 
 **12.7 Phone layout** · Standard
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
