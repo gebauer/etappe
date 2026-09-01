@@ -24,15 +24,16 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.6 are done plus 12.8 (wishlist photos stored server-side) — the
-redesign's desktop shell is in: design tokens,
+12.1–12.6 are done plus 12.8 (wishlist photos stored server-side), 12.9
+(access-point picking mode) and 12.10 (wishlist carousel + persistent
+starring) — the redesign's desktop shell is in: design tokens,
 unified pin-click card, expanded full-details card, pin visuals, day
-pills/Fit trip, and the map-dominant shell itself.
+pills/Fit trip, the map-dominant shell itself, the access-point picking
+mode and the wishlist "photo wheel".
 The handoff was revised 2026-09-01 (`design_handoff_map_first_planner`,
 in place — the old copy is superseded) with two new surfaces: a built
-wishlist carousel and a proper access-point picking mode. These are 12.10
-and 12.9 below. **→ Next, in order: 12.9 (access-point picking) →
-12.10 (wishlist carousel) → 12.7 (phone layout, also what fixes the
+wishlist carousel and a proper access-point picking mode — 12.10 and 12.9,
+now both done. **→ Next, in order: 12.7 (phone layout, also what fixes the
 sub-860px view 12.6 deliberately let break) → 12.11 (cleanup).**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
@@ -54,7 +55,9 @@ wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
 12.1 `3808a09` · handoff revision `b2c85f5` · 12.2 `45baac0` ·
 12.3 `6fc93bd` · chromium/node fix `529b1ac` · README `f90d27c` ·
 12.4 `ffb75da` · whole-trip-pill note `f5345c9` · 12.5 `86f8133` ·
-reload skill `6e0ad19`.
+reload skill `6e0ad19` · 12.6 `f7426a6` · fit-trip+wishlist `8015966` ·
+fly-to-idea `909848c` · centre-pans `a7fc6ff` · 12.8 `4e659c5` ·
+handoff revision `28b1fd6` · 12.9 `e1a960f`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -674,7 +677,7 @@ top-banner flow with a real mode.
 No cascade or schema change — routing already keys off `access_lat/lon`
 (`pb-stops.ts`, `placement.ts`); Clear keeps writing the `0,0` sentinel.
 
-**12.10 Wishlist carousel + persistent starring** · Standard
+**12.10 Wishlist carousel + persistent starring** · Standard · ✅
 Revised handoff: the "photo wheel" filmstrip, now built and no longer
 optional.
 - `Browse all N ›` footer in `WishlistPanel` opens a new
@@ -700,6 +703,31 @@ optional.
 - UI state: `browsing` (desktop only), `hover`, `starOnly`.
 Edits: `WishlistPanel`, `TripEditor`, `MapPane`, `map-markers`,
 `map-features`, plus the new component and migration.
+
+Built as specced. Notes:
+- **Three wishlist-pin variants now** (`w:<id>` / `:sel` / `:hover`),
+  composited in one `compositeWishlistPin` pass. `MapPane`'s
+  selected-pin filter effect had to absorb the hover filter too — like the
+  stops layer, `setFilter` replaces the whole expression, so a separate
+  hover effect would have clobbered the selected one. Selection wins when a
+  pin is both selected and hovered.
+- **Re-composite trigger.** The old `wishlistCoverResolvedRef` Set (a
+  one-shot "photo resolved" gate) became a `Map<id, sig>` where
+  `sig = ${starred}:${coverUrl}` — a star toggle or a late photo load both
+  change the signature and re-draw the pin, and the star is passed on every
+  `compositeWishlistPin` call so a photo arriving after a star can't drop
+  it (the 12.8 concern).
+- **Star button is a `role="button"` span**, not a nested `<button>` — the
+  card itself is the button (click = zoom to the place), and a real button
+  inside it is invalid DOM.
+- **Panel list rows** switched from a CSS `:hover` tint to the shared
+  `hover` state (JS `onMouseEnter`/`Leave`) so a hovered row and its map
+  pin light up together, per the handoff.
+- Browser-verified: carousel layout, `★ Top choices` filter + meta line,
+  star toggle persisting through a filter toggle and showing the gold badge
+  on the map pin, hover lifting a card and enlarging its pin. No console
+  errors. Screenshots taken, not committed. The stale `run-etappe` driver
+  (still expects the pre-12.5 "+ Day" button) was not touched — see below.
 
 **12.11 Cleanup and polish** · Cheap
 Dead-code removal for everything retired in 12.5/12.6, keyboard shortcuts
@@ -764,3 +792,11 @@ current task. Do not act on it in the same commit.
   needs a real design pass before building it, not a default assumed here.
   Do not build this as part of 12.5; add it as its own task once the
   content question is settled.
+- **`run-etappe` driver is stale after 12.5/12.6.** Its `createAndOpenTrip`
+  waits for a `+ Day` text button that the day rail retirement removed —
+  the day switcher is now the `+` pill in `DayPills` (`aria-label="Add
+  day"`). The driver fails before reaching the editor, so the built-in
+  smoke flow (add day → stop → access point) no longer runs. Needs its
+  selectors updated to the redesign shell (`+ Day` → the pill, `+ Stop`
+  still exists, kind-badge select still works). Not fixed here — 12.10 was
+  verified with a throwaway one-off script instead.

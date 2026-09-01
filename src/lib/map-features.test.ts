@@ -198,5 +198,6 @@ describe('buildWishlistFeatures', () => {
     const fc = buildWishlistFeatures(items);
     expect(fc.features[0]!.properties.iconImage).toBe('w:W1');
     expect(fc.features[0]!.properties.iconImageSelected).toBe('w:W1:sel');
+    expect(fc.features[0]!.properties.iconImageHovered).toBe('w:W1:hover');
   });
 });

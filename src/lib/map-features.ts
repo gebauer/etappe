@@ -185,6 +185,10 @@ export interface WishlistFeature {
     /** Selected variant's key (bigger, brighter border, halo baked in) —
      * MapPane swaps to this via a filtered second layer. */
     iconImageSelected: string;
+    /** Hover variant's key (WORK 12.10) — a touch bigger than the base pin
+     * with an amber halo, driven by the `wishlist-pins-hovered` layer while
+     * a carousel card or a compact-list row is hovered. */
+    iconImageHovered: string;
   };
 }
 
@@ -221,6 +225,7 @@ export function buildWishlistFeatures(
         kind: p.kind ?? 'uncategorized',
         iconImage: `w:${p.id}`,
         iconImageSelected: `w:${p.id}:sel`,
+        iconImageHovered: `w:${p.id}:hover`,
       },
     }));
   return { type: 'FeatureCollection', features };

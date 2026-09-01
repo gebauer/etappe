@@ -21,6 +21,7 @@ import {
   addWishlistItem,
   rejectWishlistItem,
   markWishlistScheduled,
+  setPoiStarred,
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
 import { shiftClock } from '../lib/format';
@@ -40,6 +41,7 @@ import {
   type BlockPatch,
 } from '../lib/pb-blocks';
 import { WishlistPanel } from './WishlistPanel';
+import { WishlistCarousel } from './WishlistCarousel';
 import { PinCard, type CardTarget } from './PinCard';
 import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
@@ -141,6 +143,14 @@ export function TripEditor({
   // Wishlist fallback list, bottom-left over the map — hidden whenever a
   // card is open, since they share that corner (design handoff).
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(true);
+  // Wishlist carousel (WORK 12.10): the full-width "photo wheel", desktop
+  // only. Shares the bottom-left slot with the panel, so opening it hides
+  // the panel and clears any selection. `hoveredWishId` is the highlight
+  // shared by the carousel, the panel list and the map pins; `starOnly` is
+  // the carousel's `★ Top choices` filter.
+  const [browsing, setBrowsing] = useState(false);
+  const [hoveredWishId, setHoveredWishId] = useState<string | null>(null);
+  const [starOnly, setStarOnly] = useState(false);
 
   // Wishlist lives outside the cascade-oriented trip doc (it has no day/
   // order_index), so it gets its own small fetch rather than riding along
@@ -190,6 +200,8 @@ export function TripEditor({
     setSelectedStopIds(new Set());
     setEditing(false);
     setExpanded(false);
+    setBrowsing(false);
+    setHoveredWishId(null);
     open();
   }
 
@@ -368,6 +380,26 @@ export function TripEditor({
 
   function rejectWishlist(id: string) {
     void rejectWishlistItem(pb, id).then(reloadWishlist);
+  }
+
+  // `★ Top choices` toggle (WORK 12.10). Persisted on the poi, then the
+  // wishlist refetch re-runs MapPane's pin compositing so the gold badge
+  // appears/clears. Not routed through `run()` — that reloads the cascade
+  // trip doc, and starring touches neither stops nor legs.
+  function toggleWishStar(item: PoisResponse, next: boolean) {
+    void setPoiStarred(pb, item.id, next)
+      .then(reloadWishlist)
+      .catch((err) =>
+        setActionError(
+          err instanceof Error ? err.message : 'Failed to update star.',
+        ),
+      );
+  }
+
+  function openBrowsing() {
+    closeCard();
+    setHoveredWishId(null);
+    setBrowsing(true);
   }
 
   // The card's `‹`/`›` order for wishlist entries: a nearest-neighbour chain
@@ -625,6 +657,7 @@ export function TripEditor({
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
       if (e.key === 'Escape' && picking) return finishPicking(null);
+      if (e.key === 'Escape' && browsing) return setBrowsing(false);
       if (e.key === 'Escape' && (wishCard || emptyCard)) return closeCard();
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
       if (e.key === 'Delete' || e.key === 'Backspace')
@@ -669,6 +702,7 @@ export function TripEditor({
     mergeCheck,
     wishCard,
     emptyCard,
+    browsing,
   ]);
 
   if (!records) {
@@ -858,6 +892,7 @@ export function TripEditor({
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
             flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
+            hoveredWishlistId={hoveredWishId}
             onSelectDay={(id) => setSelectedDayId(id)}
             onAddDay={() =>
               run(() =>
@@ -907,9 +942,10 @@ export function TripEditor({
             </div>
           )}
 
-          {/* Wishlist fallback list and the card share the bottom-left slot;
-              the card wins (design handoff). Both hide while picking. */}
-          {!cardOpen && !picking && (
+          {/* Wishlist fallback list, the carousel and the card all share the
+              bottom-left slot; the card wins, then the carousel (design
+              handoff). Everything here hides while picking. */}
+          {!cardOpen && !picking && !browsing && (
             <div className="absolute bottom-3.5 left-3.5 z-10">
               <WishlistPanel
                 items={wishlist}
@@ -917,14 +953,38 @@ export function TripEditor({
                 open={wishlistPanelOpen}
                 onToggle={() => setWishlistPanelOpen((v) => !v)}
                 selectedId={wishCard?.id ?? null}
+                hoveredId={hoveredWishId}
+                onHover={setHoveredWishId}
                 onAdd={() => {
                   setShareQuery(null);
                   setSearchMode('wishlist');
                 }}
                 onImport={() => setShowHighlightsImport(true)}
                 onPreview={showWishlistItem}
+                onBrowseAll={openBrowsing}
               />
             </div>
+          )}
+
+          {browsing && !cardOpen && !picking && (
+            <WishlistCarousel
+              items={wishlist}
+              order={wishChain}
+              blocks={records.blocks}
+              starOnly={starOnly}
+              onToggleStarOnly={() => setStarOnly((v) => !v)}
+              hoveredId={hoveredWishId}
+              onHover={setHoveredWishId}
+              onToggleStar={toggleWishStar}
+              onPick={(item) => {
+                setBrowsing(false);
+                showWishlistItem(item);
+              }}
+              onClose={() => {
+                setBrowsing(false);
+                setHoveredWishId(null);
+              }}
+            />
           )}
         </div>
 

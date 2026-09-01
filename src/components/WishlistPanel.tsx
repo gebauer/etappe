@@ -9,9 +9,15 @@ interface Props {
   open: boolean;
   onToggle: () => void;
   selectedId?: string | null;
+  /** Shared hover-highlight id (WORK 12.10) — a hovered row lifts its map
+   * pin, matching the carousel. Highlight only, no selection. */
+  hoveredId?: string | null;
+  onHover?: (id: string | null) => void;
   onAdd: () => void;
   onImport: () => void;
   onPreview: (item: PoisResponse) => void;
+  /** Opens the wishlist carousel (WORK 12.10). */
+  onBrowseAll: () => void;
 }
 
 /**
@@ -31,9 +37,12 @@ export function WishlistPanel({
   open,
   onToggle,
   selectedId,
+  hoveredId,
+  onHover,
   onAdd,
   onImport,
   onPreview,
+  onBrowseAll,
 }: Props) {
   const shown = open ? items.slice(0, 4) : [];
 
@@ -59,17 +68,26 @@ export function WishlistPanel({
               (b) => b.parent_type === 'poi' && b.parent_id === item.id,
             );
             const thumb = firstPhotoUrl(pb, itemBlocks);
+            const hovered = hoveredId === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onPreview(item)}
+                onMouseEnter={() => onHover?.(item.id)}
+                onMouseLeave={() => onHover?.(null)}
                 className={`flex w-full items-center gap-2.5 px-[11px] py-2 text-left ${
                   selectedId === item.id
                     ? 'bg-accent-surface'
-                    : 'hover:bg-white/5'
+                    : hovered
+                      ? 'bg-control'
+                      : ''
                 }`}
               >
-                <span className="h-[34px] w-[34px] flex-none overflow-hidden rounded-[7px] border border-border-strong bg-control">
+                <span
+                  className={`h-[34px] w-[34px] flex-none overflow-hidden rounded-[7px] border bg-control ${
+                    hovered ? 'border-wishlist' : 'border-border-strong'
+                  }`}
+                >
                   {thumb && (
                     <img
                       src={thumb}
@@ -90,10 +108,13 @@ export function WishlistPanel({
               </button>
             );
           })}
-          {items.length > shown.length && (
-            <p className="px-[11px] pb-1.5 pt-0.5 font-mono text-[10.5px] text-text-5">
-              +{items.length - shown.length} more on the map
-            </p>
+          {items.length > 0 && (
+            <button
+              onClick={onBrowseAll}
+              className="w-full px-[11px] py-[9px] text-left text-[12.5px] text-text-2 hover:bg-[oklch(0.25_0.013_250)]"
+            >
+              Browse all {items.length} ›
+            </button>
           )}
 
           <div className="flex gap-1.5 border-t border-[oklch(0.28_0.012_250)] px-[11px] py-2">

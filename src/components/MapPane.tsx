@@ -107,6 +107,7 @@ export function MapPane({
   wishlist,
   onSelectWishlist,
   selectedWishlistId,
+  hoveredWishlistId,
   onSelectDay,
   onAddDay,
   picking,
@@ -132,6 +133,10 @@ export function MapPane({
   /** Drives the bigger/haloed wishlist pin variant (design handoff, WORK
    * 12.4) — the open card's item, mirroring `selectedStop`. */
   selectedWishlistId?: string | null;
+  /** The wishlist idea currently hovered in the carousel or the compact list
+   * (WORK 12.10) — grows its pin via the `wishlist-pins-hovered` layer.
+   * Highlight only: never selects, opens a card, or moves the map. */
+  hoveredWishlistId?: string | null;
   /** Day pills (WORK 12.5) — the trip's only day switcher since WORK 12.6
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
@@ -172,11 +177,12 @@ export function MapPane({
     selectedWishlistId ?? null,
   );
   selectedWishlistIdRef.current = selectedWishlistId ?? null;
-  // Wishlist cover photos resolve async (a PocketBase thumb fetch), so this
-  // just gates re-fetching one already resolved (or confirmed absent) —
-  // mirrors nearbyPhotoIds below, but doesn't need to be state: it never
-  // drives a render, only whether the compositing effect does more work.
-  const wishlistCoverResolvedRef = useRef<Set<string>>(new Set());
+  // What each wishlist pin was last composited from — a signature of
+  // `${starred}:${coverUrl}`. The compositing effect skips an item whose
+  // signature is unchanged and re-draws one whose cover photo arrived or
+  // whose star was toggled. Not state: it never drives a render, only how
+  // much work the effect does.
+  const wishlistPinStateRef = useRef<Map<string, string>>(new Map());
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
@@ -400,6 +406,19 @@ export function MapPane({
           'icon-allow-overlap': true,
         },
       });
+      // Hover highlight (WORK 12.10): a third filtered layer, same technique
+      // as the selected one. A carousel card or compact-list row hover grows
+      // the matching pin; selection wins when an item is both.
+      map.addLayer({
+        id: 'wishlist-pins-hovered',
+        type: 'symbol',
+        source: 'wishlist',
+        filter: ['==', ['get', 'poiId'], ''],
+        layout: {
+          'icon-image': ['get', 'iconImageHovered'],
+          'icon-allow-overlap': true,
+        },
+      });
 
       map.addSource('stops', {
         type: 'geojson',
@@ -434,6 +453,7 @@ export function MapPane({
               poiId,
               null,
               categoryColor(item?.kind ?? 'uncategorized'),
+              item?.starred ?? false,
             );
           }
         } catch (err) {
@@ -459,9 +479,11 @@ export function MapPane({
     };
 
     const wishlistUnder = (point: maplibregl.Point): string | null => {
-      const layers = ['wishlist-pins', 'wishlist-pins-selected'].filter((l) =>
-        map.getLayer(l),
-      );
+      const layers = [
+        'wishlist-pins',
+        'wishlist-pins-selected',
+        'wishlist-pins-hovered',
+      ].filter((l) => map.getLayer(l));
       if (layers.length === 0) return null;
       const hits = map.queryRenderedFeatures(point, { layers });
       return (hits[0]?.properties?.poiId as string | undefined) ?? null;
@@ -577,36 +599,51 @@ export function MapPane({
     if (!map || !loadedRef.current) return;
     let cancelled = false;
     for (const item of wishlist ?? []) {
-      if (
-        !item.lat ||
-        !item.lon ||
-        wishlistCoverResolvedRef.current.has(item.id)
-      ) {
-        continue;
-      }
+      if (!item.lat || !item.lon) continue;
       const cover = blocksFor(recordsRef.current.blocks, 'poi', item.id).find(
         (b) => b.kind === 'photo',
       );
       const url = cover ? blockFileUrl(pb, cover, '80x80') : null;
-      // Only mark it done once there's actually something to load. The
-      // wishlist and the trip document arrive from two separate fetches, so
-      // this effect regularly runs with the item present but its blocks not
-      // loaded yet — marking it resolved there stuck the pin on its colour
-      // fallback permanently, even after the photo showed up. Re-checking an
-      // item with no photo costs one array filter and no network.
-      if (!url) continue;
-      wishlistCoverResolvedRef.current.add(item.id);
+      const fallback = categoryColor(item.kind ?? 'uncategorized');
+      // Signature of what the pin should show. Unchanged since last draw →
+      // nothing to do. The wishlist and the trip document arrive from two
+      // separate fetches, so this effect routinely first runs with the item
+      // present but its blocks not loaded yet (url null); when they arrive
+      // the signature changes and the pin re-composites. A star toggle
+      // changes it the same way.
+      const sig = `${item.starred ? 'S' : '-'}:${url ?? ''}`;
+      const prev = wishlistPinStateRef.current.get(item.id);
+      if (prev === sig) continue;
+      wishlistPinStateRef.current.set(item.id, sig);
+
+      if (!url) {
+        // No cover photo. The first paint (colour fallback) is handled by
+        // styleimagemissing; only re-draw here when the star must go onto
+        // that fallback, or a previous draw (star or a since-deleted photo)
+        // has to be undone.
+        if (item.starred || prev !== undefined) {
+          try {
+            compositeWishlistPin(
+              map,
+              item.id,
+              null,
+              fallback,
+              item.starred ?? false,
+            );
+          } catch (err) {
+            console.error('wishlist pin composite failed for', item.id, err);
+          }
+        }
+        continue;
+      }
+
+      const starred = item.starred ?? false;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         if (cancelled) return;
         try {
-          compositeWishlistPin(
-            map,
-            item.id,
-            img,
-            categoryColor(item.kind ?? 'uncategorized'),
-          );
+          compositeWishlistPin(map, item.id, img, fallback, starred);
         } catch (err) {
           console.error('wishlist photo composite failed for', item.id, err);
         }
@@ -618,23 +655,39 @@ export function MapPane({
     };
   }, [wishlist, records.blocks]);
 
-  // The bigger/haloed wishlist pin variant follows the selected item —
-  // mirrors the selected-stop exclusion filter below, but wishlist pins
-  // never need a draggable DOM twin, so a second GL layer is enough.
+  // The bigger/haloed wishlist pin variants follow the selected and the
+  // hovered item — mirrors the selected-stop exclusion filter below, but
+  // wishlist pins never need a draggable DOM twin, so extra GL layers are
+  // enough. One effect owns all three filters: setFilter replaces the whole
+  // expression, so splitting selection and hover across two effects would
+  // clobber whichever ran last (same trap as the stops layer). The base
+  // layer hides both the selected and the hovered pin; selection wins when
+  // an item is both.
   useEffect(() => {
     const map = mapRef.current;
     if (
       !map ||
       !loadedRef.current ||
       !map.getLayer('wishlist-pins') ||
-      !map.getLayer('wishlist-pins-selected')
+      !map.getLayer('wishlist-pins-selected') ||
+      !map.getLayer('wishlist-pins-hovered')
     ) {
       return;
     }
-    const id = selectedWishlistId ?? '';
-    map.setFilter('wishlist-pins', ['!=', ['get', 'poiId'], id]);
-    map.setFilter('wishlist-pins-selected', ['==', ['get', 'poiId'], id]);
-  }, [selectedWishlistId]);
+    const sel = selectedWishlistId ?? '';
+    const hov = hoveredWishlistId ?? '';
+    map.setFilter('wishlist-pins', [
+      'all',
+      ['!=', ['get', 'poiId'], sel],
+      ['!=', ['get', 'poiId'], hov],
+    ]);
+    map.setFilter('wishlist-pins-selected', ['==', ['get', 'poiId'], sel]);
+    map.setFilter('wishlist-pins-hovered', [
+      'all',
+      ['==', ['get', 'poiId'], hov],
+      ['!=', ['get', 'poiId'], sel],
+    ]);
+  }, [selectedWishlistId, hoveredWishlistId]);
 
   // Query Overpass for the focused day's corridor when Nearby is toggled on,
   // or the day/radius changes. Reads records via the ref (not a dependency)

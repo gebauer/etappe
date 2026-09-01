@@ -351,6 +351,7 @@ export function buildParkingChipElement(
 // rather than per shared value, since each item's cover photo differs.
 const WISH_UNSEL_D = 60; // -> 30px CSS
 const WISH_SEL_D = 76; // -> 38px CSS
+const WISH_HOVER_D = 72; // -> 36px CSS (WORK 12.10 hover highlight)
 const WISH_BORDER_D = 4; // -> 2px CSS
 const WISH_RADIUS_D = 18; // -> 9px CSS corner radius
 const WISH_HALO_D = 12; // -> 6px CSS outline
@@ -358,6 +359,23 @@ const WISH_HALO_D = 12; // -> 6px CSS outline
 const WISH_BORDER = oklchToHex(0.78, 0.13, 80); // wishlist (amber)
 const WISH_SEL_BORDER = oklchToHex(0.9, 0.1, 85);
 const WISH_HALO = oklchToHex(0.78, 0.13, 80); // wishlist, alpha applied separately
+
+// The persistent `★ Top choices` badge (WORK 12.10) — a gold star on a dark
+// disc so it stays legible over any cover photo. Drawn into every wishlist
+// pin variant, on the same code path as the cover-photo upgrade, so a late
+// photo load re-composites the star rather than dropping it.
+const WISH_STAR_D = 32; // -> 16px CSS badge
+const WISH_STAR_FILL = oklchToHex(0.86, 0.15, 92); // gold
+const WISH_STAR_BG = oklchToHex(0.16, 0.014, 250);
+
+function drawStarBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  fillCircle(ctx, cx, cy, WISH_STAR_D / 2, WISH_STAR_BG);
+  ctx.fillStyle = WISH_STAR_FILL;
+  ctx.font = '600 22px "Instrument Sans", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('★', cx, cy + 1);
+}
 
 function roundedRectPath(
   ctx: CanvasRenderingContext2D,
@@ -418,67 +436,73 @@ function drawWishSquare(
   ctx.stroke();
 }
 
-/** Composites both the unselected ("w:<id>") and selected ("w:<id>:sel")
- * images for one wishlist item in one pass — `img` is null until its cover
- * photo has loaded, in which case the caller draws the plain fallback first
- * and re-calls this once the photo resolves (`updateImage`, not `addImage`,
- * for the already-added keys — see MapPane). */
+/** Composites the unselected ("w:<id>"), selected ("w:<id>:sel") and hovered
+ * ("w:<id>:hover") images for one wishlist item in one pass — `img` is null
+ * until its cover photo has loaded, in which case the caller draws the plain
+ * fallback first and re-calls this once the photo resolves (`updateImage`,
+ * not `addImage`, for the already-added keys — see MapPane). `starred` draws
+ * the gold `★ Top choices` badge into every variant (WORK 12.10); passing it
+ * on every call is what keeps a late photo load from dropping the star. */
 export function compositeWishlistPin(
   map: maplibregl.Map,
   poiId: string,
   img: HTMLImageElement | null,
   fallbackColor: string,
+  starred: boolean,
 ) {
-  const unselCanvas = document.createElement('canvas');
-  unselCanvas.width = WISH_UNSEL_D;
-  unselCanvas.height = WISH_UNSEL_D;
-  const unselCtx = unselCanvas.getContext('2d');
-  if (unselCtx) {
+  // One variant: a rounded photo square of side `sizeD`, optionally on an
+  // amber halo of width `haloD`, with the star badge tucked into its
+  // top-right corner. All three are centre-anchored square canvases, so the
+  // map can swap between them without the pin shifting off its coordinate.
+  const variant = (
+    sizeD: number,
+    haloD: number,
+    border: string,
+  ): ImageData | null => {
+    const total = sizeD + haloD * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = total;
+    canvas.height = total;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const inset = haloD;
+    if (haloD > 0) {
+      ctx.globalAlpha = 0.18;
+      roundedRectPath(ctx, 0, 0, total, total, WISH_RADIUS_D + haloD);
+      ctx.fillStyle = WISH_HALO;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     drawWishSquare(
-      unselCtx,
-      0,
-      0,
-      WISH_UNSEL_D,
+      ctx,
+      inset,
+      inset,
+      sizeD,
       WISH_RADIUS_D,
-      WISH_BORDER,
+      border,
       WISH_BORDER_D,
       img,
       fallbackColor,
     );
-    const data = unselCtx.getImageData(0, 0, WISH_UNSEL_D, WISH_UNSEL_D);
-    const id = `w:${poiId}`;
-    if (map.hasImage(id)) map.updateImage(id, data);
-    else map.addImage(id, data, { pixelRatio: 2 });
-  }
+    if (starred) {
+      drawStarBadge(
+        ctx,
+        inset + sizeD - WISH_STAR_D / 2,
+        inset + WISH_STAR_D / 2,
+      );
+    }
+    return ctx.getImageData(0, 0, total, total);
+  };
 
-  const d = WISH_SEL_D + WISH_HALO_D * 2;
-  const selCanvas = document.createElement('canvas');
-  selCanvas.width = d;
-  selCanvas.height = d;
-  const selCtx = selCanvas.getContext('2d');
-  if (selCtx) {
-    const inset = WISH_HALO_D;
-    selCtx.globalAlpha = 0.18;
-    roundedRectPath(selCtx, 0, 0, d, d, WISH_RADIUS_D + WISH_HALO_D);
-    selCtx.fillStyle = WISH_HALO;
-    selCtx.fill();
-    selCtx.globalAlpha = 1;
-    drawWishSquare(
-      selCtx,
-      inset,
-      inset,
-      WISH_SEL_D,
-      WISH_RADIUS_D,
-      WISH_SEL_BORDER,
-      WISH_BORDER_D,
-      img,
-      fallbackColor,
-    );
-    const data = selCtx.getImageData(0, 0, d, d);
-    const id = `w:${poiId}:sel`;
+  const put = (id: string, data: ImageData | null) => {
+    if (!data) return;
     if (map.hasImage(id)) map.updateImage(id, data);
     else map.addImage(id, data, { pixelRatio: 2 });
-  }
+  };
+
+  put(`w:${poiId}`, variant(WISH_UNSEL_D, 0, WISH_BORDER));
+  put(`w:${poiId}:sel`, variant(WISH_SEL_D, WISH_HALO_D, WISH_SEL_BORDER));
+  put(`w:${poiId}:hover`, variant(WISH_HOVER_D, WISH_HALO_D, WISH_BORDER));
 }
 
 // design_handoff_map_first_planner/README.md's stop pins are a fixed CSS

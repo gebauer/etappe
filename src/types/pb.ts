@@ -309,6 +309,7 @@ export type PoisRecord = {
 	lat?: number
 	lon?: number
 	notes?: string
+	starred?: boolean
 	status: PoisStatusOptions
 	title: string
 	trip: RecordIdString

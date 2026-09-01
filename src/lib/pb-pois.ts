@@ -71,3 +71,14 @@ export async function markWishlistScheduled(
 ): Promise<void> {
   await pb.collection('pois').update(poiId, { status: 'scheduled' });
 }
+
+/** Toggles a wishlist idea's `★ Top choices` flag (WORK 12.10). Persistent,
+ * not UI state — the gold star badge on the map pin and the carousel filter
+ * both read it, and it must survive a reload. */
+export async function setPoiStarred(
+  pb: TypedPocketBase,
+  poiId: string,
+  starred: boolean,
+): Promise<void> {
+  await pb.collection('pois').update(poiId, { starred });
+}
