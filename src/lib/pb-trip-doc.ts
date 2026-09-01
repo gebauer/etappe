@@ -24,6 +24,7 @@ import type {
   LegsResponse,
   ActivitiesResponse,
   BlocksResponse,
+  CostsResponse,
 } from '../types/pb';
 
 export interface TripRecords {
@@ -33,6 +34,8 @@ export interface TripRecords {
   legs: LegsResponse[];
   activities: ActivitiesResponse[];
   blocks: BlocksResponse[];
+  /** WORK 16.7. Members-only — never part of a share payload. */
+  costs: CostsResponse[];
 }
 
 function toCascadeLeg(leg: LegsResponse): CascadeLeg {
@@ -143,32 +146,37 @@ export async function loadTripRecords(
   tripId: string,
 ): Promise<TripRecords> {
   const scope = pb.filter('day.trip = {:t}', { t: tripId });
-  const [trip, days, stops, legs, activities, blocks] = await Promise.all([
-    pb.collection('trips').getOne(tripId, { requestKey: null }),
-    pb.collection('days').getFullList({
-      filter: pb.filter('trip = {:t}', { t: tripId }),
-      sort: 'order_index',
-      requestKey: null,
-    }),
-    pb.collection('stops').getFullList({
-      filter: scope,
-      sort: 'order_index',
-      requestKey: null,
-    }),
-    pb.collection('legs').getFullList({
-      filter: pb.filter('from_stop.day.trip = {:t}', { t: tripId }),
-      requestKey: null,
-    }),
-    pb.collection('activities').getFullList({
-      filter: pb.filter('stop.day.trip = {:t}', { t: tripId }),
-      sort: 'order_index',
-      requestKey: null,
-    }),
-    pb.collection('blocks').getFullList({
-      filter: pb.filter('trip = {:t}', { t: tripId }),
-      sort: 'order_index',
-      requestKey: null,
-    }),
-  ]);
-  return { trip, days, stops, legs, activities, blocks };
+  const [trip, days, stops, legs, activities, blocks, costs] =
+    await Promise.all([
+      pb.collection('trips').getOne(tripId, { requestKey: null }),
+      pb.collection('days').getFullList({
+        filter: pb.filter('trip = {:t}', { t: tripId }),
+        sort: 'order_index',
+        requestKey: null,
+      }),
+      pb.collection('stops').getFullList({
+        filter: scope,
+        sort: 'order_index',
+        requestKey: null,
+      }),
+      pb.collection('legs').getFullList({
+        filter: pb.filter('from_stop.day.trip = {:t}', { t: tripId }),
+        requestKey: null,
+      }),
+      pb.collection('activities').getFullList({
+        filter: pb.filter('stop.day.trip = {:t}', { t: tripId }),
+        sort: 'order_index',
+        requestKey: null,
+      }),
+      pb.collection('blocks').getFullList({
+        filter: pb.filter('trip = {:t}', { t: tripId }),
+        sort: 'order_index',
+        requestKey: null,
+      }),
+      pb.collection('costs').getFullList({
+        filter: pb.filter('trip = {:t}', { t: tripId }),
+        requestKey: null,
+      }),
+    ]);
+  return { trip, days, stops, legs, activities, blocks, costs };
 }

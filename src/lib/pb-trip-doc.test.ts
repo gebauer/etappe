@@ -77,6 +77,7 @@ const records: TripRecords = {
     } as unknown as ActivitiesResponse,
   ],
   blocks: [],
+  costs: [],
 };
 
 describe('buildCascadeTrip', () => {
@@ -162,6 +163,7 @@ describe('buildCascadeTrip / start_stop', () => {
     ],
     activities: [],
     blocks: [],
+    costs: [],
   };
 
   it('resolves the pointer to a startPoint but leaves leadingLeg null until routed', () => {

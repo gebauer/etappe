@@ -1295,7 +1295,7 @@ Address the whole-trip shape, not just the button: a viewer opening a trip
 they don't own should get the editor in read-only, not a second view — one
 cascade, one renderer.
 
-**16.7 Surface price tags** · Standard
+**16.7 Surface price tags** · Standard · ✅
 Answering "did we have price tags?" — yes, in the schema, and nowhere else.
 Migration `1788000000` created a **`costs`** collection: `trip`,
 `parent_type` ∈ trip | day | stop | leg, `parent_id`, `label`, `amount`,

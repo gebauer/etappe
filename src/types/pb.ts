@@ -172,6 +172,7 @@ export const CostsParentTypeOptions = {
 	"day": "day",
 	"stop": "stop",
 	"leg": "leg",
+	"poi": "poi",
 } as const
 export type CostsParentTypeOptions = typeof CostsParentTypeOptions[keyof typeof CostsParentTypeOptions]
 export type CostsRecord = {

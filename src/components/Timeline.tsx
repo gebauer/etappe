@@ -3,9 +3,11 @@ import { formatDayDate } from '../lib/format';
 import { formatClock, type CascadeResult } from '../lib/cascade';
 import { warningText } from '../lib/warnings';
 import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { dayTotal, tripTotal, formatMoney } from '../lib/costs';
 import { pb } from '../lib/pb';
 import type {
   BlocksResponse,
+  CostsResponse,
   DaysResponse,
   StopsResponse,
   LegsResponse,
@@ -22,6 +24,8 @@ interface Props {
   stops: StopsResponse[];
   legs: LegsResponse[];
   blocks: BlocksResponse[];
+  /** WORK 16.7 — members-only, never in a share payload. */
+  costs: CostsResponse[];
   result: CascadeResult | null;
   onAddStop: (dayId: string) => void;
   /** Delete the focused day and its stops (WORK 16.2). Confirmed here. */
@@ -67,6 +71,7 @@ export function Timeline({
   stops,
   legs,
   blocks,
+  costs,
   result,
   onAddStop,
   onDeleteDay,
@@ -148,6 +153,19 @@ export function Timeline({
     return i < 0 ? list.length : i;
   }
 
+  // Day total is the day's own costs plus its stops' and its legs'; the trip
+  // total sits in the tooltip rather than taking a second slot in a header
+  // that already carries the day's span.
+  const money = {
+    day: dayTotal(
+      costs,
+      day.id,
+      dayStops.map((s) => s.id),
+      legs.map((l) => l.id),
+    ),
+    trip: tripTotal(costs),
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1 font-sans text-text">
       <div className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]">
@@ -163,6 +181,19 @@ export function Timeline({
         <div className="flex flex-none items-center gap-2.5">
           {span && (
             <span className="font-mono text-[11.5px] text-text-4">{span}</span>
+          )}
+          {money.day.count > 0 && (
+            <span
+              className="font-mono text-[11.5px] text-text-3"
+              title={`This day: ${formatMoney(money.day.total, trip.currency)}${
+                money.day.estimated
+                  ? ` (${formatMoney(money.day.estimated, trip.currency)} estimated)`
+                  : ''
+              } · whole trip: ${formatMoney(money.trip.total, trip.currency)}`}
+            >
+              {formatMoney(money.day.total, trip.currency)}
+              {money.day.estimated > 0 ? '~' : ''}
+            </span>
           )}
           <button
             onClick={() =>

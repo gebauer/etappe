@@ -8,6 +8,9 @@ import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
 import type { PlaceResult } from '../lib/photon';
 import type { StopPatch } from '../lib/pb-stops';
 import { PinCardEdit } from './PinCardEdit';
+import { CostList } from './CostList';
+import type { CostsResponse } from '../types/pb';
+import type { NewCost } from '../lib/pb-costs';
 import { TimingCells } from './TimingCells';
 import { timingCells } from '../lib/timing-cells';
 import type { TimingCell } from '../lib/timing-edit';
@@ -64,6 +67,11 @@ interface Props {
   onClearAccessPoint: () => void;
   onAddBlock: (kind: BlockKind) => void;
   onAddPrivateNote: () => void;
+  /** WORK 16.7 — the costs on this stop or idea, and how to change them. */
+  costs: CostsResponse[];
+  currency: string;
+  onAddCost: (cost: NewCost) => void;
+  onDeleteCost: (costId: string) => void;
   openKindPickerSignal?: number;
 }
 
@@ -101,6 +109,10 @@ export function PinCard({
   onClearAccessPoint,
   onAddBlock,
   onAddPrivateNote,
+  costs,
+  currency,
+  onAddCost,
+  onDeleteCost,
   openKindPickerSignal,
 }: Props) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -278,6 +290,16 @@ export function PinCard({
             Nothing here yet. Save it for later, or drop it straight into a day.
           </p>
         )}
+
+        {(target.type === 'stop' || target.type === 'wish') &&
+          (costs.length > 0 || editing) && (
+            <CostList
+              costs={costs}
+              currency={currency}
+              onAdd={onAddCost}
+              onDelete={onDeleteCost}
+            />
+          )}
 
         {myNotes.length > 0 && (
           <div className="mt-3 rounded-[9px] border border-border-strong bg-surface-3 px-3 py-2.5">

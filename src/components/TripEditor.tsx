@@ -3,6 +3,8 @@ import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
 import { insertDay, deleteDay } from '../lib/pb-days';
+import { addCost, deleteCost, type NewCost } from '../lib/pb-costs';
+import { costsFor } from '../lib/costs';
 import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import {
   addStopAtEnd,
@@ -1397,6 +1399,7 @@ export function TripEditor({
             stops={stops}
             legs={legs}
             blocks={records.blocks}
+            costs={records.costs}
             result={result}
             selectedStopIds={selectedStopIds}
             onSelectStop={toggleSelect}
@@ -1647,6 +1650,26 @@ export function TripEditor({
             else if (cardTarget.type === 'wish')
               blockHandlers.onAddBlock(cardTarget.item.id, kind, 'poi');
           }}
+          costs={
+            cardTarget.type === 'stop'
+              ? costsFor(records.costs, 'stop', cardTarget.stop.id)
+              : cardTarget.type === 'wish'
+                ? costsFor(records.costs, 'poi', cardTarget.item.id)
+                : []
+          }
+          currency={trip.currency}
+          onAddCost={(cost: NewCost) => {
+            const parent =
+              cardTarget.type === 'stop'
+                ? ({ type: 'stop', id: cardTarget.stop.id } as const)
+                : cardTarget.type === 'wish'
+                  ? ({ type: 'poi', id: cardTarget.item.id } as const)
+                  : null;
+            if (parent) {
+              void run(() => addCost(pb, tripId, parent, cost, trip.currency));
+            }
+          }}
+          onDeleteCost={(costId) => void run(() => deleteCost(pb, costId))}
           onAddPrivateNote={() => {
             if (cardTarget.type === 'stop')
               blockHandlers.onAddBlock(
