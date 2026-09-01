@@ -580,6 +580,18 @@ current task. Do not act on it in the same commit.
   (user request, following up on 6.4) — see the commit adding `categoryColor`
   and `wikimedia.ts`. Deliberately scoped to Nearby only: no attribution is
   stored, and nothing carries over when a ghost pin is promoted to a stop.
-  Real itinerary stops showing photos is still phase 7.2 (Photo pipeline),
-  unbuilt — the `auto/icons/thumbnails` map control has been sitting ready
-  for it since phase 5.3.
+  (Stale as of 12.4: this used to end by pointing at the `auto/icons/
+  thumbnails` map control as where a stop's own photo would eventually
+  show — that control no longer exists, retired along with the rest of
+  BUILD §5.3's marker-tier system. A stop pin has no photo mode any more;
+  see WORK 12.4.)
+- **Day pills need a "whole trip" pill eventually** (author note, 2026-09-01,
+  ahead of WORK 12.5), alongside the per-day pills — a mode showing every
+  day at once rather than filtering to one focused day (WORK 12.4's
+  day-scoped stop pins). What that overview should actually render is an
+  open design question, explicitly deferred: current lean is start/end of
+  each day only (i.e. each day's accommodation stops, or first/last stop if
+  a day has none), not every stop and not wishlist highlights — but this
+  needs a real design pass before building it, not a default assumed here.
+  Do not build this as part of 12.5; add it as its own task once the
+  content question is settled.
