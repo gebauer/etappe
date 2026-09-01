@@ -121,6 +121,13 @@ replacement for it.
   `dev` skill) so pending migrations actually run. This exact scenario is
   why this skill exists — a real feature looked broken and was actually just
   a stale backend process.
+- **Chromium no longer launches on this machine — use Firefox.** Both the
+  bundled `chrome` and `chrome-headless-shell` die at startup with
+  `error while loading shared libraries: libnspr4.so`, and that library is
+  absent system-wide (`find / -iname 'libnspr4.so*'` returns nothing).
+  Installing it needs sudo, which isn't available. `npx playwright install
+firefox` works and launches cleanly — Firefox bundles its own NSPR. See
+  `card-drive.mjs` for a working `firefox.launch()` drive.
 - **`npx playwright install --with-deps` needs interactive sudo** and fails
   outright in a non-interactive shell ("a password is required"). Skip
   `--with-deps` — on this machine the plain `npx playwright install

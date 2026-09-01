@@ -15,8 +15,8 @@ notes, upload with EXIF extraction, PocketBase thumbs, Wikimedia attribution),
 the icon-grid kind picker + uncategorized review, and Highlights import —
 paste JSON → validate → preview → commit to the wishlist as `pois` (status
 `idea`) + note/link/photo blocks — all in. Wishlist `pois` render on
-`MapPane` as their own pin layer and open a read-only `WishlistPreview` card
-(photo carousel, attribution, description, links) before Place/Reject.
+`MapPane` as their own pin layer and open the unified `PinCard` (WORK 12.2,
+which replaced `WishlistPreview`) before Add to itinerary/Reject.
 See the task entries below for each phase-7 piece, and the spec deviation
 note above (Wikimedia lookup runs off Nearby/Overpass, not Photon — the
 live Photon instance never returns a `wikidata` tag).
@@ -24,11 +24,11 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1 (design tokens and fonts) is done; next is 12.2 (unified pin-click
-card). The handoff bundle was revised on 2026-08-31 (commit below) to add
-the expanded full-details card — now its own task, 12.3 — which is what
-answers "where do `StopInspector`'s remaining fields go when it retires".
-That insertion renumbered the old 12.3–12.7 up by one.
+12.1 (design tokens and fonts) and 12.2 (unified pin-click card) are done;
+next is 12.3 (the expanded full-details card). The handoff bundle was
+revised on 2026-08-31 to add that expanded card — now its own task — which
+is what answers "where do `StopInspector`'s remaining fields go when it
+retires". That insertion renumbered the old 12.3–12.7 up by one.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -36,7 +36,8 @@ v0.1.0 bump `1872737` · 2.1 `0958663` · 2.3 `a417bc3` · 2.2 `656449b` · 3.1 
 7.1 `d4ae836` · poi-blocks migration `a7a6d27` · Highlights schema `4adb15d` ·
 Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
 wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
-7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c`.
+7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c` ·
+12.1 `3808a09` · handoff revision `b2c85f5`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -430,7 +431,7 @@ handoff requires self-hosting for the Coolify container), a custom `desktop:
 860px` Tailwind breakpoint. Infrastructure only — nothing consumes the new
 tokens yet, so no component changed visually.
 
-**12.2 Unified pin-click card** · Heavy
+**12.2 Unified pin-click card** · Heavy · ✅
 New component generalizing `WishlistPreview` to three modes (existing stop
 pin / wishlist pin / empty map click) per the handoff's card spec: photo
 header, prev/next nav + counter (sequence order for stops, cached

@@ -40,7 +40,8 @@ import {
 } from '../lib/pb-blocks';
 import { DayRail } from './DayRail';
 import { WishlistPanel } from './WishlistPanel';
-import { WishlistPreview } from './WishlistPreview';
+import { PinCard, type CardTarget } from './PinCard';
+import { buildProximityChain, stepInChain } from '../lib/wish-order';
 import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
@@ -96,7 +97,17 @@ export function TripEditor({
   );
   const [shareQuery, setShareQuery] = useState<string | null>(null);
   const [wishlist, setWishlist] = useState<PoisResponse[]>([]);
-  const [previewItem, setPreviewItem] = useState<PoisResponse | null>(null);
+  // The unified pin-click card (WORK 12.2). Three sources, one surface;
+  // precedence when more than one is set is empty > wishlist > stop, which
+  // matches the order they can be opened from.
+  const [wishCard, setWishCard] = useState<PoisResponse | null>(null);
+  const [emptyCard, setEmptyCard] = useState<{
+    lat: number;
+    lon: number;
+    place: PlaceResult | null;
+    identifying: boolean;
+  } | null>(null);
+  const [editing, setEditing] = useState(false);
   const [kindPickerSignal, setKindPickerSignal] = useState(0);
   const [showUncategorized, setShowUncategorized] = useState(false);
   const [placingAccessFor, setPlacingAccessFor] = useState<{
@@ -177,7 +188,28 @@ export function TripEditor({
     }
   }
 
+  /** Opening any card clears the other two sources and collapses the edit
+   * region — pin, row and wishlist selection are one state, and the design
+   * resets `editing` on every selection change. */
+  function openCard(open: () => void) {
+    setWishCard(null);
+    setEmptyCard(null);
+    setSelectedStopIds(new Set());
+    setEditing(false);
+    open();
+  }
+
+  function closeCard() {
+    setWishCard(null);
+    setEmptyCard(null);
+    setEditing(false);
+    setSelectedStopIds(new Set());
+  }
+
   function toggleSelect(stopId: string, additive: boolean) {
+    setWishCard(null);
+    setEmptyCard(null);
+    setEditing(false);
     setSelectedStopIds((prev) => {
       if (!additive) return new Set([stopId]);
       const next = new Set(prev);
@@ -248,6 +280,10 @@ export function TripEditor({
       );
       return;
     }
+    // A bare map click no longer captures anything on its own (WORK 12.2):
+    // it opens the card in empty-click mode and waits for an explicit
+    // "+ Wishlist" or "+ Day". Identification streams in behind the card.
+    openCard(() => setEmptyCard({ lat, lon, place: null, identifying: true }));
     void (async () => {
       let place: PlaceResult | null = null;
       try {
@@ -255,12 +291,11 @@ export function TripEditor({
       } catch {
         place = null;
       }
-      beginCapture({
-        name: place?.name ?? 'Dropped pin',
-        kind: place?.kind ?? 'uncategorized',
-        lat,
-        lon,
-      });
+      setEmptyCard((current) =>
+        current && current.lat === lat && current.lon === lon
+          ? { ...current, place, identifying: false }
+          : current,
+      );
     })();
   }
 
@@ -335,6 +370,19 @@ export function TripEditor({
   function rejectWishlist(id: string) {
     void rejectWishlistItem(pb, id).then(reloadWishlist);
   }
+
+  // The card's `‹`/`›` order for wishlist entries: a nearest-neighbour chain
+  // from a fixed anchor, cached. Rebuilding it from the current pin would
+  // make the two arrows disagree — see src/lib/wish-order.ts.
+  const wishChain = useMemo(
+    () =>
+      buildProximityChain(
+        wishlist
+          .filter((item) => item.lat && item.lon)
+          .map((item) => ({ id: item.id, lat: item.lat!, lon: item.lon! })),
+      ),
+    [wishlist],
+  );
 
   // Placing a wishlist item or a nearby ghost pin is the same ranked
   // placement flow as any other capture (WORK 6.3) — a wishlist item just
@@ -528,7 +576,7 @@ export function TripEditor({
         return setPendingPlacement(null);
       if (e.key === 'Escape' && placingAccessFor)
         return setPlacingAccessFor(null);
-      if (e.key === 'Escape' && previewItem) return setPreviewItem(null);
+      if (e.key === 'Escape' && (wishCard || emptyCard)) return closeCard();
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
       if (e.key === 'Delete' || e.key === 'Backspace')
         return void (e.preventDefault(), deleteSelected());
@@ -570,7 +618,8 @@ export function TripEditor({
     placingAccessFor,
     pendingPlacement,
     mergeCheck,
-    previewItem,
+    wishCard,
+    emptyCard,
   ]);
 
   if (!records) {
@@ -587,6 +636,59 @@ export function TripEditor({
     selectedStopIds.size === 1
       ? (stops.find((s) => s.id === [...selectedStopIds][0]) ?? null)
       : null;
+
+  const dayStopsOf = (dayId: string) =>
+    stops
+      .filter((s) => s.day === dayId)
+      .sort((a, b) => a.order_index - b.order_index);
+
+  let cardTarget: CardTarget | null = null;
+  if (emptyCard) {
+    cardTarget = { type: 'empty', ...emptyCard };
+  } else if (wishCard) {
+    cardTarget = {
+      type: 'wish',
+      item: wishCard,
+      position: wishChain.indexOf(wishCard.id) + 1,
+      total: wishChain.length,
+    };
+  } else if (selectedStop) {
+    const dayStops = dayStopsOf(selectedStop.day);
+    const dayResult = result?.days.find((d) => d.dayId === selectedStop.day);
+    cardTarget = {
+      type: 'stop',
+      stop: selectedStop,
+      dayLabel: `Day ${days.findIndex((d) => d.id === selectedStop.day) + 1}`,
+      seq: dayStops.findIndex((s) => s.id === selectedStop.id) + 1,
+      total: dayStops.length,
+      timing: dayResult?.stops.find((s) => s.stopId === selectedStop.id),
+      daylight: dayResult?.daylight ?? null,
+      afterDark: (result?.warnings ?? []).some(
+        (w) => w.code === 'AFTER_DARK' && w.stopId === selectedStop.id,
+      ),
+    };
+  }
+
+  /** Stops step in sequence order within the day; wishlist entries step
+   * along the cached proximity chain. Both wrap at either end. */
+  function stepCard(direction: -1 | 1) {
+    if (wishCard) {
+      const nextId = stepInChain(wishChain, wishCard.id, direction);
+      const next = nextId ? wishlist.find((w) => w.id === nextId) : null;
+      if (next) {
+        setEditing(false);
+        setWishCard(next);
+      }
+      return;
+    }
+    if (!selectedStop) return;
+    const ids = dayStopsOf(selectedStop.day).map((s) => s.id);
+    const nextId = stepInChain(ids, selectedStop.id, direction);
+    if (nextId) {
+      setEditing(false);
+      setSelectedStopIds(new Set([nextId]));
+    }
+  }
 
   const blockHandlers = {
     onAddBlock: (stopId: string, kind: BlockKind) =>
@@ -636,7 +738,7 @@ export function TripEditor({
             setSearchMode('wishlist');
           }}
           onImport={() => setShowHighlightsImport(true)}
-          onPreview={setPreviewItem}
+          onPreview={(item) => openCard(() => setWishCard(item))}
           onReject={rejectWishlist}
         />
       </div>
@@ -757,7 +859,7 @@ export function TripEditor({
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
-            onSelectWishlist={setPreviewItem}
+            onSelectWishlist={(item) => openCard(() => setWishCard(item))}
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
@@ -791,7 +893,7 @@ export function TripEditor({
             onDragAccessPoint={dragAccessPoint}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
-            onSelectWishlist={setPreviewItem}
+            onSelectWishlist={(item) => openCard(() => setWishCard(item))}
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
@@ -846,21 +948,72 @@ export function TripEditor({
           onCancel={() => setMergeCheck(null)}
         />
       )}
-      {previewItem && (
-        <WishlistPreview
-          item={previewItem}
+      {cardTarget && (
+        <PinCard
+          target={cardTarget}
           blocks={
-            records ? blocksFor(records.blocks, 'poi', previewItem.id) : []
+            cardTarget.type === 'stop'
+              ? blocksFor(records.blocks, 'stop', cardTarget.stop.id)
+              : cardTarget.type === 'wish'
+                ? blocksFor(records.blocks, 'poi', cardTarget.item.id)
+                : []
           }
-          onPlace={() => {
-            placeWishlistItem(previewItem);
-            setPreviewItem(null);
+          editing={editing}
+          onToggleEdit={() => setEditing((v) => !v)}
+          onClose={closeCard}
+          onStep={stepCard}
+          onRemove={() => {
+            if (cardTarget.type === 'stop') deleteOneStop(cardTarget.stop.id);
+            closeCard();
+          }}
+          onAddToItinerary={() => {
+            if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
+            closeCard();
           }}
           onReject={() => {
-            rejectWishlist(previewItem.id);
-            setPreviewItem(null);
+            if (cardTarget.type === 'wish') rejectWishlist(cardTarget.item.id);
+            closeCard();
           }}
-          onClose={() => setPreviewItem(null)}
+          onAddWishlist={() => {
+            if (cardTarget.type === 'empty') {
+              commitWishlistPick({
+                name: cardTarget.place?.name ?? 'Dropped pin',
+                kind: cardTarget.place?.kind ?? 'uncategorized',
+                lat: cardTarget.lat,
+                lon: cardTarget.lon,
+              });
+            }
+            closeCard();
+          }}
+          onAddDay={() => {
+            if (cardTarget.type === 'empty') {
+              beginCapture({
+                name: cardTarget.place?.name ?? 'Dropped pin',
+                kind: cardTarget.place?.kind ?? 'uncategorized',
+                lat: cardTarget.lat,
+                lon: cardTarget.lon,
+              });
+            }
+            setEmptyCard(null);
+            setEditing(false);
+          }}
+          onUpdateStop={(patch) => {
+            if (cardTarget.type === 'stop')
+              handleUpdateStop(cardTarget.stop.id, patch);
+          }}
+          onPlaceAccessPoint={() => {
+            if (cardTarget.type === 'stop')
+              startPlacingAccessPoint(cardTarget.stop.id);
+          }}
+          onClearAccessPoint={() => {
+            if (cardTarget.type === 'stop')
+              clearAccessPoint(cardTarget.stop.id);
+          }}
+          onAddBlock={(kind) => {
+            if (cardTarget.type === 'stop')
+              blockHandlers.onAddBlock(cardTarget.stop.id, kind);
+          }}
+          openKindPickerSignal={kindPickerSignal}
         />
       )}
       {showUncategorized && records && (

@@ -33,6 +33,13 @@ export default {
         'danger-border': 'oklch(0.45 0.10 25)',
         'danger-text': 'oklch(0.78 0.11 25)',
         scrim: 'oklch(0.12 0.015 250 / 0.72)',
+        // Small circular controls floating over a photo.
+        glass: 'oklch(0.18 0.012 250 / 0.72)',
+      },
+      boxShadow: {
+        card: '0 18px 50px oklch(0.10 0.02 250 / 0.55)',
+        'phone-card': '0 10px 30px oklch(0.10 0.02 250 / 0.55)',
+        expanded: '0 30px 80px oklch(0.08 0.02 250 / 0.6)',
       },
       fontFamily: {
         sans: ['"Instrument Sans"', 'system-ui', 'sans-serif'],
