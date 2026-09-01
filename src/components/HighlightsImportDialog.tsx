@@ -7,12 +7,24 @@ import { HIGHLIGHTS_PROMPT_TEMPLATE } from '../lib/import-highlights-prompt';
 import {
   importHighlights,
   type HighlightImportResult,
+  type HighlightDecision,
 } from '../lib/import-highlights-commit';
+import {
+  findDuplicate,
+  type DuplicateDecision,
+  type DuplicateMatch,
+  type ExistingPlace,
+} from '../lib/import-dedupe';
+import type { BlocksResponse } from '../types/pb';
 import { pb } from '../lib/pb';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 
 interface Props {
   tripId: string;
+  /** Everything already in this trip — wishlist and itinerary alike — so an
+   * incoming highlight can be recognised as one of them (WORK 16.4). */
+  existing: ExistingPlace[];
+  blocks: BlocksResponse[];
   onClose: () => void;
   onImported: () => void;
 }
@@ -20,7 +32,12 @@ interface Props {
 type Step =
   | { kind: 'paste' }
   | { kind: 'paste'; errors: string[] }
-  | { kind: 'preview'; doc: HighlightsDoc }
+  | {
+      kind: 'preview';
+      doc: HighlightsDoc;
+      /** Index → the record this highlight looks like a second copy of. */
+      matches: Map<number, DuplicateMatch>;
+    }
   | { kind: 'importing'; total: number; done: number; current: string }
   | { kind: 'done'; results: HighlightImportResult[] };
 
@@ -28,10 +45,21 @@ type Step =
  * the lighter Highlights format): pasting an LLM-produced list of POIs lands
  * them in the wishlist as ideas, each with its description/links/photos as
  * blocks. Never touches days/stops/legs. */
-export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
+export function HighlightsImportDialog({
+  tripId,
+  existing,
+  blocks,
+  onClose,
+  onImported,
+}: Props) {
   const [step, setStep] = useState<Step>({ kind: 'paste' });
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
+  // What to do with each flagged row. Merge is the default: it is the only
+  // one of the three that cannot lose anything.
+  const [decisions, setDecisions] = useState<Map<number, DuplicateDecision>>(
+    new Map(),
+  );
 
   function parse() {
     let raw: unknown;
@@ -51,10 +79,19 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
       setStep({ kind: 'paste', errors: result.errors });
       return;
     }
-    setStep({ kind: 'preview', doc: result.doc });
+    const matches = new Map<number, DuplicateMatch>();
+    result.doc.highlights.forEach((h, i) => {
+      const match = findDuplicate(h, existing);
+      if (match) matches.set(i, match);
+    });
+    setDecisions(new Map([...matches.keys()].map((i) => [i, 'merge'])));
+    setStep({ kind: 'preview', doc: result.doc, matches });
   }
 
-  async function commit(doc: HighlightsDoc) {
+  async function commit(
+    doc: HighlightsDoc,
+    matches: Map<number, DuplicateMatch>,
+  ) {
     setStep({
       kind: 'importing',
       total: doc.highlights.length,
@@ -62,12 +99,23 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
       current: '',
     });
     try {
+      const instructions = new Map<number, HighlightDecision>();
+      for (const [index, match] of matches) {
+        instructions.set(index, {
+          decision: decisions.get(index) ?? 'merge',
+          existing: match.existing,
+          existingBlocks: blocks.filter(
+            (b) => b.parent_id === match.existing.id,
+          ),
+        });
+      }
       const results = await importHighlights(
         pb,
         tripId,
         doc,
         (done, total, current) =>
           setStep({ kind: 'importing', total, done, current }),
+        instructions,
       );
       setStep({ kind: 'done', results });
       onImported();
@@ -164,6 +212,37 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
               {step.doc.highlights.length === 1 ? '' : 's'} ready to import as
               wishlist ideas.
             </p>
+            {step.matches.size > 0 && (
+              <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                <strong>
+                  {step.matches.size} of {step.doc.highlights.length} are
+                  already in this trip.
+                </strong>{' '}
+                Merge fills only what is missing and adds any new notes, links
+                and photos. Replace overwrites the text but keeps the record —
+                so a placement or a star survives.
+                <span className="mt-1.5 flex items-center gap-1.5">
+                  Apply to all:
+                  {(['merge', 'replace', 'add'] as DuplicateDecision[]).map(
+                    (d) => (
+                      <button
+                        key={d}
+                        onClick={() =>
+                          setDecisions(
+                            new Map(
+                              [...step.matches.keys()].map((i) => [i, d]),
+                            ),
+                          )
+                        }
+                        className="rounded border border-amber-300 bg-white px-1.5 py-0.5 capitalize hover:bg-amber-100"
+                      >
+                        {d === 'add' ? 'add anyway' : d}
+                      </button>
+                    ),
+                  )}
+                </span>
+              </div>
+            )}
             <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200">
               {step.doc.highlights.map((h, i) => (
                 <li
@@ -193,6 +272,37 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
                       🖼 {h.photos.length}
                     </span>
                   )}
+                  {step.matches.get(i) && (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <span
+                        className="text-xs text-amber-700"
+                        title={
+                          step.matches.get(i)!.reason === 'distance'
+                            ? `${Math.round(step.matches.get(i)!.distanceM ?? 0)} m from "${step.matches.get(i)!.existing.title}" ${step.matches.get(i)!.existing.where}`
+                            : `Same name as "${step.matches.get(i)!.existing.title}" ${step.matches.get(i)!.existing.where}`
+                        }
+                      >
+                        already {step.matches.get(i)!.existing.where}
+                      </span>
+                      {(['merge', 'replace', 'add'] as DuplicateDecision[]).map(
+                        (d) => (
+                          <button
+                            key={d}
+                            onClick={() =>
+                              setDecisions(new Map(decisions).set(i, d))
+                            }
+                            className={`rounded px-1.5 py-0.5 text-[11px] capitalize ${
+                              (decisions.get(i) ?? 'merge') === d
+                                ? 'bg-slate-900 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ),
+                      )}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -204,7 +314,7 @@ export function HighlightsImportDialog({ tripId, onClose, onImported }: Props) {
                 Back
               </button>
               <button
-                onClick={() => commit(step.doc)}
+                onClick={() => commit(step.doc, step.matches)}
                 className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
               >
                 Import {step.doc.highlights.length}

@@ -1455,6 +1455,30 @@ export function TripEditor({
       {showHighlightsImport && (
         <HighlightsImportDialog
           tripId={tripId}
+          // Wishlist and itinerary alike: since WORK 14 a poi is a stop
+          // without a day, so an idea already placed on day three is still
+          // the same place an import is about to add again.
+          existing={[
+            ...wishlist.map((p) => ({
+              id: p.id,
+              kind: 'poi' as const,
+              title: p.title,
+              placeKind: p.kind,
+              lat: p.lat,
+              lon: p.lon,
+              where: 'on the wishlist',
+            })),
+            ...stops.map((st) => ({
+              id: st.id,
+              kind: 'stop' as const,
+              title: st.title,
+              placeKind: st.kind,
+              lat: st.lat,
+              lon: st.lon,
+              where: `on day ${days.findIndex((d) => d.id === st.day) + 1}`,
+            })),
+          ]}
+          blocks={records.blocks}
           onClose={() => setShowHighlightsImport(false)}
           onImported={() => {
             reloadWishlist();

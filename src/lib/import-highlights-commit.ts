@@ -10,12 +10,28 @@
 import type { TypedPocketBase } from '../types/pb';
 import type { Highlight, HighlightsDoc } from './import-highlights';
 import { addWishlistItem } from './pb-pois';
+import {
+  planFor,
+  type DuplicateDecision,
+  type ExistingPlace,
+} from './import-dedupe';
+import type { BlocksResponse } from '../types/pb';
 import { photonSearch } from './photon';
 import { fetchPhotoFile } from './pb-photo-fetch';
+
+/** What the importer was told to do with a highlight that already exists. */
+export interface HighlightDecision {
+  decision: DuplicateDecision;
+  existing: ExistingPlace;
+  /** The blocks already on that record, so nothing is duplicated. */
+  existingBlocks: BlocksResponse[];
+}
 
 export interface HighlightImportResult {
   title: string;
   poiId: string;
+  /** Created fresh, or folded into a record that was already there. */
+  outcome: 'created' | 'merged' | 'replaced';
   /** Did it end up with coordinates at all? Wider than `!geocodeFailed`: a
    * highlight with neither lat/lon nor a `place_hint` never attempts a
    * geocode, so it fails nothing and still lands on no map. Without
@@ -59,35 +75,45 @@ async function resolveCoords(h: Highlight): Promise<{
 async function createHighlightBlocks(
   pb: TypedPocketBase,
   tripId: string,
-  poiId: string,
+  parentId: string,
   creatorId: string,
   h: Highlight,
+  parentKind: 'poi' | 'stop' = 'poi',
+  /** Note bodies to write instead of the highlight's own — the merge path
+   * has already dropped the ones the record carries. */
+  noteBodies?: string[],
 ): Promise<string[]> {
   const base = {
     trip: tripId,
-    parent_type: 'poi' as const,
-    parent_id: poiId,
+    parent_type: parentKind,
+    parent_id: parentId,
     visibility: 'trip' as const,
     creator: creatorId,
   };
-  if (h.description) {
-    await pb.collection('blocks').create({
-      ...base,
-      kind: 'note',
-      title: 'Description',
-      body: h.description,
-    });
-  }
-  // `notes` (personal, "why it's on the list") is a separate field from
-  // `description` (about the place) — its own note block, not merged in.
-  // WORK 14: pois have no notes field of their own any more, blocks only.
-  if (h.notes) {
-    await pb.collection('blocks').create({
-      ...base,
-      kind: 'note',
-      title: 'Notes',
-      body: h.notes,
-    });
+  if (noteBodies) {
+    for (const body of noteBodies) {
+      await pb.collection('blocks').create({ ...base, kind: 'note', body });
+    }
+  } else {
+    if (h.description) {
+      await pb.collection('blocks').create({
+        ...base,
+        kind: 'note',
+        title: 'Description',
+        body: h.description,
+      });
+    }
+    // `notes` (personal, "why it's on the list") is a separate field from
+    // `description` (about the place) — its own note block, not merged in.
+    // WORK 14: pois have no notes field of their own any more, blocks only.
+    if (h.notes) {
+      await pb.collection('blocks').create({
+        ...base,
+        kind: 'note',
+        title: 'Notes',
+        body: h.notes,
+      });
+    }
   }
   for (const link of h.links) {
     await pb.collection('blocks').create({
@@ -122,13 +148,60 @@ export async function importHighlights(
   tripId: string,
   doc: HighlightsDoc,
   onProgress?: (done: number, total: number, title: string) => void,
+  /** Per-highlight instructions for the ones that already exist (WORK 16.4),
+   * keyed by index into `doc.highlights`. Anything absent is created. */
+  decisions?: Map<number, HighlightDecision>,
 ): Promise<HighlightImportResult[]> {
   const user = pb.authStore.record;
   if (!user) throw new Error('Not signed in.');
 
   const results: HighlightImportResult[] = [];
-  for (const h of doc.highlights) {
+  for (const [index, h] of doc.highlights.entries()) {
     onProgress?.(results.length, doc.highlights.length, h.title);
+
+    const instruction = decisions?.get(index);
+    if (instruction && instruction.decision !== 'add') {
+      // Folding into a record that is already here: write only the fields
+      // the plan allows, then append the blocks it doesn't already carry.
+      const { existing, existingBlocks, decision } = instruction;
+      const plan = planFor(decision, existing, existingBlocks, h);
+      if (Object.keys(plan.fields).length > 0) {
+        await pb
+          .collection(existing.kind === 'stop' ? 'stops' : 'pois')
+          .update(existing.id, plan.fields);
+      }
+      const photoBlockIds = await createHighlightBlocks(
+        pb,
+        tripId,
+        existing.id,
+        user.id,
+        {
+          ...h,
+          description: undefined,
+          notes: undefined,
+          links: plan.blocks.links,
+          photos: plan.blocks.photos,
+        },
+        existing.kind,
+        plan.blocks.notes,
+      );
+      let merged = 0;
+      for (const blockId of photoBlockIds) {
+        const outcome = await fetchPhotoFile(pb, blockId);
+        if (!outcome.fetched && outcome.reason) merged += 1;
+      }
+      results.push({
+        title: h.title,
+        poiId: existing.id,
+        outcome: decision === 'replace' ? 'replaced' : 'merged',
+        located: true,
+        geocoded: false,
+        geocodeFailed: false,
+        photosFailed: merged,
+      });
+      continue;
+    }
+
     const coords = await resolveCoords(h);
     const poiId = await addWishlistItem(pb, tripId, {
       title: h.title,
@@ -156,6 +229,7 @@ export async function importHighlights(
     results.push({
       title: h.title,
       poiId,
+      outcome: 'created',
       located: coords.lat !== undefined && coords.lon !== undefined,
       geocoded: coords.geocoded,
       geocodeFailed: coords.geocodeFailed,

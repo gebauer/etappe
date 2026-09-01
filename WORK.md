@@ -1189,7 +1189,7 @@ written into `omitted_files` and reported in the notice line. 15 tests,
 including export → parse → identical cascade output, and validating the
 shipped fixture changing nothing about what it cascades to.
 
-**16.4 Duplicate detection on wishlist import** · Standard
+**16.4 Duplicate detection on wishlist import** · Standard · ✅
 `import-highlights-commit.ts` creates a `pois` row per highlight
 unconditionally, so importing an overlapping list twice silently doubles
 every entry. Add a duplicate check to the import **preview**, before
@@ -1214,6 +1214,19 @@ Each flagged row gets a per-item choice, defaulting to Merge:
   a few metres apart.
 Plus a header control to apply one choice to all flagged rows. The commit
 stays atomic.
+
+**Built as:** `src/lib/import-dedupe.ts` (`findDuplicate`, `planMerge`,
+`planReplace`) with 17 tests, wired through `importHighlights` (which now
+takes per-index decisions and reports `outcome: created | merged |
+replaced`) and the preview's per-row control. Matching is distance-first
+within 100 m, falling back to a normalised title only when one side has no
+coordinates — a title match between two *located* places is a different
+place that shares a name.
+**Trap, cost one wrong result before it was caught:** PocketBase returns an
+unset number field as `0`, not null, so an unlocated idea reads as latitude
+0 in the Gulf of Guinea and compared as thousands of km away. Anything
+comparing coordinates has to treat `0` as unset, the way `buildCascadeTrip`
+already does with `s.lat || null`.
 
 **16.5 Wishlist items get the full stop treatment** · Standard
 Since Phase 14 a poi is "a stop without a day", but the UI never caught up:
