@@ -737,6 +737,73 @@ reflect the shipped design. (Renumbered from a second "12.8" heading.)
 
 ---
 
+## Phase 13 — Day-start continuity
+
+Author request, 2026-09-01. Today every day is an **island**: the cascade
+computes each day from its own first stop starting at 09:00 (or its first
+anchor), and legs only ever connect consecutive stops *within* a day
+(`cascade.ts`, `pb-trip-doc.ts` builds `stops.length - 1` legs per day;
+`pb-stops.ts` never wires a cross-day leg). So the morning drive from last
+night's accommodation to the day's first stop is not routed, not timed and
+not drawn. BUILD.md §1 ("if the same hotel ends day 3 and starts day 4 you
+are staying put") assumes this continuity; it was never built.
+
+**Design, confirmed with the author:**
+
+- A day gets an optional **start point**: `days.start_stop` → a *pointer*
+  to an existing stop (not a copy, not a stop-library rework). Normally the
+  previous day's `is_accommodation` stop; can be cleared.
+- **"Set start point → previous accommodation"** button per day (day 2 on):
+  walks back to the nearest earlier `is_accommodation` stop and points
+  `start_stop` at it. Clearing it returns that day to island behaviour.
+- **One record, many days.** Re-booking a guesthouse means editing that one
+  stop; every day whose `start_stop` points at it re-routes its morning
+  leg. That's the whole point of the pointer over duplication.
+- **Leading leg.** A real routed, ORS-cached car leg from `start_stop` to
+  the day's first real stop, drawn in that day's hue, shown as a leg row at
+  the top of the day. The start point renders as a greyed "ghost" row above
+  the first stop (it belongs to the previous day; it's context here).
+- **Timing.** 09:00 (or the first anchor, back-derived) = *leave the start
+  point*. First real stop arrival = 09:00 + leading-leg effective duration.
+  `LONG_DAY` elapsed includes the morning drive.
+- **Decisions:** (2) moving days around does NOT auto-fix the pointer — the
+  author re-clicks the button per day; auto-repair is a later nicety.
+  (3) cleared/absent `start_stop` = today's island behaviour. (4) a
+  multi-night stay still needs its own ending `is_accommodation` stop in
+  each day's chain — no stay-put special case in v1.
+
+Not a redesign task — touches the cascade engine, so it carries the same
+"wrong abstraction propagates to editor/share/PDF/import" risk as phase 2.
+
+**13.1 Schema + cascade** · **Heavy**
+`days.start_stop` nullable relation → stops (migration `1788000008`, no
+cascade delete — a deleted stop clears the pointer, day falls back to
+island; `npm run types:pb`). `CascadeDay` gains `startStop` coords and a
+`leadingLeg: CascadeLeg | null`; `pb-trip-doc`'s adapter resolves the
+pointer and attaches the leg. `computeDay` adds the leading-leg duration
+before the first stop (departure semantics above), including in the
+`firstAnchor` back-derivation and `elapsedMin`. New multi-day cascade
+fixture + tests: leading-leg arrival maths, cleared pointer = island,
+anchor on the first stop still wins.
+
+**13.2 Leg lifecycle + routing** · Standard
+The leading leg is `legs(from_stop = start_stop, to_stop = firstStopOfDay)`
+— a real record, but cross-day. Teach the within-day planners
+(`planInsertBetween`, `planStopMove`, delete/merge in `pb-stops.ts`) to
+ignore legs whose `from_stop` isn't in the day being edited, and add a
+dedicated path that (re)routes the leading leg when: `start_stop` is
+set/cleared, the day's first stop is added / removed / reordered, or the
+referenced stop's coordinates change. ORS via the existing hook + cache.
+
+**13.3 Rendering + editor** · Standard
+`buildLegFeatures` emits the leading-leg line in the day's hue (+ test).
+`Timeline` shows the ghost start-point row and the leading `LegRow` at the
+top of the day. `TripEditor` wires the "Set start point" button (v1: sets
+previous accommodation, plus a clear ✕; picking an arbitrary stop is a
+fast-follow). BUILD.md §1/§2/§3 updated.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the
