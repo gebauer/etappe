@@ -230,10 +230,20 @@ export function MapPane({
   // bounds needs this button rather than another automatic re-frame, which
   // would otherwise yank the view out from under whatever the user was
   // looking at.
+  //
+  // Unlike the automatic fit, this includes the wishlist. Ideas are
+  // day-independent and scattered far wider than the itinerary — a real
+  // trip had every one of its 25 ideas outside the stops' bounding box,
+  // which reads as "the wishlist pins are broken" when they're merely
+  // off-screen. Opening a trip should still frame the itinerary, so only
+  // the explicit "show me everything" action widens to them.
   function fitTrip() {
     const map = mapRef.current;
     if (!map) return;
     const bounds = computeBounds(fcRef.current, stopFcRef.current);
+    for (const f of wishlistFcRef.current.features) {
+      bounds.extend(f.geometry.coordinates);
+    }
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 60, maxZoom: 12, duration: 500 });
     }

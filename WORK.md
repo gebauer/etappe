@@ -578,6 +578,15 @@ Deviations and losses, all deliberate:
 - **Below 860px now looks broken**, by agreement (2026-09-01) — nothing is
   deployed and only the author sees it. The phone layout is 12.7.
 
+Follow-up (same day, author report "I don't see any wishlist markers"): not
+a rendering bug — the map only ever fitted to stops and legs, and on the
+real `island` trip *all 25* wishlist ideas with coordinates fall outside the
+3 stops' bounding box (ideas span 63.4–66.0°N, the stops sit around
+Reykjavík), so every pin was simply off-screen. "Fit trip" now includes
+wishlist pins; the automatic open-a-trip fit deliberately still frames only
+the itinerary, so opening a trip doesn't zoom out to a country-wide idea
+list.
+
 **12.7 Phone layout** · Standard
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
 it, day pills/wishlist panel/desktop card all suppressed. Compact phone
