@@ -199,6 +199,7 @@ export type DaysRecord = {
 	kind: DaysKindOptions
 	notes?: string
 	order_index?: number
+	start_stop?: RecordIdString
 	title?: string
 	trip: RecordIdString
 	updated: IsoAutoDateString

@@ -775,16 +775,31 @@ are staying put") assumes this continuity; it was never built.
 Not a redesign task — touches the cascade engine, so it carries the same
 "wrong abstraction propagates to editor/share/PDF/import" risk as phase 2.
 
-**13.1 Schema + cascade** · **Heavy**
+**13.1 Schema + cascade** · **Heavy** · ✅
 `days.start_stop` nullable relation → stops (migration `1788000008`, no
 cascade delete — a deleted stop clears the pointer, day falls back to
-island; `npm run types:pb`). `CascadeDay` gains `startStop` coords and a
-`leadingLeg: CascadeLeg | null`; `pb-trip-doc`'s adapter resolves the
-pointer and attaches the leg. `computeDay` adds the leading-leg duration
-before the first stop (departure semantics above), including in the
-`firstAnchor` back-derivation and `elapsedMin`. New multi-day cascade
-fixture + tests: leading-leg arrival maths, cleared pointer = island,
-anchor on the first stop still wins.
+island; `npm run types:pb`). `CascadeDay` gains `startPoint` (id + coords)
+and `leadingLeg: CascadeLeg | null`; `DayResult` gains
+`leadingLeg: LegTiming | null`. `pb-trip-doc`'s adapter resolves the
+pointer (ignoring a self-pointer or a dangling id) and picks up the
+`start_stop -> firstStop` leg record if it exists. `computeDay` adds the
+leading-leg effective duration before stop 0's arrival and into
+`elapsedMin`/`LONG_DAY`.
+
+Notes:
+- **The `firstAnchor` back-derivation needed no change.** An anchor pins a
+  stop's own clock and everything back-derives from it, so the leading leg
+  only shifts the *untimed* "leave the start point" moment — stop timings
+  are identical with or without it when any anchor is present. The only
+  timing change is the no-anchor branch: `arrival0 = 09:00 + leadEff`.
+- **No JSON fixture.** WORK's original text called for a "multi-day cascade
+  fixture", but the import format (`iceland-day1.json`, BUILD §8) has no
+  `start_stop` field, so a fixture can't exercise this. Tested instead with
+  constructed `CascadeTrip`s in `cascade.test.ts` (7 cases) and a 2-day
+  `TripRecords` in `pb-trip-doc.test.ts` (3 cases), consistent with how the
+  rest of the engine is tested. `npm run check` green (179 tests).
+- `import-cascade.ts` untouched — import days stay islands (the optional
+  `CascadeDay` fields default to null).
 
 **13.2 Leg lifecycle + routing** · Standard
 The leading leg is `legs(from_stop = start_stop, to_stop = firstStopOfDay)`

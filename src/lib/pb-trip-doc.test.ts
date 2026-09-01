@@ -102,3 +102,110 @@ describe('buildCascadeTrip', () => {
     expect(formatClock(c!.arrival)).toBe('16:25'); // +60
   });
 });
+
+// --- day-start continuity: start_stop -> startPoint + leading leg (WORK 13.1)
+
+describe('buildCascadeTrip / start_stop', () => {
+  const twoDayTrip = { ...trip, id: 't2' } as unknown as TripsResponse;
+  const d1 = {
+    id: 'd1',
+    order_index: 0,
+    kind: 'travel',
+  } as unknown as DaysResponse;
+  // Day 2 leaves from day 1's accommodation ('C').
+  const d2 = {
+    id: 'd2',
+    order_index: 1,
+    kind: 'travel',
+    start_stop: 'C',
+  } as unknown as DaysResponse;
+
+  const base: TripRecords = {
+    trip: twoDayTrip,
+    days: [d1, d2],
+    stops: [
+      stop({ id: 'A', day: 'd1', order_index: 0, kind: 'airport' }),
+      stop({
+        id: 'C',
+        day: 'd1',
+        order_index: 1,
+        kind: 'hotel',
+        is_accommodation: true,
+        lat: 64.1,
+        lon: -21.9,
+      }),
+      stop({
+        id: 'D',
+        day: 'd2',
+        order_index: 0,
+        kind: 'waterfall',
+        anchor_time: '',
+        dwell_override: 30,
+      }),
+      stop({
+        id: 'E',
+        day: 'd2',
+        order_index: 1,
+        kind: 'hotel',
+        is_accommodation: true,
+      }),
+    ],
+    legs: [
+      {
+        id: 'L_DE',
+        from_stop: 'D',
+        to_stop: 'E',
+        mode: 'car',
+        surface: 'paved',
+        duration_min: 30,
+      } as unknown as LegsResponse,
+    ],
+    activities: [],
+    blocks: [],
+  };
+
+  it('resolves the pointer to a startPoint but leaves leadingLeg null until routed', () => {
+    const ct = buildCascadeTrip(base);
+    expect(ct.days[1]!.startPoint).toEqual({ id: 'C', lat: 64.1, lon: -21.9 });
+    expect(ct.days[1]!.leadingLeg).toBeNull();
+    // Not routed yet -> day 2 still starts its first stop at 09:00.
+    const { days } = cascade(ct, () => null);
+    expect(formatClock(days[1]!.stops[0]!.arrival)).toBe('09:00');
+  });
+
+  it('picks up the leading leg record (C -> D) and shifts day 2 by its duration', () => {
+    const withLead: TripRecords = {
+      ...base,
+      legs: [
+        ...base.legs,
+        {
+          id: 'L_CD',
+          from_stop: 'C',
+          to_stop: 'D',
+          mode: 'car',
+          surface: 'paved',
+          duration_min: 60, // 60 x 1.15 = 69
+        } as unknown as LegsResponse,
+      ],
+    };
+    const ct = buildCascadeTrip(withLead);
+    expect(ct.days[1]!.leadingLeg).toMatchObject({
+      id: 'L_CD',
+      duration_min: 60,
+    });
+    const { days } = cascade(ct, () => null);
+    expect(formatClock(days[1]!.stops[0]!.arrival)).toBe('10:09'); // 09:00 + 69
+    expect(days[1]!.leadingLeg).toEqual({
+      legId: 'L_CD',
+      effectiveDuration: 69,
+    });
+  });
+
+  it('ignores a dangling start_stop pointer', () => {
+    const dangling: TripRecords = {
+      ...base,
+      days: [d1, { ...d2, start_stop: 'ghost' } as unknown as DaysResponse],
+    };
+    expect(buildCascadeTrip(dangling).days[1]!.startPoint).toBeNull();
+  });
+});

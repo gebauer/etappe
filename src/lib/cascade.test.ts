@@ -3,6 +3,7 @@ import {
   cascade,
   formatClock,
   type CascadeTrip,
+  type CascadeDay,
   type CascadeStop,
   type CascadeLeg,
   type DaylightProvider,
@@ -374,5 +375,129 @@ describe('edge cases', () => {
       deficitMin: 680, // 09:30 + 690 = 21:00 computed vs 09:40 anchor
     });
     expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('09:40');
+  });
+});
+
+// --- leading leg: the morning drive from the day's start point (WORK 13.1) --
+
+describe('leading leg', () => {
+  function oneDay(over: Partial<CascadeDay> = {}) {
+    const day: CascadeDay = {
+      id: 'd',
+      order_index: 0,
+      kind: 'travel',
+      stops: [
+        stop('a', { dwell_override: 30 }),
+        stop('b', { is_accommodation: true }),
+      ],
+      legs: [leg({ surface: 'paved', duration_min: 60 })], // 69 within-day
+      ...over,
+    };
+    return trip({ days: [day] });
+  }
+
+  it('an anchorless day starts stop 0 at 09:00 + the leading leg', () => {
+    const t = oneDay({
+      leadingLeg: leg({ surface: 'paved', duration_min: 60 }), // 60×1.15 = 69
+    });
+    const { days } = cascade(t, noDaylight);
+    expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('10:09'); // 09:00 + 69
+    expect(days[0]!.leadingLeg).toEqual({ effectiveDuration: 69 });
+  });
+
+  it('surfaces the leading leg with its id and effective duration', () => {
+    const t = oneDay({
+      leadingLeg: leg({ id: 'lead1', surface: 'paved', duration_min: 30 }),
+    });
+    expect(cascade(t, noDaylight).days[0]!.leadingLeg).toEqual({
+      legId: 'lead1',
+      effectiveDuration: 35, // 30×1.15 = 34.5 -> 35
+    });
+  });
+
+  it('an anchor on stop 0 wins; the leading leg only lengthens elapsed', () => {
+    const t = oneDay({
+      stops: [
+        stop('a', {
+          anchor_time: '10:00',
+          anchor_type: 'arrival',
+          dwell_override: 30,
+        }),
+        stop('b', { is_accommodation: true }),
+      ],
+      leadingLeg: leg({ surface: 'paved', duration_min: 120 }), // 138
+    });
+    const { days } = cascade(t, noDaylight);
+    expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('10:00'); // anchor wins
+    expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('11:39'); // 10:00+30+69
+    expect(days[0]!.elapsedMin).toBe(99 + 138); // stop span + morning drive
+  });
+
+  it('a downstream anchor back-derives the same with or without a leading leg', () => {
+    const base = {
+      stops: [
+        stop('a', { dwell_override: 30 }),
+        stop('b', {
+          anchor_time: '12:00',
+          anchor_type: 'arrival',
+          is_accommodation: true,
+        }),
+      ],
+      legs: [leg({ surface: 'paved', duration_min: 60 })],
+    };
+    const island = cascade(oneDay(base), noDaylight).days[0]!;
+    const withLead = cascade(
+      oneDay({
+        ...base,
+        leadingLeg: leg({ surface: 'paved', duration_min: 90 }),
+      }),
+      noDaylight,
+    ).days[0]!;
+    expect(withLead.stops.map((s) => s.arrival)).toEqual(
+      island.stops.map((s) => s.arrival),
+    );
+    expect(formatClock(withLead.stops[1]!.arrival)).toBe('12:00');
+  });
+
+  it('a start point with no routed leg behaves like an island', () => {
+    const t = oneDay({
+      startPoint: { id: 'prev-hotel', lat: 64, lon: -18 },
+      // leadingLeg omitted: pointer set, not routed yet
+    });
+    const { days } = cascade(t, noDaylight);
+    expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('09:00');
+    expect(days[0]!.leadingLeg).toBeNull();
+  });
+
+  it('a long morning transfer tips an otherwise short day into LONG_DAY', () => {
+    const stops = [
+      stop('a', {
+        anchor_time: '08:00',
+        anchor_type: 'arrival',
+        dwell_override: 60,
+      }),
+      stop('b', { is_accommodation: true }),
+    ];
+    const legs = [leg({ surface: 'paved', duration_min: 300 })]; // 345 -> span 405
+    const short = cascade(oneDay({ stops, legs }), noDaylight);
+    expect(short.warnings.some((w) => w.code === 'LONG_DAY')).toBe(false);
+
+    const long = cascade(
+      oneDay({
+        stops,
+        legs,
+        leadingLeg: leg({ surface: 'paved', duration_min: 360 }), // 414
+      }),
+      noDaylight,
+    );
+    expect(long.warnings).toContainEqual({ code: 'LONG_DAY', dayId: 'd' });
+    expect(long.days[0]!.elapsedMin).toBe(405 + 414);
+  });
+
+  it('carries leadingLeg: null on an empty day', () => {
+    const t = trip({
+      days: [{ id: 'd', order_index: 0, kind: 'travel', stops: [], legs: [] }],
+    });
+    expect(cascade(t, noDaylight).days[0]!.leadingLeg).toBeNull();
   });
 });

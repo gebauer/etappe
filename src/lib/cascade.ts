@@ -49,6 +49,16 @@ export interface CascadeDay {
   stops: CascadeStop[];
   /** legs[i] connects stops[i] -> stops[i+1]; length is stops.length - 1. */
   legs: CascadeLeg[];
+  /** WORK 13.1: the point you leave in the morning — normally the previous
+   * day's accommodation, referenced (not copied) via `days.start_stop`.
+   * Coordinates feed the leading leg's map line; identity feeds the ghost
+   * timeline row. `null`/absent = island day (day 1, or a cleared pointer). */
+  startPoint?: { id: string; lat: number | null; lon: number | null } | null;
+  /** WORK 13.1: the routed drive from `startPoint` to `stops[0]`. Its
+   * effective duration lands before `stops[0].arrival`, so 09:00 (or a
+   * back-derived first anchor) is when you *leave the start point*.
+   * `null`/absent whenever there's no start point or it isn't routed yet. */
+  leadingLeg?: CascadeLeg | null;
 }
 
 export interface CascadeTrip {
@@ -117,6 +127,11 @@ export interface DayResult {
   date: string;
   stops: StopTiming[];
   legs: LegTiming[];
+  /** WORK 13.1: the morning drive from the day's start point to `stops[0]`,
+   * or null when the day is an island. Its `effectiveDuration` is already
+   * baked into `stops[0].arrival` and `elapsedMin`; it's surfaced separately
+   * so the timeline and map can render the leading leg row/line. */
+  leadingLeg: LegTiming | null;
   daylight: Daylight | null;
   elapsedMin: number;
 }
@@ -250,6 +265,7 @@ function computeDay(
         date,
         stops: [],
         legs: [],
+        leadingLeg: null,
         daylight,
         elapsedMin: 0,
       },
@@ -264,11 +280,19 @@ function computeDay(
       : 0,
   );
 
+  // The morning drive from the day's start point to stops[0] (WORK 13.1).
+  // Zero when the day is an island or the leading leg isn't routed yet.
+  const leadEff = day.leadingLeg ? effectiveDuration(day.leadingLeg, trip) : 0;
+
   // Baseline: the arrival of stop 0. Derive it from the first anchor by walking
   // backwards, so the forward pass reproduces that anchor exactly. With no
-  // anchor anywhere, start the day at the default time.
+  // anchor anywhere, start the day at the default time — which is now the
+  // moment you *leave the start point*, so stop 0's arrival is that plus the
+  // leading leg. An anchor pins a stop's own clock, so it back-derives the
+  // same as before: the leading leg only shifts the (untimed) departure from
+  // the start point, not any stop.
   const anchor = firstAnchor(stops);
-  let arrival0 = DAY_DEFAULT_START;
+  let arrival0 = DAY_DEFAULT_START + leadEff;
   if (anchor) {
     const targetAtAnchor =
       anchor.type === 'arrival'
@@ -312,15 +336,28 @@ function computeDay(
   for (let i = 0; i < stops.length - 1; i++) {
     legs.push({ legId: day.legs[i]?.id, effectiveDuration: legEff[i]! });
   }
-
-  collectDayWarnings(day, timings, date, daylight, warnings);
+  const leadingLeg: LegTiming | null = day.leadingLeg
+    ? { legId: day.leadingLeg.id, effectiveDuration: leadEff }
+    : null;
 
   const first = timings[0]!;
   const last = timings[timings.length - 1]!;
-  const elapsedMin = last.arrival - first.arrival;
+  // Elapsed counts the morning drive: a short day of stops after a long
+  // transfer is still a long day (WORK 13.1).
+  const elapsedMin = last.arrival - first.arrival + leadEff;
+
+  collectDayWarnings(day, timings, date, daylight, elapsedMin, warnings);
 
   return {
-    result: { dayId: day.id, date, stops: timings, legs, daylight, elapsedMin },
+    result: {
+      dayId: day.id,
+      date,
+      stops: timings,
+      legs,
+      leadingLeg,
+      daylight,
+      elapsedMin,
+    },
     warnings,
   };
 }
@@ -338,6 +375,7 @@ function collectDayWarnings(
   timings: StopTiming[],
   date: string,
   daylight: Daylight | null,
+  elapsedMin: number,
   warnings: Warning[],
 ): void {
   for (const stop of day.stops) {
@@ -363,12 +401,11 @@ function collectDayWarnings(
     });
   }
 
-  const last = timings[timings.length - 1]!;
-  const first = timings[0]!;
-  if (last.arrival - first.arrival > LONG_DAY_MIN) {
+  if (elapsedMin > LONG_DAY_MIN) {
     warnings.push({ code: 'LONG_DAY', dayId: day.id });
   }
 
+  const last = timings[timings.length - 1]!;
   if (daylight && last.arrival > daylight.sunset) {
     warnings.push({
       code: 'AFTER_DARK',

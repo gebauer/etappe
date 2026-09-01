@@ -35,6 +35,16 @@ export interface TripRecords {
   blocks: BlocksResponse[];
 }
 
+function toCascadeLeg(leg: LegsResponse): CascadeLeg {
+  return {
+    id: leg.id,
+    mode: leg.mode,
+    surface: leg.surface || null,
+    duration_min: leg.duration_min,
+    buffer_override_pct: leg.buffer_override_pct || null,
+  };
+}
+
 export function buildCascadeTrip(records: TripRecords): CascadeTrip {
   const { trip, days, stops, legs, activities } = records;
 
@@ -47,6 +57,7 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
     activitiesByStop.set(a.stop, list);
   }
 
+  const stopById = new Map(stops.map((s) => [s.id, s]));
   const legByPair = new Map<string, LegsResponse>();
   for (const l of legs) legByPair.set(`${l.from_stop}->${l.to_stop}`, l);
 
@@ -76,17 +87,33 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
       for (let i = 0; i < dayStops.length - 1; i++) {
         const leg = legByPair.get(`${dayStops[i]!.id}->${dayStops[i + 1]!.id}`);
         cascadeLegs.push(
-          leg
-            ? {
-                id: leg.id,
-                mode: leg.mode,
-                surface: leg.surface || null,
-                duration_min: leg.duration_min,
-                buffer_override_pct: leg.buffer_override_pct || null,
-              }
-            : { mode: 'other', duration_min: 0 },
+          leg ? toCascadeLeg(leg) : { mode: 'other', duration_min: 0 },
         );
       }
+
+      // Day-start continuity (WORK 13.1): `start_stop` points at an existing
+      // stop (normally the previous day's accommodation). Resolve its
+      // coordinates for the ghost row / map line, and pick up the leading
+      // leg record (start_stop -> this day's first stop) if it's been routed.
+      // A pointer to this day's own first stop is a no-op; a dangling id
+      // (PB nulls the relation on delete, but be defensive) is ignored.
+      const firstStop = dayStops[0];
+      const startStopId = day.start_stop || null;
+      const startStop =
+        startStopId && firstStop && startStopId !== firstStop.id
+          ? (stopById.get(startStopId) ?? null)
+          : null;
+      const startPoint = startStop
+        ? {
+            id: startStop.id,
+            lat: startStop.lat || null,
+            lon: startStop.lon || null,
+          }
+        : null;
+      const leadingLegRecord =
+        startPoint && firstStop
+          ? (legByPair.get(`${startPoint.id}->${firstStop.id}`) ?? null)
+          : null;
 
       return {
         id: day.id,
@@ -94,6 +121,8 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
         kind: day.kind,
         stops: cascadeStops,
         legs: cascadeLegs,
+        startPoint,
+        leadingLeg: leadingLegRecord ? toCascadeLeg(leadingLegRecord) : null,
       };
     });
 
