@@ -1,5 +1,5 @@
 ---
-name: reload
+name: reload-dev
 description: Restart the running Etappe dev servers — Vite on :5173 and/or PocketBase on :8090 — by killing the old process and starting a fresh one in the background. Use when asked to reload, restart, bounce or bring back the dev server, or after a change Vite's HMR cannot pick up (vite.config, tailwind config, new dependency, .env, pb_hooks or pb_migrations).
 ---
 
