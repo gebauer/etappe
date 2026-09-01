@@ -16,6 +16,15 @@ Hub-and-spoke travel needs no special type: if the same hotel ends day 3 and
 starts day 4, you are staying put. The one structural rule is that every day
 must end at a stop flagged `is_accommodation`.
 
+A day can also name a **start point** (`days.start_stop`) — an existing stop,
+normally the previous day's accommodation, that it leaves from in the morning.
+It's a pointer, not a copy: re-booking that hotel is a one-stop edit, and every
+day pointing at it re-routes. The pointer adds a **leading leg** from the start
+point to the day's first stop, and the day default (09:00) becomes the moment
+you leave the start point rather than the moment you reach the first stop. Day 1
+has no start point; a day with the pointer cleared is an island, timed from its
+own first stop as before.
+
 Etappe does not navigate. It plans, and it tells you what to do on which day.
 Turn-by-turn is handed to Google Maps or Komoot via deep links.
 
@@ -45,10 +54,13 @@ without being specific to it.
 with the trip.
 
 ### days
-`trip` · `order_index` (int) · `title` · `kind` (`travel` | `rest`) · `notes`.
+`trip` · `order_index` (int) · `title` · `kind` (`travel` | `rest`) · `notes` ·
+`start_stop` (relation → stops, optional, no cascade delete).
 
 Date is computed as `trip.start_date + order_index`. Inserting a day means
 incrementing `order_index` on everything after it, in one transaction.
+`start_stop` points at the stop this day leaves from (§1); deleting that stop
+clears the pointer rather than cascading.
 
 ### stops
 | field | type | notes |
@@ -128,7 +140,11 @@ Input: the full trip document. Output: for each stop an `arrival` and
 
 **Algorithm, per day:**
 
-1. Find the first anchor. If none, start from a day default (09:00).
+1. Find the first anchor. If none, start from a day default (09:00) — which,
+   when the day has a `start_stop` (§1), is when you *leave the start point*,
+   so `arrival(0) = 09:00 + effective_duration(leading leg)`. An anchor pins a
+   stop's own clock and back-derives as before; the leading leg only shifts the
+   untimed morning departure.
 2. Walk forward: `arrival(n) = departure(n-1) + effective_duration(leg)`;
    `departure(n) = arrival(n) + dwell(n)`.
 3. `dwell` = `dwell_override` if set, else the sum of the stop's activity
@@ -150,7 +166,7 @@ Input: the full trip document. Output: for each stop an `arrival` and
 | `MISSED_ANCHOR` | computed arrival later than a pinned time |
 | `NO_ACCOMMODATION` | day does not end at an `is_accommodation` stop |
 | `AFTER_DARK` | arrival later than sunset; carries the deficit |
-| `LONG_DAY` | total elapsed exceeds 12 h |
+| `LONG_DAY` | total elapsed exceeds 12 h (counts the leading leg, §1) |
 | `FROAD_SEASON` | F-road leg on a date outside 15 Jun – 10 Sep |
 | `UNCATEGORIZED` | stop kind is `uncategorized` |
 

@@ -37,6 +37,16 @@ interface Props {
   scrollToStopId: string | null;
   hoveredStopId: string | null;
   onHoverStop: (stopId: string | null) => void;
+  /** Day-start continuity (WORK 13.3): the stop this day leaves from
+   * (`days.start_stop`, normally the previous day's accommodation) resolved
+   * to a record, plus its routed leading leg. Null when the day is an
+   * island. `startPointCandidate` is the stop the "+ Start point" button
+   * would point at — null on day 1 or when nothing earlier qualifies. */
+  startPointStop?: StopsResponse | null;
+  startPointLeg?: LegsResponse;
+  startPointCandidate?: StopsResponse | null;
+  onSetStartPoint?: () => void;
+  onClearStartPoint?: () => void;
 }
 
 /**
@@ -66,6 +76,11 @@ export function Timeline({
   scrollToStopId,
   hoveredStopId,
   onHoverStop,
+  startPointStop,
+  startPointLeg,
+  startPointCandidate,
+  onSetStartPoint,
+  onClearStartPoint,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -104,6 +119,21 @@ export function Timeline({
     first && last
       ? `${formatClock(first.arrival)} – ${formatClock(last.departure)}`
       : '';
+
+  // Leading leg (WORK 13.3): the morning drive shown above stop 1. "Leave
+  // at" = the first stop's arrival minus the leading leg's effective
+  // duration (the cascade already baked that duration in — WORK 13.1).
+  const leadMin = dayResult?.leadingLeg?.effectiveDuration ?? 0;
+  const departFrom =
+    first && dayResult?.leadingLeg ? first.arrival - leadMin : null;
+  const startThumb = startPointStop
+    ? (() => {
+        const p = blocksFor(blocks, 'stop', startPointStop.id).find(
+          (b) => b.kind === 'photo',
+        );
+        return p ? blockFileUrl(pb, p, '80x80') : null;
+      })()
+    : null;
 
   function indexInDay(beforeStopId?: string): number {
     const list = dayStops.filter((s) => s.id !== dragId);
@@ -146,6 +176,66 @@ export function Timeline({
               {warningText(w)}
             </div>
           ))}
+
+        {/* Day-start continuity (WORK 13.3): a greyed "ghost" row for the
+            stop this day leaves from, then its leading leg — or, until one
+            is set, a button to point it at the previous accommodation. */}
+        {dayStops.length > 0 && startPointStop && (
+          <>
+            <div className="flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 opacity-70">
+              <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
+                ↑
+              </span>
+              <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
+                {startThumb && (
+                  <img
+                    src={startThumb}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-medium text-text-3">
+                  {startPointStop.title}
+                </span>
+                <span className="block font-mono text-[11.5px] text-text-5">
+                  start point
+                  {departFrom != null
+                    ? ` · leave ${formatClock(departFrom)}`
+                    : ''}
+                </span>
+              </span>
+              <button
+                onClick={onClearStartPoint}
+                title="Clear start point"
+                className="flex-none px-1 text-text-5 hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+            <LegRow
+              leg={startPointLeg}
+              effectiveDuration={dayResult?.leadingLeg?.effectiveDuration}
+              onUpdate={(patch) =>
+                startPointLeg && onUpdateLeg(startPointLeg.id, patch)
+              }
+              onReroute={() => startPointLeg && onRerouteLeg(startPointLeg.id)}
+              onSetManual={(min) =>
+                startPointLeg && onSetManualLeg(startPointLeg.id, min)
+              }
+            />
+          </>
+        )}
+        {dayStops.length > 0 && !startPointStop && startPointCandidate && (
+          <button
+            onClick={onSetStartPoint}
+            className="mb-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+          >
+            ↑ Start from {startPointCandidate.title}
+          </button>
+        )}
 
         {dayStops.length === 0 ? (
           <div className="rounded-[10px] border border-dashed border-[oklch(0.32_0.012_250)] px-4 py-8 text-center text-[13px] text-text-4">

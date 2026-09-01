@@ -33,7 +33,11 @@ mode and the wishlist "photo wheel".
 The handoff was revised 2026-09-01 (`design_handoff_map_first_planner`,
 in place — the old copy is superseded) with two new surfaces: a built
 wishlist carousel and a proper access-point picking mode — 12.10 and 12.9,
-now both done. **→ Next, in order: 12.7 (phone layout, also what fixes the
+now both done.
+**Phase 13 (day-start continuity — a day leaves from the previous day's
+accommodation via a routed leading leg) is done: 13.1 schema+cascade, 13.2
+leg lifecycle+routing, 13.3 rendering+editor.**
+**→ Next, in order: 12.7 (phone layout, also what fixes the
 sub-860px view 12.6 deliberately let break) → 12.11 (cleanup).**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
@@ -829,12 +833,32 @@ Inert until 13.3 adds the "Set start point" button — no day can have a
 `runStructural` rewire didn't break add-day / add-stop. `npm run check`
 green (192 tests).
 
-**13.3 Rendering + editor** · Standard
-`buildLegFeatures` emits the leading-leg line in the day's hue (+ test).
-`Timeline` shows the ghost start-point row and the leading `LegRow` at the
-top of the day. `TripEditor` wires the "Set start point" button (v1: sets
-previous accommodation, plus a clear ✕; picking an arbitrary stop is a
-fast-follow). BUILD.md §1/§2/§3 updated.
+**13.3 Rendering + editor** · Standard · ✅
+- `buildLegFeatures` emits the leading-leg line in the day's hue — routed
+  geometry when the leg has it, else a straight `manual` connector keyed
+  `lead:<dayId>` (2 tests). Drawn like any leg; the "from yesterday" cue is
+  the itinerary ghost row, not the map line.
+- `Timeline`: a greyed ghost row for the start-point stop (dashed `↑`
+  badge, greyed thumb, "start point · leave HH:MM" where the time is the
+  first stop's arrival minus the leading leg's effective duration), then
+  the leading `LegRow` (reusing all its edit/reroute/manual controls), then
+  a `✕` to clear. When no start point is set, a dashed
+  `↑ Start from <name>` button instead — shown only from day 2 on and once
+  the day has a stop.
+- `TripEditor`: `startPointStop` / `startPointLeg` / `startPointCandidate`
+  computed for the active day (candidate = walk back to the nearest earlier
+  non-empty day's last `is_accommodation` stop, or its last stop). New
+  `setStartPoint(dayId, stopId|null)` → `setDayStartStop` +
+  `reconcileLeadingLegs` + `reload` (not via `runStructural` — that skips
+  reconcile until a start point exists, which is the case this creates).
+- BUILD.md §1 (concept), §2 (`days.start_stop`), §3 (algorithm step 1 +
+  LONG_DAY note) updated.
+
+Browser-verified end to end: the "Start from …" button appears on day 2,
+setting it renders the ghost row + leading `LegRow` (0m·manual here — no
+ORS key in this env), clearing restores the button. No console errors.
+`npm run check` green (194 tests). Arbitrary-stop picker still a
+fast-follow — the button only ever points at the previous accommodation.
 
 ---
 

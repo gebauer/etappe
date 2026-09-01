@@ -45,7 +45,7 @@ import { WishlistCarousel } from './WishlistCarousel';
 import { PinCard, type CardTarget } from './PinCard';
 import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
-import { reconcileLeadingLegs } from '../lib/pb-leading-leg';
+import { reconcileLeadingLegs, setDayStartStop } from '../lib/pb-leading-leg';
 import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
@@ -621,6 +621,24 @@ export function TripEditor({
     }
   }
 
+  // Day-start continuity (WORK 13.3): point a day at (or clear) the stop it
+  // leaves from in the morning, then reconcile its leading leg. Not routed
+  // through `runStructural` — that skips the reconcile until some day
+  // already has a start point, which is exactly the case this creates.
+  function setStartPoint(dayId: string, stopId: string | null) {
+    void (async () => {
+      try {
+        await setDayStartStop(pb, dayId, stopId);
+        await reconcileLeadingLegs(pb, routing, tripId);
+        await reload();
+      } catch (err) {
+        setActionError(
+          err instanceof Error ? err.message : 'Failed to set start point.',
+        );
+      }
+    })();
+  }
+
   // "Move to day…" (WORK 12.3, expanded card): appends to the end of the
   // target day, reusing the same reindex-and-reroute path drag-and-drop
   // already relies on (WORK 4.3) — no ranking needed, the day is explicit.
@@ -847,6 +865,34 @@ export function TripEditor({
   const activeDayIndex = activeDay
     ? days.findIndex((d) => d.id === activeDay.id)
     : 0;
+
+  // Day-start continuity (WORK 13.3). The stop the active day leaves from
+  // (`start_stop`), its routed leading leg, and — for the "Start from …"
+  // button — the previous accommodation the button would point at: the
+  // nearest earlier non-empty day's last `is_accommodation` stop, or its
+  // last stop if that day has none.
+  const startPointStop = activeDay?.start_stop
+    ? (stops.find((s) => s.id === activeDay.start_stop) ?? null)
+    : null;
+  const activeDayFirstStop = activeDay
+    ? dayStopsOf(activeDay.id)[0]
+    : undefined;
+  const startPointLeg =
+    startPointStop && activeDayFirstStop
+      ? legs.find(
+          (l) =>
+            l.from_stop === startPointStop.id &&
+            l.to_stop === activeDayFirstStop.id,
+        )
+      : undefined;
+  let startPointCandidate: StopsResponse | null = null;
+  for (let di = activeDayIndex - 1; di >= 0 && !startPointCandidate; di--) {
+    const ds = dayStopsOf(days[di]!.id);
+    if (ds.length === 0) continue;
+    startPointCandidate =
+      [...ds].reverse().find((s) => s.is_accommodation) ?? ds[ds.length - 1]!;
+  }
+
   const cardOpen = !!cardTarget;
   const pickingStop = picking
     ? (stops.find((s) => s.id === picking.stopId) ?? null)
@@ -1042,6 +1088,17 @@ export function TripEditor({
             }
             hoveredStopId={hoveredStopId}
             onHoverStop={setHoveredStopId}
+            startPointStop={startPointStop}
+            startPointLeg={startPointLeg}
+            startPointCandidate={startPointCandidate}
+            onSetStartPoint={() =>
+              activeDay &&
+              startPointCandidate &&
+              setStartPoint(activeDay.id, startPointCandidate.id)
+            }
+            onClearStartPoint={() =>
+              activeDay && setStartPoint(activeDay.id, null)
+            }
             onAddStop={(dayId) =>
               runStructural(() =>
                 addStopAtEnd(

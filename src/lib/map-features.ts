@@ -52,6 +52,7 @@ export function buildLegFeatures(
 ): LegFeatureCollection {
   const features: LegFeature[] = [];
   const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
+  const stopById = new Map(records.stops.map((s) => [s.id, s]));
 
   days.forEach((day, dayIndex) => {
     const hue = dayHue(dayIndex);
@@ -64,6 +65,48 @@ export function buildLegFeatures(
     const arrivalByStop = new Map(
       dayResult?.stops.map((s) => [s.stopId, s.arrival]) ?? [],
     );
+
+    // Leading leg (WORK 13.3): the morning drive from the day's start point
+    // (`start_stop`, normally the previous day's accommodation) to its first
+    // stop. Drawn in this day's hue like any other leg — the "from
+    // yesterday" cue lives in the itinerary's ghost row, not the map line.
+    const firstStop = dayStops[0];
+    const startStop = day.start_stop
+      ? (stopById.get(day.start_stop) ?? null)
+      : null;
+    if (
+      firstStop &&
+      startStop &&
+      startStop.id !== firstStop.id &&
+      startStop.lat &&
+      startStop.lon &&
+      firstStop.lat &&
+      firstStop.lon
+    ) {
+      const leadLeg = records.legs.find(
+        (l) => l.from_stop === startStop.id && l.to_stop === firstStop.id,
+      );
+      const arrival = arrivalByStop.get(firstStop.id);
+      const afterDusk = dusk != null && arrival != null && arrival > dusk;
+      const geometry = asLineString(leadLeg?.geometry);
+      features.push({
+        type: 'Feature',
+        geometry: geometry ?? {
+          type: 'LineString',
+          coordinates: [
+            [startStop.lon, startStop.lat],
+            [firstStop.lon, firstStop.lat],
+          ],
+        },
+        properties: {
+          legId: leadLeg?.id ?? `lead:${day.id}`,
+          flat,
+          shade: legColor(hue, 0),
+          afterDusk,
+          manual: !geometry,
+        },
+      });
+    }
 
     for (let i = 0; i < dayStops.length - 1; i++) {
       const from = dayStops[i]!;

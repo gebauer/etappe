@@ -96,6 +96,51 @@ describe('buildLegFeatures', () => {
     )!;
     expect(f.properties.afterDusk).toBe(false);
   });
+
+  it('emits a leading-leg line for a day with a start point (WORK 13.3)', () => {
+    const withStart = {
+      ...records,
+      days: [
+        { id: 'd0', order_index: 0, kind: 'travel' },
+        { id: 'd1', order_index: 1, kind: 'travel', start_stop: 'H' },
+      ],
+      stops: [
+        { id: 'H', day: 'd0', order_index: 0, lat: 65, lon: -19 },
+        ...records.stops,
+      ],
+      legs: [
+        ...records.legs,
+        { id: 'HA', from_stop: 'H', to_stop: 'A', geometry: line },
+      ],
+    } as unknown as TripRecords;
+    const fc = buildLegFeatures(withStart, result);
+    const f = fc.features.find((x) => x.properties.legId === 'HA')!;
+    expect(f.properties.manual).toBe(false);
+    expect(f.properties.flat).toBe(flatColor(dayHue(1))); // day 1's hue
+  });
+
+  it('draws the leading leg as a straight connector until it is routed', () => {
+    const withStart = {
+      ...records,
+      days: [
+        { id: 'd0', order_index: 0, kind: 'travel' },
+        { id: 'd1', order_index: 1, kind: 'travel', start_stop: 'H' },
+      ],
+      stops: [
+        { id: 'H', day: 'd0', order_index: 0, lat: 65, lon: -19 },
+        ...records.stops,
+      ],
+      legs: records.legs, // no H->A leg yet
+    } as unknown as TripRecords;
+    const f = buildLegFeatures(withStart, result).features.find(
+      (x) => x.properties.legId === 'lead:d1',
+    )!;
+    expect(f.properties.manual).toBe(true);
+    expect(f.geometry.coordinates).toEqual([
+      [-19, 65],
+      [-22, 64],
+    ]);
+  });
 });
 
 import { buildStopFeatures, buildWishlistFeatures } from './map-features';
