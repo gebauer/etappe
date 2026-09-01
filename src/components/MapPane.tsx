@@ -895,7 +895,10 @@ export function MapPane({
         const feature = stopFcRef.current.features.find(
           (f) => f.properties.stopId === selectedStop.id,
         );
-        const element = buildNumberedPinElement(feature?.properties.seq ?? 1);
+        const element = buildNumberedPinElement(
+          feature?.properties.seq ?? 1,
+          feature?.properties.starred ?? false,
+        );
         const marker = new maplibregl.Marker({
           element,
           anchor: 'center',

@@ -77,8 +77,13 @@ export function StopRow({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] font-medium">
-          {stop.title}
+        <span className="flex items-center gap-1 truncate text-[13.5px] font-medium">
+          {stop.starred && (
+            <span className="flex-none text-wishlist" title="Starred">
+              ★
+            </span>
+          )}
+          <span className="truncate">{stop.title}</span>
         </span>
         <span className="mt-0.5 block truncate text-[11.5px] text-[oklch(0.63_0.01_250)]">
           {kind}

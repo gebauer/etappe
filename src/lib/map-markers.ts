@@ -158,6 +158,12 @@ const BADGE_SEL_BORDER = oklchToHex(0.96, 0.01, 240);
 const BADGE_SEL_TEXT = oklchToHex(0.16, 0.02, 240); // on-accent
 const BADGE_HALO = oklchToHex(0.72, 0.13, 215); // accent, alpha applied separately
 
+// Starred-stop badge (WORK 14.3): sized down from the wishlist pin's default
+// so it stays proportionate to the much smaller numbered circle. Bigger on
+// the selected/DOM badge since that badge itself is bigger.
+const STOP_STAR_D_UNSEL = 18;
+const STOP_STAR_D_SEL = 24;
+
 function fillCircle(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -201,12 +207,17 @@ function drawBadgeNumber(
   ctx.fillText(text, cx, cy + 1);
 }
 
-/** Composites the unselected numbered badge ("n:<seq>") for the GL symbol
- * layer. Called on demand via styleimagemissing — one image per distinct
- * sequence number, shared across every day/stop that happens to land on it,
- * since the badge carries no day- or kind-specific styling any more. */
+/** Composites the unselected numbered badge for the GL symbol layer. `id` is
+ * "n:<seq>", or "n:<seq>:star" for a starred stop — a separate image, not a
+ * second GL layer, so the star can't drift out of sync with which pin is
+ * which (WORK 14.3, same reasoning as the wishlist pin's star). Called on
+ * demand via styleimagemissing — one image per distinct (sequence, starred)
+ * pair, shared across every day/stop that happens to land on it, since the
+ * badge carries no day- or kind-specific styling otherwise. */
 export function compositeNumberBadge(map: maplibregl.Map, id: string) {
-  const seq = id.slice('n:'.length);
+  const key = id.slice('n:'.length);
+  const starred = key.endsWith(':star');
+  const seq = starred ? key.slice(0, -':star'.length) : key;
   const d = BADGE_UNSEL_D;
   const r = d / 2;
   const canvas = document.createElement('canvas');
@@ -217,6 +228,14 @@ export function compositeNumberBadge(map: maplibregl.Map, id: string) {
   fillCircle(ctx, r, r, r - BADGE_BORDER_D / 2, BADGE_BG);
   strokeCircle(ctx, r, r, r - BADGE_BORDER_D / 2, BADGE_BORDER, BADGE_BORDER_D);
   drawBadgeNumber(ctx, r, r, seq, BADGE_TEXT, 24);
+  if (starred) {
+    drawStarBadge(
+      ctx,
+      d - STOP_STAR_D_UNSEL / 2,
+      STOP_STAR_D_UNSEL / 2,
+      STOP_STAR_D_UNSEL,
+    );
+  }
   map.addImage(id, ctx.getImageData(0, 0, d, d), { pixelRatio: 2 });
 }
 
@@ -224,7 +243,10 @@ export function compositeNumberBadge(map: maplibregl.Map, id: string) {
  * border, plus the spec's 8px accent halo at 16% alpha baked into the same
  * canvas (simpler than a second underlying layer for one always-DOM
  * marker). Centre-anchored, like the GL badge — see `MARKER_LAYOUT`. */
-export function buildNumberedPinElement(seq: number): HTMLCanvasElement {
+export function buildNumberedPinElement(
+  seq: number,
+  starred = false,
+): HTMLCanvasElement {
   const d = BADGE_SEL_D + BADGE_HALO_D * 2;
   const canvas = document.createElement('canvas');
   canvas.width = d;
@@ -248,6 +270,17 @@ export function buildNumberedPinElement(seq: number): HTMLCanvasElement {
       BADGE_BORDER_D,
     );
     drawBadgeNumber(ctx, c, c, String(seq), BADGE_SEL_TEXT, 28);
+    if (starred) {
+      // Corner of the badge's own bounding box (inset by the halo margin),
+      // not the full canvas — the halo's transparent margin would otherwise
+      // push the star away from the badge it belongs to.
+      drawStarBadge(
+        ctx,
+        BADGE_HALO_D + BADGE_SEL_D - STOP_STAR_D_SEL / 2,
+        BADGE_HALO_D + STOP_STAR_D_SEL / 2,
+        STOP_STAR_D_SEL,
+      );
+    }
   }
   return canvas;
 }
@@ -360,18 +393,27 @@ const WISH_BORDER = oklchToHex(0.78, 0.13, 80); // wishlist (amber)
 const WISH_SEL_BORDER = oklchToHex(0.9, 0.1, 85);
 const WISH_HALO = oklchToHex(0.78, 0.13, 80); // wishlist, alpha applied separately
 
-// The persistent `★ Top choices` badge (WORK 12.10) — a gold star on a dark
-// disc so it stays legible over any cover photo. Drawn into every wishlist
-// pin variant, on the same code path as the cover-photo upgrade, so a late
-// photo load re-composites the star rather than dropping it.
+// The persistent `★` badge — a gold star on a dark disc so it stays legible
+// over any cover photo or pin colour. Shared by wishlist pins (WORK 12.10,
+// folded into `compositeWishlistPin` so a late photo load can't drop it) and
+// starred stops (WORK 14.3, folded into the numbered badge for the same
+// reason — one composited image per variant, not a second GL layer to keep
+// in sync). `WISH_STAR_D` is the default (wishlist pin) size; stop badges
+// pass a smaller one to stay in proportion to their smaller circle.
 const WISH_STAR_D = 32; // -> 16px CSS badge
 const WISH_STAR_FILL = oklchToHex(0.86, 0.15, 92); // gold
 const WISH_STAR_BG = oklchToHex(0.16, 0.014, 250);
 
-function drawStarBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
-  fillCircle(ctx, cx, cy, WISH_STAR_D / 2, WISH_STAR_BG);
+function drawStarBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  diameter = WISH_STAR_D,
+) {
+  fillCircle(ctx, cx, cy, diameter / 2, WISH_STAR_BG);
   ctx.fillStyle = WISH_STAR_FILL;
-  ctx.font = '600 22px "Instrument Sans", system-ui, sans-serif';
+  // Same proportions as the default 32px badge's 22px glyph.
+  ctx.font = `600 ${Math.round(diameter * 0.6875)}px "Instrument Sans", system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('★', cx, cy + 1);

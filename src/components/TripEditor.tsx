@@ -1244,7 +1244,7 @@ export function TripEditor({
             if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
             closeCard();
           }}
-          onReject={() => {
+          onDelete={() => {
             if (cardTarget.type === 'wish') deleteWishlist(cardTarget.item.id);
             closeCard();
           }}

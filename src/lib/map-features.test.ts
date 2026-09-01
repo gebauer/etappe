@@ -190,6 +190,16 @@ describe('buildStopFeatures', () => {
         lat: 64.3,
         lon: -20.1,
       },
+      {
+        id: 'E',
+        day: 'd2',
+        order_index: 1,
+        title: 'Starred spot',
+        kind: 'viewpoint',
+        lat: 64.4,
+        lon: -20.2,
+        starred: true,
+      },
     ],
     legs: [],
     activities: [],
@@ -201,11 +211,13 @@ describe('buildStopFeatures', () => {
       'A',
       'B',
       'D',
+      'E',
     ]);
     expect(fc.features.map((f) => f.properties.title)).toEqual([
       'Skógafoss',
       'Hótel Skálholt',
       'Gullfoss',
+      'Starred spot',
     ]);
   });
 
@@ -225,6 +237,16 @@ describe('buildStopFeatures', () => {
     const d = fc.features.find((f) => f.properties.stopId === 'D')!;
     expect(a.properties.iconImage).toBe('n:1');
     expect(d.properties.iconImage).toBe('n:1'); // same key, different day — fine, badges carry no day-specific styling
+  });
+
+  it('gives a starred stop its own badge image and a starred flag (WORK 14.3)', () => {
+    const fc = buildStopFeatures(recs);
+    const a = fc.features.find((f) => f.properties.stopId === 'A')!;
+    const e = fc.features.find((f) => f.properties.stopId === 'E')!;
+    expect(a.properties.starred).toBe(false);
+    expect(e.properties.starred).toBe(true);
+    expect(e.properties.seq).toBe(2); // second stop on day 2
+    expect(e.properties.iconImage).toBe('n:2:star');
   });
 });
 

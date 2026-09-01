@@ -37,6 +37,10 @@ now both done.
 **Phase 13 (day-start continuity — a day leaves from the previous day's
 accommodation via a routed leading leg) is done: 13.1 schema+cascade, 13.2
 leg lifecycle+routing, 13.3 rendering+editor.**
+**Phase 14 (unify wishlist ideas and stops — a poi is "a stop without a
+day") is done: 14.1 schema+data layer (this is where the lossless-
+promotion bug fix landed), 14.2 downgrade+stop-card actions, 14.3 starred
+stops+wishlist delete confirm.**
 **→ Next, in order: 12.7 (phone layout, also what fixes the
 sub-860px view 12.6 deliberately let break) → 12.11 (cleanup).**
 The Blocks section
@@ -951,14 +955,40 @@ Browser-verified: added a stop, opened its card, clicked `♻` — the day
 goes back to empty and the stop reappears as a wishlist row with its
 title. No console errors.
 
-**14.3 Starred stops + wishlist delete confirm**
-`buildStopFeatures` carries `starred`; a `stops-star` overlay layer with a
-shared composited gold-star image (`icon-offset` top-right, filtered to
-starred ids) — not folded into `n:<seq>` since that image is shared across
-same-numbered stops. `StopRow` shows a star when `stop.starred`; the stop
-card gets a star toggle (`updateStop(..., { starred })`, no new fn needed).
-Wishlist card's "Reject" → "Delete" with a confirm (mirrors the stop
-card's existing `confirmingRemove` pattern).
+**14.3 Starred stops + wishlist delete confirm** · ✅
+`buildStopFeatures` carries `starred` (+ test). Deviated from the original
+sketch — no `stops-star` overlay layer: the star is baked straight into the
+numbered badge instead (`n:<seq>` vs `n:<seq>:star`, mirroring how the
+wishlist pin folds its star into `compositeWishlistPin`), because a second
+GL layer needs `icon-offset` math to sit at a fixed corner of a *circle*
+inscribed in its own image, and a same-day-scoped filter kept in sync with
+the base layer — more moving parts than just doubling the image variants,
+which the codebase already does for wishlist pins. `drawStarBadge`
+generalised to take a diameter (default stays the wishlist pin's 32px;
+stop badges use smaller 18px/24px unselected/selected sizes, proportionate
+to their smaller circles). `buildNumberedPinElement` (the selected stop's
+draggable DOM marker) takes a `starred` flag too, positioned at the
+badge's own corner inset by the halo margin, not the full canvas.
+
+`StopRow` shows a gold ★ before the title when starred. The docked card
+gets a star toggle — a glass circle next to the photo header's close
+button, `onUpdateStop({ starred: !stop.starred })`, no new mutation
+function needed (`starred` already joined `StopPatch` in 14.1).
+
+Wishlist card's "Reject" renamed "Delete" (prop renamed `onReject` →
+`onDelete` too) and now reuses the stop card's `confirmingRemove` state/
+click-twice pattern instead of firing immediately.
+
+Browser-verified: starred a stop from its card, the itinerary row shows
+the star; armed and confirmed "Delete" on a wishlist idea, it's gone. No
+console errors. `npm run check` green (195 tests).
+
+**Known gap, not fixed**: the selected stop's DOM marker only rebuilds
+when the *stop id* changes (position-tracking only, by design); toggling
+`starred` while that same stop stays selected won't show the badge update
+on its DOM twin until it's reselected. The underlying GL layer (any other
+view of the same stop) updates immediately since `stopFc` always carries
+current data.
 
 ---
 

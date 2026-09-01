@@ -165,6 +165,10 @@ export interface StopFeature {
      * matching the itinerary column's sequence badge (WORK 12.6). */
     seq: number;
     iconImage: string;
+    /** WORK 14.3 — baked into `iconImage` (a starred stop gets its own
+     * "n:<seq>:star" image), kept as its own property too since `StopRow`
+     * needs it without decoding the image key. */
+    starred: boolean;
   };
 }
 
@@ -194,6 +198,7 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
     for (const s of dayStops) {
       if (!s.lat || !s.lon) continue;
       seq += 1;
+      const starred = !!s.starred;
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
@@ -202,7 +207,8 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
           title: s.title,
           dayId: day.id,
           seq,
-          iconImage: `n:${seq}`,
+          iconImage: starred ? `n:${seq}:star` : `n:${seq}`,
+          starred,
         },
       });
     }

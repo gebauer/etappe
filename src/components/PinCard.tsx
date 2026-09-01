@@ -45,7 +45,9 @@ interface Props {
   /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
   onDowngrade: () => void;
   onAddToItinerary: () => void;
-  onReject: () => void;
+  /** WORK 14.3: "Reject" renamed "Delete" — a hard delete now that promoted
+   * ideas are deleted too rather than marked scheduled (WORK 14.1). */
+  onDelete: () => void;
   onAddWishlist: () => void;
   onAddDay: () => void;
   onUpdateStop: (patch: StopPatch) => void;
@@ -78,7 +80,7 @@ export function PinCard({
   onRemove,
   onDowngrade,
   onAddToItinerary,
-  onReject,
+  onDelete,
   onAddWishlist,
   onAddDay,
   onUpdateStop,
@@ -155,6 +157,17 @@ export function PinCard({
         >
           ✕
         </button>
+
+        {target.type === 'stop' && (
+          <button
+            onClick={() => onUpdateStop({ starred: !target.stop.starred })}
+            aria-label={target.stop.starred ? 'Unstar' : 'Star'}
+            title={target.stop.starred ? 'Unstar' : 'Star'}
+            className={`${GLASS} absolute right-[46px] top-2.5 ${target.stop.starred ? 'text-wishlist' : ''}`}
+          >
+            ★
+          </button>
+        )}
 
         {hasNav && (
           <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
@@ -327,8 +340,17 @@ export function PinCard({
             <button onClick={onAddToItinerary} className={PRIMARY}>
               Add to itinerary
             </button>
-            <button onClick={onReject} className={`${GHOST} ml-auto`}>
-              Reject
+            <button
+              onClick={() =>
+                confirmingRemove ? onDelete() : setConfirmingRemove(true)
+              }
+              className={`${BTN} ml-auto border ${
+                confirmingRemove
+                  ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                  : 'border-border-strong text-text-2 hover:bg-control'
+              }`}
+            >
+              {confirmingRemove ? 'Confirm delete' : 'Delete'}
             </button>
           </>
         )}
