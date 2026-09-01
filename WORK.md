@@ -586,7 +586,10 @@ Reykjavík), so every pin was simply off-screen. Fixed by **flying to an
 idea when it's picked from the wishlist list** (and when the card's ‹/›
 steps to one, which can land off-screen just as easily), reusing the
 `flyTo` prop the retired inspector's zoom button used to drive. Clicking a
-wishlist *pin* doesn't fly — it's already in view.
+wishlist *pin* doesn't fly — it's already in view. It **pans only**: the
+effect used to force a minimum zoom of 13, right for its old caller
+(inspector "zoom to this stop") but wrong here — bringing an off-screen
+idea into view shouldn't throw away the zoom you were working at.
 
 "Fit trip" deliberately does **not** widen to the wishlist (tried, reverted
 on author's call): fit-the-trip should mean the trip, and a country-wide

@@ -696,15 +696,16 @@ export function MapPane({
     ]);
   }, [hoveredStopId]);
 
-  // Fly to a point on demand (inspector zoom button).
+  // Centre on a point on demand (selecting a wishlist idea, WORK 12.6).
+  // Pan only — the zoom stays wherever the user put it. This used to force
+  // a minimum zoom of 13, which was right for its old caller (the
+  // inspector's "zoom to this stop" button) but wrong here: bringing an
+  // off-screen idea into view shouldn't also throw away the zoom level you
+  // were working at.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !flyTo) return;
-    map.flyTo({
-      center: [flyTo.lon, flyTo.lat],
-      zoom: Math.max(map.getZoom(), 13),
-      duration: 600,
-    });
+    map.flyTo({ center: [flyTo.lon, flyTo.lat], duration: 600 });
   }, [flyTo]);
 
   // Fit the map to a day's stops when that day is selected ("move on select").
