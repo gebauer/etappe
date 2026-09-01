@@ -54,11 +54,13 @@ export function KindPicker({ value, onChange, onEscape, autoFocus }: Props) {
             type="button"
             onClick={() => onChange(k)}
             title={TAXONOMY[k].label}
-            className={`flex flex-col items-center gap-1 rounded p-1.5 text-center hover:bg-slate-100 ${
-              k === value ? 'bg-slate-900 text-white hover:bg-slate-800' : ''
+            className={`flex flex-col items-center gap-1 rounded p-1.5 text-center hover:bg-[oklch(0.6_0.01_250/0.18)] ${
+              k === value
+                ? 'text-wishlist ring-1 ring-[oklch(0.78_0.13_80/0.55)]'
+                : ''
             }`}
           >
-            <KindIcon kind={k} className={k === value ? 'invert' : ''} />
+            <KindIcon kind={k} />
             <span className="w-full truncate text-[9px] leading-tight">
               {TAXONOMY[k].label}
             </span>

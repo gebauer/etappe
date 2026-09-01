@@ -1321,6 +1321,13 @@ current task. Do not act on it in the same commit.
   needs a real design pass before building it, not a default assumed here.
   Do not build this as part of 12.5; add it as its own task once the
   content question is settled.
+- **Light-theme leftovers inside the dark card.** `KindPicker`'s filter
+  input still carries `border-slate-300` and renders as a stark white box on
+  the dark panel, and `UncategorizedReview` is a fully light drawer. Same
+  family as the `BlockEditor` mismatch already noted above. The icon grid
+  itself was fixed (icons take `currentColor`, selected is `wishlist` gold),
+  so what is left is chrome, not content — worth one pass over all three
+  surfaces rather than three separate touch-ups.
 - **`run-etappe` driver is stale after 12.5/12.6.** Its `createAndOpenTrip`
   waits for a `+ Day` text button that the day rail retirement removed —
   the day switcher is now the `+` pill in `DayPills` (`aria-label="Add
