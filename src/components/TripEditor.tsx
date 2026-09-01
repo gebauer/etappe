@@ -881,6 +881,12 @@ export function TripEditor({
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
             selectedWishlistId={wishCard?.id ?? null}
+            onSelectDay={(id) => setSelectedDayId(id)}
+            onAddDay={() =>
+              run(() =>
+                insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
+              )
+            }
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}
@@ -916,6 +922,12 @@ export function TripEditor({
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
             selectedWishlistId={wishCard?.id ?? null}
+            onSelectDay={(id) => setSelectedDayId(id)}
+            onAddDay={() =>
+              run(() =>
+                insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
+              )
+            }
             {...blockHandlers}
             openKindPickerSignal={kindPickerSignal}
             hoveredStopId={hoveredStopId}

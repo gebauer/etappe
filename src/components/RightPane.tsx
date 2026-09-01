@@ -27,6 +27,8 @@ interface Props {
   wishlist?: PoisResponse[];
   onSelectWishlist?: (poi: PoisResponse) => void;
   selectedWishlistId?: string | null;
+  onSelectDay?: (dayId: string) => void;
+  onAddDay?: () => void;
   onAddBlock: (stopId: string, kind: BlockKind) => void;
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -60,6 +62,8 @@ export function RightPane({
   wishlist,
   onSelectWishlist,
   selectedWishlistId,
+  onSelectDay,
+  onAddDay,
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
@@ -93,6 +97,8 @@ export function RightPane({
           wishlist={wishlist}
           onSelectWishlist={onSelectWishlist}
           selectedWishlistId={selectedWishlistId}
+          onSelectDay={onSelectDay}
+          onAddDay={onAddDay}
         />
       </div>
       <div className="h-1/2 overflow-y-auto p-4">

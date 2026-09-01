@@ -24,6 +24,7 @@ import { categoryColor } from '../lib/map-colors';
 import { loadThumbnailUrl } from '../lib/wikimedia';
 import { pb } from '../lib/pb';
 import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { DayPills } from './DayPills';
 
 const TILE_URL =
   import.meta.env.VITE_TILE_URL ??
@@ -105,6 +106,8 @@ export function MapPane({
   wishlist,
   onSelectWishlist,
   selectedWishlistId,
+  onSelectDay,
+  onAddDay,
 }: {
   records: TripRecords;
   result: CascadeResult | null;
@@ -125,6 +128,10 @@ export function MapPane({
   /** Drives the bigger/haloed wishlist pin variant (design handoff, WORK
    * 12.4) — the open card's item, mirroring `selectedStop`. */
   selectedWishlistId?: string | null;
+  /** Day pills (WORK 12.5) — takes over `DayRail`'s day-switching role,
+   * transitionally alongside it until WORK 12.6 retires the rail. */
+  onSelectDay?: (dayId: string) => void;
+  onAddDay?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -214,6 +221,21 @@ export function MapPane({
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 60, maxZoom: 12, duration: 400 });
       fittedRef.current = true;
+    }
+  }
+
+  // "Fit trip" (design handoff, day pills row) — the explicit re-fit for
+  // "the map doesn't grow with the trip": maybeFit only ever auto-fires
+  // once (fittedRef guards it), so a later edit that grows the trip's
+  // bounds needs this button rather than another automatic re-frame, which
+  // would otherwise yank the view out from under whatever the user was
+  // looking at.
+  function fitTrip() {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = computeBounds(fcRef.current, stopFcRef.current);
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 60, maxZoom: 12, duration: 500 });
     }
   }
 
@@ -807,10 +829,22 @@ export function MapPane({
     selectedStop?.access_lon,
   ]);
 
+  const activeDayId = focusDayId ?? records.days[0]?.id ?? null;
+
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute left-2 top-2 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
+      <DayPills
+        days={records.days}
+        stops={records.stops}
+        activeDayId={activeDayId}
+        onSelectDay={(id) => onSelectDay?.(id)}
+        onAddDay={() => onAddDay?.()}
+        onFitTrip={fitTrip}
+      />
+      {/* Dev-only capture aid, predates the redesign and unaddressed by it —
+          pushed below the day pills row rather than colliding with it. */}
+      <div className="absolute left-2 top-14 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
         <button
           onClick={() => setNearbyEnabled((v) => !v)}
           className={
@@ -834,7 +868,7 @@ export function MapPane({
         )}
       </div>
       {nearbyEnabled && !focusDayId && (
-        <div className="absolute left-2 top-11 rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
+        <div className="absolute left-2 top-[6.75rem] rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
           Select a day to see nearby POIs
         </div>
       )}

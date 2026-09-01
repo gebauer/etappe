@@ -24,13 +24,18 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.4 are done (design tokens, unified pin-click card, expanded
-full-details card, pin visuals); next is 12.5 (day pills and Fit trip). The
-Blocks section of the expanded card reuses `BlockEditor` as-is
-(light-themed) rather than restyling it — out of this bundle's scope, and a
-visible mismatch inside the dark modal worth knowing about. 12.4 retired
-BUILD §5.3's kind-icon/zoom-tier marker system entirely rather than
-restyling it — see that task's entry for why.
+12.1–12.5 are done (design tokens, unified pin-click card, expanded
+full-details card, pin visuals, day pills/Fit trip); next is 12.6
+(map-dominant shell and itinerary column restyle — the big one that
+retires `DayRail`/`RightPane`/`Drawer`/`StopInspector`). The Blocks section
+of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
+restyling it — out of this bundle's scope, and a visible mismatch inside
+the dark modal worth knowing about. 12.4 retired BUILD §5.3's kind-icon/
+zoom-tier marker system entirely rather than restyling it — see that
+task's entry for why. 12.5 found a real Tailwind bug (opacity modifiers on
+custom oklch tokens silently no-op) — see that task's entry; every
+component from here on must bake alpha into arbitrary values, never use
+`/opacity` on a named token.
 
 Done, with commit: 0.1 `48acf84` · 0.2 `d210535` · 0.3 `52db0c9` ·
 dev-server `559a6da` · 1.1 `1679ad5` · 1.2 `f480b33` · 1.3 `f39cc3e` ·
@@ -40,7 +45,8 @@ Highlights importer `8d11bd7` · Highlights prompt lat/lon `ea1f1ce` ·
 wishlist-on-map `811f909` · wishlist visual review `ec3fac3` ·
 7.2 photo pipeline `4f4b91a` · 7.3 kind picker `1d6b85c` ·
 12.1 `3808a09` · handoff revision `b2c85f5` · 12.2 `45baac0` ·
-12.3 `6fc93bd` · chromium/node fix `529b1ac` · README `f90d27c`.
+12.3 `6fc93bd` · chromium/node fix `529b1ac` · README `f90d27c` ·
+12.4 `ffb75da` · whole-trip-pill note `f5345c9`.
 Each done task is tagged ✅ below. All pushed to `origin/master`.
 
 **Cascade shape (phase 2), for the consumers still to come:**
@@ -507,12 +513,33 @@ committed). Touches `map-markers.ts`, `map-features.ts`, `MapPane.tsx`,
 `RightPane.tsx`, `TripEditor.tsx`; `map-features.test.ts` rewritten for the
 new stop/wishlist feature shape.
 
-**12.5 Day pills and Fit trip** · Standard
-New map-overlay component taking over `DayRail`'s role: a pill row (day
-title, mono stop-count/empty meta, `+` add day) docked top-left over the
-map, plus a "Fit trip" button wired through a new re-triggerable prop on
-`MapPane` (mirrors the existing `flyTo` `{lat,lon,nonce}` pattern — today's
-`maybeFit` only auto-fires once and isn't exposed as an action).
+**12.5 Day pills and Fit trip** · Standard · ✅
+New `DayPills.tsx`, rendered by `MapPane` as an absolute top-left overlay
+(days/stops come from `records`, already a `MapPane` prop) — takes over
+`DayRail`'s day-switching role; `DayRail` stays too, transitionally, both
+driving the same `selectedDayId` (new `onSelectDay`/`onAddDay` props,
+TripEditor → RightPane → MapPane). "Fit trip" turned out not to need the
+planned re-triggerable prop mirroring `flyTo` — the button lives inside
+`MapPane` itself (rendered by `DayPills`, handled in `MapPane`) since that's
+where the map instance already is, so it just calls `fitBounds` directly;
+`maybeFit`'s one-shot guard (`fittedRef`) is untouched, this is a second,
+unguarded fit path for the explicit action. The existing dev-only Nearby
+toggle got pushed down to clear the new pill row — unaddressed by the
+handoff, no design decision needed, just repositioning.
+
+Found and fixed a real bug surfaced by this task, not particular to it:
+Tailwind's `bg-token/[0.88]` opacity-modifier syntax silently generates no
+CSS rule at all for a custom color whose theme value is a plain `oklch()`
+string (confirmed via the compiled stylesheet — only the opacity-less base
+class existed), rendering fully transparent instead of translucent.
+`text-warn-text/80` in 12.3's expanded card had the same bug (full opacity
+instead of 80%, low-visible enough that the screenshot review at the time
+missed it). Fixed both by baking the alpha directly into an arbitrary
+value (`bg-[oklch(0.20_0.013_250/0.88)]`) instead of using the modifier on
+a named token — swept the rest of the redesign components for the same
+pattern, found no other instances. Worth remembering for every task after
+this one: never use Tailwind's `/opacity` modifier on these custom oklch
+tokens, only baked-in arbitrary values.
 
 **12.6 Map-dominant shell and itinerary column restyle** · Heavy
 Replaces `TripEditor`'s resizable 3-pane grid with the map-fills-screen

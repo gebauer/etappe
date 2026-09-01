@@ -177,7 +177,7 @@ export function PinCardExpanded({
                 <div className="text-[13.5px] font-semibold text-warn-text">
                   Accommodation
                 </div>
-                <div className="mt-[3px] text-xs text-warn-text/80 [text-wrap:pretty]">
+                <div className="mt-[3px] text-xs text-[oklch(0.88_0.07_85/0.8)] [text-wrap:pretty]">
                   {stop.is_accommodation
                     ? 'The day ends here. Clears the day’s NO_ACCOMMODATION warning.'
                     : 'Turn on if the day ends here — this is what clears the day’s NO_ACCOMMODATION warning.'}
