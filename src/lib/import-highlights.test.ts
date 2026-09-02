@@ -92,4 +92,18 @@ describe('parseHighlightsDoc', () => {
     const result = parseHighlightsDoc('not json');
     expect(result.ok).toBe(false);
   });
+
+  it('names a full trip document pasted into the highlights importer', () => {
+    const result = parseHighlightsDoc({
+      version: 1,
+      title: 'Iceland',
+      start_date: '2027-06-10',
+      timezone: 'Atlantic/Reykjavik',
+      days: [{ index: 1, kind: 'travel', stops: [], legs: [] }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/full trip document, not a Highlights/);
+  });
 });

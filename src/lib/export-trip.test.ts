@@ -284,6 +284,19 @@ describe('parseTripDoc', () => {
     const result = parseTripDoc({ title: 'no version' });
     expect(result.ok).toBe(false);
   });
+
+  // Both formats declare `version: 1`, so a Highlights list clears the
+  // version gate and would otherwise report four bare "Required" fields.
+  it('names a Highlights list pasted into the trip importer', () => {
+    const result = parseTripDoc({
+      version: 1,
+      highlights: [{ title: 'Gullfoss', kind: 'waterfall' }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Highlights list, not a trip/);
+  });
 });
 
 describe('exportWishlist', () => {

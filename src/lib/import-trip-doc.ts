@@ -106,6 +106,20 @@ const PARSERS: Record<number, (raw: unknown) => ParseResult> = {
 };
 
 export function parseTripDoc(raw: unknown): ParseResult {
+  // The two import formats share the same `version: 1` envelope, so a
+  // Highlights list pasted here clears the version gate and then reports
+  // every trip field as missing — four cryptic "Required" lines instead of
+  // the one thing that actually went wrong. Name it instead.
+  const doc = raw as Record<string, unknown> | null;
+  if (Array.isArray(doc?.highlights) && !Array.isArray(doc?.days)) {
+    return {
+      ok: false,
+      errors: [
+        '(document): this is a Highlights list, not a trip — it has "highlights" where a trip has "days". Open the trip you want these places on and use its Import button; this screen builds a whole new trip from a day-by-day itinerary.',
+      ],
+    };
+  }
+
   const version = (raw as { version?: unknown } | null)?.version;
   if (typeof version !== 'number') {
     return {

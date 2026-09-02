@@ -57,6 +57,19 @@ export type ParseResult =
  * list into one readable "path: message" string per problem (BUILD §8's
  * "readable per-field errors", applied to this lighter format). */
 export function parseHighlightsDoc(raw: unknown): ParseResult {
+  // The mirror of the guard in `import-trip-doc.ts`: both formats declare
+  // `version: 1`, so a full trip document pasted here would otherwise only
+  // report "highlights: Required" and leave the real mistake unnamed.
+  const doc = raw as Record<string, unknown> | null;
+  if (Array.isArray(doc?.days) && !Array.isArray(doc?.highlights)) {
+    return {
+      ok: false,
+      errors: [
+        '(document): this is a full trip document, not a Highlights list — it has "days" where a shortlist has "highlights". Use "Import a trip" on the trip list; this screen only adds places to the open trip\'s wishlist.',
+      ],
+    };
+  }
+
   const result = HighlightsDocSchema.safeParse(raw);
   if (result.success) return { ok: true, doc: result.data };
   const errors = result.error.issues.map((issue) => {
