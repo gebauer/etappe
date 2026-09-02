@@ -182,7 +182,7 @@ export type CostsRecord = {
 	currency: string
 	id: string
 	is_estimate?: boolean
-	label: string
+	label?: string
 	parent_id?: string
 	parent_type?: CostsParentTypeOptions
 	trip: RecordIdString
@@ -303,6 +303,9 @@ export type PoisRecord = {
 	access_lon?: number
 	address?: string
 	created: IsoAutoDateString
+	creator?: RecordIdString
+	creator_color?: string
+	creator_name?: string
 	id: string
 	kind?: PoisKindOptions
 	lat?: number
@@ -420,6 +423,7 @@ export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown
 
 export type UsersRecord = {
 	avatar?: FileNameString
+	color?: string
 	created: IsoAutoDateString
 	email: string
 	emailVisibility?: boolean

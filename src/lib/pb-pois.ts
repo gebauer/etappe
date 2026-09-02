@@ -35,6 +35,16 @@ export async function addWishlistItem(
   tripId: string,
   data: NewWishlistItem,
 ): Promise<string> {
+  // Contributor attribution (WORK 15): every wishlist-create path funnels
+  // through here, so this is the one place the creator is stamped. The
+  // name and colour are snapshotted from the current account rather than
+  // resolved from `users` at render time — see the migration's note.
+  const me = pb.authStore.record as {
+    id: string;
+    name?: string;
+    email?: string;
+    color?: string;
+  } | null;
   const created = await pb.collection('pois').create({
     trip: tripId,
     title: data.title,
@@ -44,8 +54,22 @@ export async function addWishlistItem(
     address: data.address ?? '',
     access_lat: data.access_lat ?? 0,
     access_lon: data.access_lon ?? 0,
+    creator: me?.id ?? undefined,
+    creator_name: contributorName(me),
+    creator_color: me?.color ?? '',
   });
   return created.id;
+}
+
+/** A short display name for the contributor mark: the account's `name` if
+ * it set one, else the local part of its email, else nothing. */
+function contributorName(
+  record: { name?: string; email?: string } | null,
+): string {
+  const name = record?.name?.trim();
+  if (name) return name;
+  const email = record?.email ?? '';
+  return email.includes('@') ? email.slice(0, email.indexOf('@')) : email;
 }
 
 export async function deleteWishlistItem(
