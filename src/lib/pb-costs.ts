@@ -58,3 +58,37 @@ export async function deleteCost(
 ): Promise<void> {
   await pb.collection('costs').delete(costId);
 }
+
+/**
+ * Write-through for the simplified single-cost field (WORK 16.10): create,
+ * update or delete the *one* row the card's `CostField` edits, identified by
+ * `existingId` (the first cost row already on this parent, or null). A
+ * blank/zero amount deletes it rather than writing a meaningless 0 — the
+ * card's own "+ add a price" affordance is how a cleared field comes back.
+ */
+export async function setSingleCost(
+  pb: TypedPocketBase,
+  tripId: string,
+  parent: { type: 'trip' | 'day' | 'stop' | 'leg' | 'poi'; id: string },
+  existingId: string | null,
+  amount: number | null,
+  currency: string,
+): Promise<void> {
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) {
+    if (existingId) await pb.collection('costs').delete(existingId);
+    return;
+  }
+  if (existingId) {
+    await pb.collection('costs').update(existingId, { amount, currency });
+    return;
+  }
+  await pb.collection('costs').create({
+    trip: tripId,
+    parent_type: parent.type,
+    parent_id: parent.id,
+    label: '',
+    amount,
+    currency,
+    is_estimate: true,
+  });
+}

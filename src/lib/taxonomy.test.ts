@@ -9,8 +9,8 @@ import {
 } from './taxonomy';
 
 describe('taxonomy', () => {
-  it('is the closed set of 26 kinds from BUILD §7', () => {
-    expect(KINDS).toHaveLength(26);
+  it("is the closed set of 27 kinds from BUILD §7 plus WORK 16.10's rental", () => {
+    expect(KINDS).toHaveLength(27);
   });
 
   it('gives every kind a non-empty label and icon', () => {

@@ -4,10 +4,11 @@ import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPhone } from '../hooks/useIsPhone';
 import { insertDay, deleteDay } from '../lib/pb-days';
-import { addCost, deleteCost, type NewCost } from '../lib/pb-costs';
+import { setSingleCost } from '../lib/pb-costs';
 import { costsFor } from '../lib/costs';
 import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import { SharePanel } from './SharePanel';
+import { BudgetPopover } from './BudgetPopover';
 import { listMembers } from '../lib/pb-trips';
 import {
   addStopAtEnd,
@@ -1205,6 +1206,12 @@ export function TripEditor({
           </button>
         )}
         <div className="ml-auto flex flex-none items-center gap-2">
+          <BudgetPopover
+            costs={records.costs}
+            stops={stops}
+            pois={wishlist}
+            tripCurrency={trip.currency}
+          />
           {/* WORK 12.7: these are planning-desk actions — search-and-place,
               importing a list, configuring who a trip is shared with,
               exporting it — not things a phone companion view needs
@@ -1534,21 +1541,31 @@ export function TripEditor({
                     ? costsFor(records.costs, 'poi', cardTarget.item.id)
                     : []
               }
-              currency={trip.currency}
-              onAddCost={(cost: NewCost) => {
+              onChangeCost={(amount, currency) => {
                 const parent =
                   cardTarget.type === 'stop'
                     ? ({ type: 'stop', id: cardTarget.stop.id } as const)
                     : cardTarget.type === 'wish'
                       ? ({ type: 'poi', id: cardTarget.item.id } as const)
                       : null;
-                if (parent) {
-                  void run(() =>
-                    addCost(pb, tripId, parent, cost, trip.currency),
-                  );
-                }
+                if (!parent) return;
+                const existing =
+                  cardTarget.type === 'stop'
+                    ? costsFor(records.costs, 'stop', cardTarget.stop.id)[0]
+                    : cardTarget.type === 'wish'
+                      ? costsFor(records.costs, 'poi', cardTarget.item.id)[0]
+                      : undefined;
+                void run(() =>
+                  setSingleCost(
+                    pb,
+                    tripId,
+                    parent,
+                    existing?.id ?? null,
+                    amount,
+                    currency,
+                  ),
+                );
               }}
-              onDeleteCost={(costId) => void run(() => deleteCost(pb, costId))}
               onAddPrivateNote={() => {
                 if (cardTarget.type === 'stop')
                   blockHandlers.onAddBlock(
@@ -1578,7 +1595,6 @@ export function TripEditor({
             stops={stops}
             legs={legs}
             blocks={records.blocks}
-            costs={records.costs}
             result={result}
             selectedStopIds={selectedStopIds}
             onSelectStop={toggleSelect}

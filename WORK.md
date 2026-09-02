@@ -58,7 +58,11 @@ author request, all seven original tasks (16.1–16.7) done. 16.6 subsumes
 protects them, the UI doesn't yet reflect it). 16.7 is the entry surface
 phase 11.1 needs. 16.8 (skip on wishlist-import dedup) and 16.9 (a routing
 kind that forces a leg through a stop with no dwell) added 2026-09-02 and
-done.**
+done. 16.10 (2026-09-02) reworked the budget entirely per a new design
+handoff revision — one estimated cost per stop with its own currency,
+converted to the trip currency via a cached ~monthly rate, bucketed by the
+stop's kind (`rental` is a new kind) into a header popover — superseding
+16.7's list-of-costs UI, though the backend keeps its multi-item shape.**
 **→ Next, in order: Phase 15 (wishlist contributor attribution).**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
@@ -1478,7 +1482,8 @@ button still looks clickable and every click quietly fails into
 threading the member's own role into `TripEditor` and disabling structural
 controls — its own task, not a corner to cut into this one.
 
-**16.7 Surface price tags** · Standard · ✅
+**16.7 Surface price tags** · Standard · ✅ (superseded by 16.10, kept for
+history — the GUI it describes no longer exists)
 Answering "did we have price tags?" — yes, in the schema, and nowhere else.
 Migration `1788000000` created a **`costs`** collection: `trip`,
 `parent_type` ∈ trip | day | stop | leg, `parent_id`, `label`, `amount`,
@@ -1551,6 +1556,84 @@ share payload (`share.pb.js`/`share-doc.ts`).
 Verified in the browser: the toggle writes `routing_kind: 'waypoint'` and
 `dwell_override: 0`, the card shows Dwell as `0`, and the map renders the
 stop as a diamond on the route rather than a numbered pin.
+
+**16.10 Budget rework: one field, currency conversion, kind-based buckets**
+· Standard · ✅
+Source: a `design_handoff_map_first_planner` revision (numbered "6" by the
+browser download, merged into the canonical folder as part of this task)
+added a "Budget" section describing a header popover — a `€` glyph that
+becomes the running total once any stop has a cost, opening a four-line
+bill (Accommodation / Flights / Rental car / Sightseeing) plus a total, fed
+by a single `Cost (€)` field per stop. This directly superseded 16.7's
+shipped design (a list of labelled, estimate-flagged costs with day/trip
+totals in the itinerary header) — flagged to the author as a real conflict
+rather than silently rebuilt, since it meant discarding real UI. The author
+then refined the handoff's own version further (2026-09-02):
+- **One estimated cost per stop, with its own currency** — not the trip's.
+  A fuel receipt in ISK shouldn't need mental math before it goes in.
+- **Convert to the trip's currency for display**, using **average
+  (~monthly) rates from an online server** — not a live spot rate, and not
+  pretending to be a precise statistical average either. The total is
+  explicitly allowed to change between reloads as the cached rate
+  refreshes; what's durable is each cost's own `{amount, currency}`.
+- **Keep the backend's room for several cost rows per stop** — "we can
+  keep multiple cost items in the back if we later decide we want them" —
+  the GUI just only ever reads/writes the first one now.
+- **Rental car is a stop kind** (`rental`, car-rental icon), not the
+  handoff's trip-level field — a rental picked up partway through a trip
+  needs to be a real place on the map, not a single number with nowhere to
+  attach a location or a receipt to.
+- **Fuel merges into the rental bucket**, relabelling it "Rental car +
+  fuel" only when a fuel-kind cost actually exists in the trip — the
+  existing `fuel` kind, no new one needed.
+- Everything else with a cost falls to **Sightseeing** — "the rest."
+Built as:
+- `src/lib/currency.ts` — a curated 11-currency list (verified against
+  ISK specifically, since some free rate sources omit it — see below) and
+  pure cross-rate conversion (`convert`), tested.
+- `src/lib/exchange-rates.ts` — fetches `open.er-api.com` directly from the
+  browser (keyless, like `photon.ts`; unlike ORS there is no secret to
+  hide server-side, so no hook). Cached in **`localStorage`**, not
+  PocketBase: the source of truth is each cost's own stored
+  `{amount, currency}`, and the converted total is explicitly allowed to
+  differ per viewer/reload, so nothing here needs to be identical across
+  every device looking at the same trip. Refetches only once the cache is
+  older than ~30 days.
+  **Provider choice, verified before building on it:** Frankfurter (ECB
+  data) is the more commonly reached-for free option but does not carry
+  ISK at all — checked live against both before picking `open.er-api.com`,
+  which does.
+- `src/hooks/useExchangeRates.ts` — thin hook wrapper; `null` while
+  loading or on total failure (offline, no cache yet), so the popover
+  falls back to same-currency-only totals rather than crashing.
+- `src/lib/costs.ts`'s new `budgetByKind` — buckets by each cost's
+  **parent stop's current kind**, not a category stored on the cost, so
+  re-kinding a stop later moves its cost to the right line with no edit to
+  the cost itself. Returns an `unconverted` count (a deleted parent, or a
+  currency the cached rates don't cover) so the popover can say "N not
+  counted" instead of quietly under-reporting. 15 tests.
+- `src/components/CostField.tsx` (renamed from `CostList.tsx` — the shape
+  changed enough that keeping the old name would have been misleading):
+  one amount input + a currency `<select>`, replacing the labelled-list UI.
+  `src/lib/pb-costs.ts` gained `setSingleCost` (find-or-create-or-update-
+  or-delete the first cost row for a parent) alongside the untouched
+  `addCost`/`updateCost` multi-item functions, kept for the "later" case.
+- `src/components/BudgetPopover.tsx` — the header glyph/popover, wired
+  into `TripEditor`'s header outside the phone-hidden button group (12.7),
+  so it stays visible at every width. `Timeline.tsx`'s day/trip cost
+  totals (16.7) are gone — costs no longer show anywhere but here.
+- Migration `1788000013` adds `rental` to `stops`/`pois`' `kind` enum
+  (taxonomy entry: `car-rental` Maki icon, 20 min default dwell; sprite
+  rebuilt, 27 kinds now). Migration `1788000014` makes `costs.label`
+  optional — required text rejecting an empty string is the same trap as
+  required-number-rejects-0, just for text; the simplified field writes no
+  label at all, so requiring one 400'd every save until this landed.
+Verified end to end in the browser with five stops (hotel/airport/rental/
+fuel/waterfall) and three currencies (EUR/USD/ISK): the header button
+starts as a bare `€`, becomes the real running total once costs exist, the
+popover's four lines total correctly, the rental bucket's label switched
+to "+ fuel" exactly when a fuel cost was added, and the stored records
+kept each cost's original currency rather than a pre-converted number.
 
 ---
 

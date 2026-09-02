@@ -5,9 +5,11 @@ import {
   dayTotal,
   tripTotal,
   byCategory,
+  budgetByKind,
   formatMoney,
 } from './costs';
-import type { CostsResponse } from '../types/pb';
+import type { CostsResponse, StopsResponse, PoisResponse } from '../types/pb';
+import type { ExchangeRates } from './currency';
 
 const costs = [
   {
@@ -103,6 +105,136 @@ describe('byCategory', () => {
       { category: 'transport', total: 42.5 },
       { category: 'activities', total: 40 },
     ]);
+  });
+});
+
+const rates: ExchangeRates = { base: 'EUR', rates: { ISK: 145 } };
+
+describe('budgetByKind', () => {
+  const stops = [
+    { id: 'hotel1', kind: 'hotel' },
+    { id: 'flight1', kind: 'airport' },
+    { id: 'car1', kind: 'rental' },
+    { id: 'gas1', kind: 'fuel' },
+    { id: 'fall1', kind: 'waterfall' },
+  ] as unknown as StopsResponse[];
+  const pois: PoisResponse[] = [];
+
+  function cost(
+    parentId: string,
+    amount: number,
+    currency = 'EUR',
+  ): CostsResponse {
+    return {
+      id: `c-${parentId}`,
+      parent_type: 'stop',
+      parent_id: parentId,
+      amount,
+      currency,
+      label: '',
+    } as unknown as CostsResponse;
+  }
+
+  it('buckets each cost by its parent stop’s current kind', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 100), cost('flight1', 200), cost('fall1', 30)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    const byKey = Object.fromEntries(b.buckets.map((x) => [x.key, x.total]));
+    expect(byKey).toMatchObject({
+      accommodation: 100,
+      flights: 200,
+      rental: 0,
+      sightseeing: 30,
+    });
+    expect(b.total).toBe(330);
+    expect(b.unconverted).toBe(0);
+  });
+
+  it('merges rental and fuel into one bucket', () => {
+    const b = budgetByKind(
+      [cost('car1', 50), cost('gas1', 20)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    const rental = b.buckets.find((x) => x.key === 'rental')!;
+    expect(rental.total).toBe(70);
+    expect(rental.count).toBe(2);
+  });
+
+  it('labels the rental bucket "+ fuel" only when a fuel cost exists', () => {
+    const withoutFuel = budgetByKind(
+      [cost('car1', 50)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    const withFuel = budgetByKind(
+      [cost('car1', 50), cost('gas1', 20)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(withoutFuel.buckets.find((x) => x.key === 'rental')!.label).toBe(
+      'Rental car',
+    );
+    expect(withFuel.buckets.find((x) => x.key === 'rental')!.label).toBe(
+      'Rental car + fuel',
+    );
+  });
+
+  it('converts a cost entered in a different currency', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 14500, 'ISK')],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.buckets.find((x) => x.key === 'accommodation')!.total).toBe(100);
+  });
+
+  it('counts an unconvertible cost as unconverted rather than guessing', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 100, 'NOK')], // no NOK rate cached
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.total).toBe(0);
+    expect(b.unconverted).toBe(1);
+  });
+
+  it('falls back to same-currency-only totals with no rates at all', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 100, 'EUR'), cost('flight1', 50, 'ISK')],
+      stops,
+      pois,
+      'EUR',
+      null,
+    );
+    expect(b.buckets.find((x) => x.key === 'accommodation')!.total).toBe(100);
+    expect(b.unconverted).toBe(1);
+  });
+
+  it('does not count a cost whose parent no longer exists', () => {
+    const b = budgetByKind(
+      [cost('deleted-stop', 100)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.total).toBe(0);
+    expect(b.unconverted).toBe(1);
   });
 });
 

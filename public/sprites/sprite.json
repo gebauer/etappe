@@ -20,164 +20,171 @@
     "y": 0,
     "pixelRatio": 1
   },
-  "circle-stroked": {
+  "car-rental": {
     "width": 20,
     "height": 20,
     "x": 60,
+    "y": 0,
+    "pixelRatio": 1
+  },
+  "circle-stroked": {
+    "width": 20,
+    "height": 20,
+    "x": 80,
     "y": 0,
     "pixelRatio": 1
   },
   "entrance": {
     "width": 20,
     "height": 20,
-    "x": 80,
+    "x": 100,
     "y": 0,
     "pixelRatio": 1
   },
   "ferry": {
     "width": 20,
     "height": 20,
-    "x": 100,
-    "y": 0,
+    "x": 0,
+    "y": 20,
     "pixelRatio": 1
   },
   "fuel": {
     "width": 20,
     "height": 20,
-    "x": 0,
+    "x": 20,
     "y": 20,
     "pixelRatio": 1
   },
   "hot-spring": {
     "width": 20,
     "height": 20,
-    "x": 20,
+    "x": 40,
     "y": 20,
     "pixelRatio": 1
   },
   "lodging": {
     "width": 20,
     "height": 20,
-    "x": 40,
+    "x": 60,
     "y": 20,
     "pixelRatio": 1
   },
   "marker": {
     "width": 20,
     "height": 20,
-    "x": 60,
+    "x": 80,
     "y": 20,
     "pixelRatio": 1
   },
   "monument": {
     "width": 20,
     "height": 20,
-    "x": 80,
+    "x": 100,
     "y": 20,
     "pixelRatio": 1
   },
   "museum": {
     "width": 20,
     "height": 20,
-    "x": 100,
-    "y": 20,
+    "x": 0,
+    "y": 40,
     "pixelRatio": 1
   },
   "parking": {
     "width": 20,
     "height": 20,
-    "x": 0,
+    "x": 20,
     "y": 40,
     "pixelRatio": 1
   },
   "pedestrian": {
     "width": 20,
     "height": 20,
-    "x": 20,
+    "x": 40,
     "y": 40,
     "pixelRatio": 1
   },
   "religious-christian": {
     "width": 20,
     "height": 20,
-    "x": 40,
+    "x": 60,
     "y": 40,
     "pixelRatio": 1
   },
   "restaurant": {
     "width": 20,
     "height": 20,
-    "x": 60,
+    "x": 80,
     "y": 40,
     "pixelRatio": 1
   },
   "shop": {
     "width": 20,
     "height": 20,
-    "x": 80,
+    "x": 100,
     "y": 40,
     "pixelRatio": 1
   },
   "snow": {
     "width": 20,
     "height": 20,
-    "x": 100,
-    "y": 40,
+    "x": 0,
+    "y": 60,
     "pixelRatio": 1
   },
   "swimming": {
     "width": 20,
     "height": 20,
-    "x": 0,
+    "x": 20,
     "y": 60,
     "pixelRatio": 1
   },
   "town": {
     "width": 20,
     "height": 20,
-    "x": 20,
+    "x": 40,
     "y": 60,
     "pixelRatio": 1
   },
   "valley": {
     "width": 20,
     "height": 20,
-    "x": 40,
+    "x": 60,
     "y": 60,
     "pixelRatio": 1
   },
   "viewpoint": {
     "width": 20,
     "height": 20,
-    "x": 60,
+    "x": 80,
     "y": 60,
     "pixelRatio": 1
   },
   "volcano": {
     "width": 20,
     "height": 20,
-    "x": 80,
+    "x": 100,
     "y": 60,
     "pixelRatio": 1
   },
   "water": {
     "width": 20,
     "height": 20,
-    "x": 100,
-    "y": 60,
+    "x": 0,
+    "y": 80,
     "pixelRatio": 1
   },
   "waterfall": {
     "width": 20,
     "height": 20,
-    "x": 0,
+    "x": 20,
     "y": 80,
     "pixelRatio": 1
   },
   "zoo": {
     "width": 20,
     "height": 20,
-    "x": 20,
+    "x": 40,
     "y": 80,
     "pixelRatio": 1
   }

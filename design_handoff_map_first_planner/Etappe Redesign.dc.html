@@ -33,6 +33,31 @@
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.62 0.01 250);white-space:nowrap">2 days · 8 stops</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
+      <div style="position:relative;flex:0 0 auto">
+        <button onClick="{{ toggleBudget }}" title="Trip budget" style="{{ budgetBtnStyle }}">{{ budgetLabel }}</button>
+        <sc-if value="{{ budgetOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:38px;right:0;z-index:60;width:258px;padding:12px 13px 11px;border-radius:11px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.20 0.013 250);box-shadow:0 20px 48px oklch(0.10 0.01 250 / 0.55);text-align:left">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px">
+              <span style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Budget</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:oklch(0.55 0.01 250)">est. · EUR</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <sc-for list="{{ budgetRows }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex;align-items:baseline;gap:10px;height:26px">
+                  <span style="flex:1;min-width:0;font-size:12.5px;color:oklch(0.84 0.007 250);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.55 0.01 250)">{{ r.count }}</span>
+                  <span style="{{ r.amountStyle }}">{{ r.amount }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid oklch(0.29 0.012 250);display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+              <span style="font-size:12.5px;font-weight:600;color:oklch(0.95 0.005 250)">Total</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:oklch(0.95 0.005 250)">{{ budgetTotal }}</span>
+            </div>
+            <div style="margin-top:7px;font-size:11px;line-height:1.45;color:oklch(0.58 0.01 250);text-wrap:pretty">{{ budgetNote }}</div>
+          </div>
+        </sc-if>
+      </div>
       <button onClick="{{ noop }}" style="height:30px;padding:0 11px;border-radius:7px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.24 0.013 250);color:oklch(0.86 0.006 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="background:oklch(0.28 0.014 250)">Search</button>
       <button onClick="{{ noop }}" style="height:30px;padding:0 11px;border-radius:7px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.24 0.013 250);color:oklch(0.86 0.006 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="background:oklch(0.28 0.014 250)">Import</button>
       <div title="e2e-redesign@example.com" style="width:30px;height:30px;flex:0 0 auto;border-radius:50%;background:oklch(0.32 0.03 250);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:oklch(0.88 0.01 250);cursor:pointer">E</div>
@@ -267,11 +292,60 @@
                   <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.58 0.01 250)">3 · visibility: trip</span>
                 </div>
                 <p style="margin:9px 0 0;font-size:13.5px;color:oklch(0.80 0.008 250);text-wrap:pretty">{{ cardBody }}</p>
-                <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
-                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Note</button>
-                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Link</button>
-                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ Photo</button>
-                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer">+ File</button>
+
+                <div style="margin-top:11px;display:flex;flex-direction:column;gap:6px">
+
+                  <div style="display:flex;align-items:center;gap:9px;height:42px;padding:0 10px 0 6px;border-radius:9px;border:1px solid oklch(0.28 0.012 250);background:oklch(0.205 0.012 250)" style-hover="border-color:oklch(0.36 0.012 250);background:oklch(0.225 0.012 250)">
+                    <span style="width:16px;text-align:center;font-size:13px;line-height:1;color:oklch(0.46 0.01 250);cursor:grab">⠿</span>
+                    <span style="flex:0 0 auto;width:44px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:0.07em;color:oklch(0.60 0.01 250)">NOTE</span>
+                    <span style="flex:1;min-width:0;font-size:13px;color:oklch(0.86 0.006 250);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Owner meets us at the gate — call ahead if after 19:00.</span>
+                    <span style="flex:0 0 auto;display:flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:10.5px;color:oklch(0.72 0.01 250);background:oklch(0.24 0.013 250)">Trip</span>
+                    <button onClick="{{ noop }}" style="flex:0 0 auto;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:oklch(0.52 0.01 250);font:inherit;font-size:12px;cursor:pointer" style-hover="background:oklch(0.26 0.03 25);color:oklch(0.80 0.11 25)">✕</button>
+                  </div>
+
+                  <div style="display:flex;align-items:center;gap:9px;height:42px;padding:0 10px 0 6px;border-radius:9px;border:1px solid oklch(0.28 0.012 250);background:oklch(0.205 0.012 250)" style-hover="border-color:oklch(0.36 0.012 250);background:oklch(0.225 0.012 250)">
+                    <span style="width:16px;text-align:center;font-size:13px;line-height:1;color:oklch(0.46 0.01 250);cursor:grab">⠿</span>
+                    <span style="flex:0 0 auto;width:44px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:0.07em;color:oklch(0.60 0.01 250)">LINK</span>
+                    <span style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden">
+                      <span style="font-size:13px;color:oklch(0.86 0.006 250);white-space:nowrap">Booking confirmation</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.58 0.01 250);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">strengir.is</span>
+                    </span>
+                    <span style="flex:0 0 auto;display:flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:10.5px;color:oklch(0.72 0.01 250);background:oklch(0.24 0.013 250)">Trip</span>
+                    <button onClick="{{ noop }}" style="flex:0 0 auto;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:oklch(0.52 0.01 250);font:inherit;font-size:12px;cursor:pointer" style-hover="background:oklch(0.26 0.03 25);color:oklch(0.80 0.11 25)">✕</button>
+                  </div>
+
+                  <div style="border-radius:10px;border:1px solid oklch(0.36 0.012 250);background:oklch(0.215 0.012 250)">
+                    <div style="display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 6px;border-bottom:1px solid oklch(0.28 0.012 250)">
+                      <span style="width:16px;text-align:center;font-size:13px;line-height:1;color:oklch(0.46 0.01 250);cursor:grab">⠿</span>
+                      <span style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:0.07em;color:oklch(0.72 0.01 250)">PHOTO</span>
+                      <span style="flex:1"></span>
+                      <div style="display:flex;align-items:center;gap:2px;height:24px;padding:2px;border-radius:12px;background:oklch(0.185 0.012 250)">
+                        <button onClick="{{ noop }}" style="height:20px;padding:0 10px;border:0;border-radius:10px;background:oklch(0.30 0.013 250);color:oklch(0.94 0.005 250);font:inherit;font-size:10.5px;cursor:pointer">Trip</button>
+                        <button onClick="{{ noop }}" style="height:20px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:oklch(0.62 0.01 250);font:inherit;font-size:10.5px;cursor:pointer" style-hover="color:oklch(0.88 0.006 250)">Private</button>
+                      </div>
+                      <button onClick="{{ noop }}" style="flex:0 0 auto;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:oklch(0.52 0.01 250);font:inherit;font-size:12px;cursor:pointer" style-hover="background:oklch(0.26 0.03 25);color:oklch(0.80 0.11 25)">✕</button>
+                    </div>
+                    <div style="padding:11px;display:flex;flex-direction:column;gap:9px">
+                      <button onClick="{{ noop }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:92px;border-radius:9px;border:1px dashed oklch(0.36 0.012 250);background:oklch(0.195 0.012 250);color:oklch(0.78 0.008 250);font:inherit;cursor:pointer" style-hover="border-color:oklch(0.50 0.05 215);background:oklch(0.21 0.014 250)">
+                        <span style="font-size:13px;font-weight:500">Drop an image, or click to browse</span>
+                        <span style="font-size:11.5px;color:oklch(0.60 0.01 250)">JPG or PNG · up to 12 MB</span>
+                      </button>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span style="flex:1;height:1px;background:oklch(0.27 0.012 250)"></span>
+                        <span style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:oklch(0.54 0.01 250)">or paste a url</span>
+                        <span style="flex:1;height:1px;background:oklch(0.27 0.012 250)"></span>
+                      </div>
+                      <input value="" placeholder="https://…" readOnly="{{ true }}" style="height:34px;padding:0 11px;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.19 0.012 250);color:oklch(0.95 0.005 250);font:inherit;font-family:'IBM Plex Mono',monospace;font-size:12.5px" />
+                      <input value="" placeholder="Caption" readOnly="{{ true }}" style="height:34px;padding:0 11px;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.19 0.012 250);color:oklch(0.95 0.005 250);font:inherit;font-size:13px" />
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ Note</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ Link</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ Photo</button>
+                  <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ File</button>
                 </div>
               </div>
 
@@ -429,6 +503,10 @@
                   <span style="display:block;font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:oklch(0.62 0.01 250);margin-bottom:5px">Type</span>
                   <button onClick="{{ noop }}" style="width:100%;height:36px;padding:0 11px;text-align:left;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font:inherit;cursor:pointer">arrival</button>
                 </label>
+                <label style="display:block">
+                  <span style="display:block;font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:oklch(0.62 0.01 250);margin-bottom:5px">Cost (€)</span>
+                  <input value="{{ cardCost }}" onChange="{{ noop }}" placeholder="—" style="width:100%;height:36px;padding:0 11px;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.22 0.012 250);color:oklch(0.95 0.005 250);font-family:'IBM Plex Mono',monospace;font-size:14px" />
+                </label>
                 <div style="grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:9px;background:oklch(0.215 0.012 250);border:1px solid oklch(0.29 0.012 250)">
                   <div style="min-width:0">
                     <div style="font-size:12.5px;font-weight:500">Access point</div>
@@ -511,13 +589,13 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;startState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;rest&quot;,&quot;stop&quot;,&quot;stop-edit&quot;,&quot;wishlist&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;stop&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;forcePhone&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;showWishlistPins&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;oklch(0.72 0.13 215)&quot;,&quot;oklch(0.75 0.13 155)&quot;,&quot;oklch(0.75 0.14 65)&quot;,&quot;oklch(0.72 0.13 300)&quot;],&quot;default&quot;:&quot;oklch(0.72 0.13 215)&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
 const STOPS = [
-  { name: "Þingvellir", kind: "Viewpoint", arr: "09:00", dep: "09:20", dwell: "20 min", pos: [30, 34], leg: "18 min · 21 km", day: 1,
+  { name: "Þingvellir", kind: "Viewpoint", cost: 12, arr: "09:00", dep: "09:20", dwell: "20 min", pos: [30, 34], leg: "18 min · 21 km", day: 1,
     body: "Rift valley between the North American and Eurasian plates, and the site of the old parliament.", daylight: "Daylight until 23:57 · well clear" },
   { name: "Geysir", kind: "Hot spring", arr: "09:20", dep: "11:20", dwell: "120 min", pos: [41, 26], leg: "34 min · 39 km", day: 1,
     body: "Geothermal field; Strokkur erupts every few minutes.", daylight: "Daylight until 23:57 · well clear" },
-  { name: "Kerið", kind: "Volcano", arr: "11:20", dep: "12:50", dwell: "90 min", pos: [44, 40], leg: "9 min · 8 km", day: 1,
+  { name: "Kerið", kind: "Volcano", cost: 6, arr: "11:20", dep: "12:50", dwell: "90 min", pos: [44, 40], leg: "9 min · 8 km", day: 1,
     body: "Volcanic crater lake in the Grímsnes area.", daylight: "Daylight until 23:57 · well clear" },
-  { name: "Hótel Grímsborgir", kind: "Hotel", arr: "12:50", dep: "12:50", dwell: "0 min", pos: [47, 45], leg: "52 min · 63 km", day: 1,
+  { name: "Hótel Grímsborgir", kind: "Hotel", cost: 240, arr: "12:50", dep: "12:50", dwell: "0 min", pos: [47, 45], leg: "52 min · 63 km", day: 1,
     body: "", daylight: "Daylight until 23:57 · well clear" },
   { name: "Seljalandsfoss", kind: "Waterfall", arr: "12:50", dep: "13:35", dwell: "45 min", pos: [52, 58], leg: "24 min · 29 km", day: 1,
     body: "Waterfall with a path running behind the curtain.", daylight: "Daylight until 23:57 · well clear" },
@@ -525,7 +603,7 @@ const STOPS = [
     body: "60 m drop at the foot of the Skógá river.", daylight: "Daylight until 23:57 · well clear" },
   { name: "Vík í Mýrdal", kind: "Coast", arr: "14:20", dep: "15:05", dwell: "45 min", pos: [65, 72], leg: "3 min · 1 km", day: 1,
     body: "Southernmost village on the mainland.", daylight: "Daylight until 23:57 · well clear" },
-  { name: "Kaffi Vík", kind: "Restaurant", arr: "15:05", dep: "16:05", dwell: "60 min", pos: [67, 74], leg: "", day: 1,
+  { name: "Kaffi Vík", kind: "Restaurant", cost: 68, arr: "15:05", dep: "16:05", dwell: "60 min", pos: [67, 74], leg: "", day: 1,
     body: "", daylight: "Daylight until 23:57 · well clear" }
 ];
 
@@ -716,9 +794,46 @@ class Component extends DCLogic {
       ? "position:absolute;left:0;right:0;bottom:0;max-height:76%;display:flex;flex-direction:column;background:oklch(0.215 0.012 250);border-top:1px solid oklch(0.31 0.012 250);border-radius:16px 16px 0 0;box-shadow:0 -12px 40px oklch(0.10 0.02 250 / 0.55);z-index:20;overflow:hidden"
       : `position:absolute;left:14px;bottom:14px;width:${cardW};max-height:74%;display:flex;flex-direction:column;background:oklch(0.215 0.012 250 / 0.97);backdrop-filter:blur(14px);border:1px solid oklch(0.31 0.012 250);border-radius:14px;box-shadow:0 18px 50px oklch(0.10 0.02 250 / 0.55);z-index:20;overflow:hidden`;
 
+    const budgetGroups = [
+      { label: "Accommodation", kinds: ["Hotel", "Camping"] },
+      { label: "Flights", kinds: ["Airport"] },
+      { label: "Rental car", trip: true },
+      { label: "Sightseeing", kinds: null }
+    ];
+    const RENTAL_COST = 340; // trip-level: a rental car is not a place
+    const costed = STOPS.filter(s => s.cost > 0);
+    const eur = n => "€" + n.toLocaleString("en-US");
+    let assigned = 0;
+    const budgetRows = budgetGroups.map(g => {
+      const items = g.trip
+        ? (RENTAL_COST > 0 ? [{ cost: RENTAL_COST }] : [])
+        : g.kinds
+          ? costed.filter(s => g.kinds.indexOf(s.kind) > -1)
+          : costed.filter(s => !budgetGroups.some(o => o.kinds && o.kinds.indexOf(s.kind) > -1));
+      const sum = items.reduce((t, s) => t + s.cost, 0);
+      assigned += sum;
+      return {
+        label: g.label,
+        count: g.trip ? "" : (items.length ? String(items.length) : ""),
+        amount: items.length ? eur(sum) : "—",
+        amountStyle: `font-family:'IBM Plex Mono',monospace;font-size:12.5px;min-width:56px;text-align:right;color:${items.length ? "oklch(0.92 0.006 250)" : "oklch(0.48 0.01 250)"}`
+      };
+    });
+    const hasCost = assigned > 0;
+    const budgetOpen = !!this.state.budgetOpen;
+
     return {
       accent: acc,
       noop: () => {},
+      toggleBudget: () => this.setState(s => ({ budgetOpen: !s.budgetOpen })),
+      budgetOpen,
+      budgetRows,
+      budgetTotal: hasCost ? eur(assigned) : "—",
+      budgetNote: hasCost
+        ? "Sum of the cost field on this trip's stops. Stops without a cost are not counted."
+        : "No costs yet. Add a cost to any stop and it lands in the matching line.",
+      budgetLabel: hasCost ? eur(assigned) : "€",
+      budgetBtnStyle: `height:30px;${hasCost ? "padding:0 11px" : "width:30px;padding:0"};display:flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid ${budgetOpen ? "oklch(0.42 0.012 250)" : "oklch(0.32 0.012 250)"};background:${budgetOpen ? "oklch(0.28 0.014 250)" : "oklch(0.24 0.013 250)"};color:oklch(0.86 0.006 250);font:inherit;${hasCost ? "font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500" : "font-size:14px"};cursor:pointer`,
       shellStyle: phone
         ? "flex:1 1 auto;min-height:0;display:flex;flex-direction:column"
         : "flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 400px",
@@ -859,6 +974,7 @@ class Component extends DCLogic {
       cardAuthorTitle: wish && USERS[wish.by] ? "Added by " + USERS[wish.by].name : "",
       cardAuthorStyle: `display:flex;align-items:center;gap:6px;flex:0 0 auto;height:22px;padding:0 9px;border-radius:11px;font-size:11px;font-weight:500;color:oklch(0.88 0.006 250);background:oklch(0.25 0.012 250);border:1px solid oklch(0.32 0.012 250);white-space:nowrap`,
       cardAuthorDotStyle: `width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:${wish && USERS[wish.by] ? USERS[wish.by].color : "transparent"}`,
+      cardCost: stop && stop.cost ? String(stop.cost) : "",
       cardTitle, cardSub, cardBody, cardCredit, cardPhotoLabel, cardLink,
       cardArrive: stop ? stop.arr : "",
       cardDepart: stop ? stop.dep : "",

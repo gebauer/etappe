@@ -41,6 +41,11 @@ export const TAXONOMY = {
   pool: { label: 'Pool', dwell: 90, icon: 'swimming' },
   wildlife: { label: 'Wildlife', dwell: 45, icon: 'zoo' },
   parking: { label: 'Parking', dwell: 5, icon: 'parking' },
+  // Budget bucketing (WORK 16.10) reads a stop's *kind* to decide which
+  // line a cost belongs to — a rental car's own kind, not a free-typed
+  // category, is what makes "Rental car" a real bucket rather than a
+  // trip-level field with nothing to attach receipts to.
+  rental: { label: 'Rental car', dwell: 20, icon: 'car-rental' },
   other: { label: 'Other', dwell: 30, icon: 'marker' },
   // Deliberately a hollow circle with no glyph (BUILD §7): reads as "needs
   // attention", not as a legitimate kind.

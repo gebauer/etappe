@@ -234,6 +234,79 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 
 **Not covered** (unchanged from today): loading states, form validation, error states.
 
+## Budget
+
+Costs are a background fact, not a planning surface — so the budget lives as **one glyph in the header**, between the trip meta and Search.
+
+**Trigger** — a 30×30 ghost button, same treatment as Search/Import (`control` background, `border-strong`), showing just `€` at 14px. **Once any stop carries a cost the button becomes the running total** — `€666` in IBM Plex Mono 12.5px/500, `padding:0 11px`, width auto. That is the whole progressive-disclosure mechanic: an empty trip shows a currency sign, a planned trip shows what it costs, and neither takes more than one slot in the header. Open state: border `oklch(0.42 0.012 250)`, background `control-hover`.
+
+**Popover** — 258px, anchored `top:38px; right:0`, `radius:11px`, `surface-2`, `1px` `border-strong`, shadow `0 20px 48px oklch(0.10 0.01 250 / 0.55)`. Header row: `BUDGET` section label left, `est. · EUR` in mono 10.5px `text-5` right. Dismisses on outside click or Esc.
+
+**The bill** — four 26px lines, then a rule and the total:
+
+| Line | Fed by |
+|---|---|
+| Accommodation | stops of kind `Hotel`, `Camping` |
+| Flights | stops of kind `Airport` |
+| Rental car | **trip-level**, not a stop — a rental car is not a place. One field in trip settings. |
+| Sightseeing | every other kind that carries a cost |
+| **Total** | the sum of all four |
+
+Each line: label 12.5px `oklch(0.84 0.007 250)`; a mono 11px `text-5` **count** of contributing stops (blank for the trip-level rental line); the amount right-aligned, mono 12.5px, `min-width:56px` — `oklch(0.92 0.006 250)` when non-zero, an em dash in `oklch(0.48 0.01 250)` when the line is empty. Empty lines stay visible: the shape of the bill should not change as costs are entered. Total row: 12.5px/600 label, mono 14px/600 amount.
+
+Footnote, 11px `text-5`: with costs, "Sum of the cost field on this trip's stops. Stops without a cost are not counted."; empty, "No costs yet. Add a cost to any stop and it lands in the matching line."
+
+**Cost input** — one `Cost (€)` field in the inline card's expanded edit region, 36px, mono, alongside Title / Kind / Dwell / Anchor / Type. Nothing else. It sits behind the Edit press like every other planning field, and it is the only place a cost is ever typed. Costs are **not** shown on the card at rest, the itinerary rows, the expanded full-details modal or the phone strip — the whole point is that money stays out of the way until asked for. No per-day subtotals, no currency picker in the popover (trip currency is a trip setting), no budget target or over/under state.
+
+**Persistence** — `cost` is a nullable number on the stop document; rental cost and trip currency are trip fields. All of it is stored input, never computed: the cascade engine has no involvement.
+
+## Block editor (inside the expanded card)
+
+The current editor stacks every block open at once, in native controls: white inputs, a native `<select>` for visibility, a native `Choose file / No file chosen` row, and a per-block ↑ ↓ ✕ trio. Three blocks fill the whole modal and the scroll never settles. Redesigned as a **collapsed list with one open editor**.
+
+**Block list** — `display:flex;flex-direction:column;gap:6px`, directly under the description paragraph. Add buttons move **below** the list (they read as "append", which is what they do).
+
+**Collapsed row** (every block that has content, which is the resting state for all of them):
+- 42px tall, `radius:9px`, `1px` border `oklch(0.28 0.012 250)`, background `surface-3` `oklch(0.205 0.012 250)`. Hover: border `oklch(0.36 0.012 250)`, background `oklch(0.225 0.012 250)`.
+- Left: 16px **drag handle** `⠿` in `oklch(0.46 0.01 250)`, `cursor:grab`. This replaces ↑ ↓ entirely — reordering by dragging is one gesture instead of n clicks. Keep arrow-key reorder when the handle has focus as the accessible path; do not keep the buttons.
+- Type label: 44px fixed column, mono 9.5px, `letter-spacing:0.07em`, `text-4`. Uppercase `NOTE / LINK / PHOTO / FILE`.
+- Summary, `flex:1`, single line, ellipsis, 13px `oklch(0.86 0.006 250)`: note → its first line; link → title then the bare domain in mono 11px `text-5`; photo → a 26px thumbnail plus caption; file → filename plus mono size.
+- Visibility as a **static pill** (`Trip` / `Private`), 20px, `radius:10px`, `control` background, 10.5px `oklch(0.72 0.01 250)`. Read-only here; it becomes a toggle when the block is open.
+- `✕` 22px, `text-5`, hover `oklch(0.26 0.03 25)` background with `oklch(0.80 0.11 25)` glyph. Deleting a block with content asks for confirmation.
+- Clicking anywhere on the row opens it. Opening one closes the others — **only one block is open at a time.**
+
+**Open block** — the row becomes a panel: `radius:10px`, border `oklch(0.36 0.012 250)`, background `surface-4`.
+- Header, 40px, `border-bottom` `oklch(0.28 0.012 250)`: handle, type label (lifted to `oklch(0.72 0.01 250)`), then right-aligned the **visibility segmented control** — 24px track `oklch(0.185 0.012 250)`, `radius:12px`, 2px padding, two 20px segments; active segment `oklch(0.30 0.013 250)` with `text`, inactive `text-4`. The native `<select>` goes: two options do not deserve a dropdown.
+- Body: `padding:11px`, `gap:9px`. All fields 34px, `radius:8px`, border `oklch(0.32 0.012 250)`, background `oklch(0.19 0.012 250)`, text `text`, placeholder `text-4`. **No white fields anywhere.**
+
+**Per-type body:**
+- **Note** — auto-growing textarea, min 72px, same field styling, 13.5px, `text-wrap:pretty`.
+- **Link** — URL field first (mono 12.5px), title second and optional. The current order asks for a title before the thing it titles. The live `<a>` preview below stays but uses the design's link colour, not browser blue.
+- **Photo / File** — a **92px dashed dropzone** replacing the native file input: `radius:9px`, dashed `oklch(0.36 0.012 250)`, background `oklch(0.195 0.012 250)`, two lines — "Drop an image, or click to browse" 13px/500 and a constraint line "JPG or PNG · up to 12 MB" 11.5px `text-4`. Hover/drag-over: border `oklch(0.50 0.05 215)`, background `oklch(0.21 0.014 250)`. Then a labelled divider (`or paste a url`, 10.5px uppercase `oklch(0.54 0.01 250)`, 1px rules either side) and the URL field, then Caption. Once a file exists the dropzone is replaced by the thumbnail with a `Replace` action.
+
+**Footer** — unchanged in structure: `Done` (accent), `Move to day…`, and the two right-aligned icon buttons. Give both icon buttons `aria-label` and a tooltip; as bare glyphs they are unreadable.
+
+## Overlays carried over from today — dark-theme retrofit
+
+These two surfaces were declared unchanged, but they still render on light or inherited styling and fail contrast against the dark shell. They need retrofitting to the tokens above; no layout or behaviour changes.
+
+**Search overlay** (header Search button)
+- Panel: `surface-2` `oklch(0.20 0.013 250)`, `radius:12px`, `1px` `border-strong`, shadow `0 24px 60px oklch(0.10 0.01 250 / 0.55)`.
+- Query input: transparent background on the panel, no inner white field. Text `text` `oklch(0.95 0.005 250)`, 16px. **Placeholder `text-4` `oklch(0.62 0.01 250)`** — the current light grey on white is the reported failure; the typed query must never be lighter than the placeholder.
+- Divider under the input: `1px` `border` `oklch(0.27 0.012 250)`.
+- Result rows: 44px, name in `text` 15px/500 — **not black or dark grey**; secondary line, if any, `text-3`.
+- Kind tag, right-aligned: `field` background, `text-4` text, 11px, `radius:6px`, `padding:0 8px`. `uncategorized` uses the same treatment, no special colour.
+- Row hover / keyboard-active: background `control` `oklch(0.24 0.013 250)`, name lifts to `text`. Active row keeps a 2px `accent` left edge so keyboard position is readable without colour alone.
+
+**Kind picker**
+- Panel and filter field on `surface-2` / `field`; filter placeholder `text-4`, typed text `text`. The current white filter box goes.
+- Grid cells 74×74, `radius:8px`, transparent background, no border at rest.
+- **Icon glyphs render `text` `oklch(0.95 0.005 250)`** at rest — currently they read near-black on the dark panel. Labels `text-3` 11px, single line, ellipsis.
+- Hover: background `control`, label to `text`.
+- **Selected cell: gold.** Icon and label `oklch(0.82 0.13 80)`, background `oklch(0.26 0.045 80)`, `1px` border `oklch(0.42 0.09 80)`. Gold rather than the accent blue deliberately — the accent already means "selected on the map", and a kind choice is a different kind of state. The selected value shown in the card's Kind field carries the same gold glyph.
+- Scrollbar: `control` track, `border-strong` thumb. No default light scrollbar.
+- The 26-kind taxonomy, its sprites, the grid order and the `k` binding are all unchanged. This is colour only.
+
 ## State management
 
 The prototype needs four pieces of local UI state. None of it belongs in the trip document.
@@ -307,7 +380,7 @@ Breakpoint: one, at **860px**. Below it, phone layout. The prototype resolves th
 None shipped. Everything in the prototype is CSS.
 
 - **Photos**: every striped block is a photo slot — card header (158px), wishlist pins (30/38px), itinerary rows (38px), phone card (46px). Source them from the existing PocketBase thumbnail pipeline with Wikimedia attribution where applicable. Credit renders bottom-left of the card header.
-- **Icons**: none drawn. The 26-kind taxonomy sprites already exist and stay as they are — the kind picker is unchanged. Chevrons and `✕` are text glyphs (`‹`, `›`, `▾`, `▸`, `✕`) and can stay so or move to your icon set.
+- **Icons**: none drawn. The 26-kind taxonomy sprites already exist and stay as they are — the kind picker keeps its structure and gets a colour retrofit only (see the dark-theme retrofit section). Chevrons and `✕` are text glyphs (`‹`, `›`, `▾`, `▸`, `✕`) and can stay so or move to your icon set.
 - **Fonts**: Instrument Sans and IBM Plex Mono, both Google Fonts. Self-host them for the Coolify container rather than hotlinking.
 - **Map**: MapLibre GL + OpenFreeMap, unchanged. The prototype's gradient and SVG polyline are stand-ins; real route lines come from ORS. Note the known gap — leg-direction arrows were removed after a basemap glyph issue and are not restored here.
 
