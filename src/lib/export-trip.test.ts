@@ -136,6 +136,22 @@ describe('exportTrip', () => {
     expect(exportTrip(records()).start_date).toBe('2026-09-12');
   });
 
+  it('excludes a private note from the exported text', () => {
+    const r = records();
+    r.blocks.push({
+      id: 'b-private-note',
+      parent_type: 'stop',
+      parent_id: 's1',
+      kind: 'note',
+      order_index: 5,
+      visibility: 'private',
+      body: 'Only I should see this',
+    } as unknown as ExportableRecords['blocks'][number]);
+    const stop = exportTrip(r).days[0]!.stops[0]!;
+    expect(stop.notes).toBe('Pick up 4x4');
+    expect(stop.notes).not.toContain('Only I should see this');
+  });
+
   it('carries anchors, dwell, activities, notes and links across', () => {
     const doc = exportTrip(records());
     const stop = doc.days[0]!.stops[0]!;
@@ -200,6 +216,33 @@ describe('exportTrip', () => {
 });
 
 describe('parseTripDoc', () => {
+  it('accepts every leg mode the cascade engine understands, including bike', () => {
+    // Regression: the Zod schema originally omitted 'bike' from the leg
+    // mode enum even though CascadeLeg['mode'] and ImportLeg both include
+    // it — a bike leg in an otherwise-valid document was silently rejected.
+    for (const mode of ['car', 'walk', 'ferry', 'flight', 'bike', 'other']) {
+      const doc = {
+        version: 1,
+        title: 'T',
+        start_date: '2026-01-01',
+        timezone: 'UTC',
+        days: [
+          {
+            index: 1,
+            kind: 'travel',
+            stops: [
+              { title: 'A', kind: 'town' },
+              { title: 'B', kind: 'town' },
+            ],
+            legs: [{ from: 0, to: 1, mode }],
+          },
+        ],
+      };
+      const result = parseTripDoc(doc);
+      expect(result.ok, `mode "${mode}" should parse`).toBe(true);
+    }
+  });
+
   it('accepts the shipped fixture', () => {
     const result = parseTripDoc(fixture);
     if (!result.ok) throw new Error(result.errors.join('; '));

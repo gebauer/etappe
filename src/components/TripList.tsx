@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { listMyTrips, createTrip } from '../lib/pb-trips';
 import { isAbortError } from '../lib/pb';
 import type { TripsResponse } from '../types/pb';
+import { ImportTripDialog } from './ImportTripDialog';
 
 export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
   const [trips, setTrips] = useState<TripsResponse[]>([]);
@@ -9,6 +10,7 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
   const [startDate, setStartDate] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   async function refresh() {
     try {
@@ -71,9 +73,26 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
         >
           New trip
         </button>
+        <button
+          type="button"
+          onClick={() => setShowImport(true)}
+          className="rounded border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Import a trip
+        </button>
       </form>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {showImport && (
+        <ImportTripDialog
+          onClose={() => setShowImport(false)}
+          onImported={(tripId) => {
+            setShowImport(false);
+            onOpen(tripId);
+          }}
+        />
+      )}
 
       <ul className="flex flex-col divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
         {trips.length === 0 && (

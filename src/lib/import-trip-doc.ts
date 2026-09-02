@@ -54,7 +54,7 @@ const StopSchema = z.object({
 const LegSchema = z.object({
   from: z.number().int().min(0),
   to: z.number().int().min(0),
-  mode: z.enum(['car', 'walk', 'ferry', 'flight', 'other']),
+  mode: z.enum(['car', 'walk', 'ferry', 'flight', 'bike', 'other']),
   surface: z.enum(['paved', 'gravel', 'froad']).optional(),
 });
 

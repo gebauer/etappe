@@ -20,10 +20,14 @@ which replaced `WishlistPreview`) before Add to itinerary/Reject.
 See the task entries below for each phase-7 piece, and the spec deviation
 note above (Wikimedia lookup runs off Nearby/Overpass, not Photon — the
 live Photon instance never returns a `wikidata` tag).
-**→ Next, in order:** the map-first redesign has been picked (over 8.2, the
-full multi-day §8 import wizard, which is now deferred) — see Phase 12
-below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
-spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
+**→ Next, in order (at the time):** the map-first redesign was picked
+over 8.2, the full multi-day §8 import wizard, which was deferred — see
+Phase 12 below. `design_handoff_map_first_planner/README.md` is the
+pixel-accurate spec; it formalizes and supersedes `ToDo.md`'s "Design
+direction" notes.
+**8.1 and 8.2 done, 2026-09-02** (a narrower wizard than originally
+specced — see 8.2's own entry for what's built versus deferred), once
+Phase 12 and 16 were both clear.
 **Phase 12 (map-first redesign) is done — every task, 12.1 through 12.11.**
 The desktop shell: design tokens, unified pin-click card, expanded
 full-details card, pin visuals, day pills/Fit trip, the map-dominant shell
@@ -373,17 +377,18 @@ listing just those stops with the grid already expanded per row.
 
 ## Phase 8 — Import
 
-**8.1 Zod schema and prompt template** · Standard
+**8.1 Zod schema and prompt template** · Standard · ✅
 BUILD §8. Enum-constrained kinds, optional coordinates, `HH:MM` times, day
 indices. The prompt template shipped on the import screen. Export writes the
 same format — round-trip test.
-(The full-format Zod schema and the export half both landed with WORK 16.3
-— `import-trip-doc.ts` and `export-trip.ts`. What is still open here is the
-prompt template on the import screen.)
+The full-format Zod schema and the export half landed with WORK 16.3
+(`import-trip-doc.ts`, `export-trip.ts`); the prompt template
+(`src/lib/import-trip-prompt.ts`, `TRIP_PROMPT_TEMPLATE`) and the import
+screen that offers it landed with 8.2 below, 2026-09-02 — closing this out.
 (A separate, lighter schema for the Highlights goal — a flat list of POIs,
 no days — shipped as `src/lib/import-highlights.ts` `4adb15d`, with its
-importer + dialog as `8d11bd7`. This full multi-day §8 schema, and its
-wizard below, are still open.)
+importer + dialog as `8d11bd7`. Still its own thing, not superseded by 8.2:
+a Highlights import only ever adds to a wishlist, never creates a trip.)
 
 **Highlights follow-up: wishlist on the map** · Cheap · ✅ `811f909`
 Wishlist `pois` now pass through to `MapPane` as their own pin layer (Nearby
@@ -396,10 +401,72 @@ attribution, Markdown description, links) opens from the row or a map-pin
 click, with Place/Reject moved there — a look now always comes before a
 commit.
 
-**8.2 Wizard** · Standard
+**8.2 Wizard** · Standard · ✅ (narrower than specced — see below)
 Paste → validate with readable per-field errors → geocode with map confirmation
 and ambiguity flags → route → cascade preview with warnings and uncategorized
 count → commit. Cancellable at every step, atomic on commit.
+
+**Built as:** `ImportTripDialog.tsx` (paste → validate → preview → commit),
+reached from `TripList`'s new "Import a trip" button — a full trip
+document creates a **new** trip, unlike Highlights, which only ever adds to
+an already-open one's wishlist. `import-trip-commit.ts`'s
+`commitTripImport` does the actual creation: sequential
+`pb.collection(...).create()` calls (trip, then each day, then its stops
+with activities/notes/links, then that day's legs), not one PocketBase
+batch — a leg needs the *created* id of the stop it connects, which a
+single batch call can't hand back before it resolves. `importHighlights`
+(8.1) already made the same trade for the same reason; this follows it
+rather than reaching for batch cross-referencing for the first time here.
+Legs reuse `buildLegRecord` (`pb-legs.ts`) unchanged — the same routing/
+manual-fallback logic every other leg in the app already goes through, not
+a parallel importer-only path.
+**Narrower than the original three-line spec, on purpose:**
+- **No map-confirmation geocoding UI.** A `place_hint` resolves to
+  Photon's first match silently — the same simplification 8.1's own
+  Highlights importer already made, for the same reason (building real
+  ambiguity UI is its own map-facing feature). Verified live against the
+  canonical fixture: Keflavík/Gullfoss geocoded correctly, but "Skálholt,
+  Iceland" alone resolved to a wrong point ~150km north of the real one —
+  Photon returned *a* match, so nothing flagged it, and the resulting leg
+  correctly fell back to manual (no road found) rather than routing
+  somewhere absurd. This is the risk the deferred map-confirmation work
+  exists to catch; a stop that comes out unlocated *or* wrongly located is
+  fixable by hand afterward via the Latitude/Longitude fields already in
+  All details — no new repair UI needed, the capability already existed.
+- **Cancellable at every *step*, not mid-commit.** Paste/preview/failure
+  states can all back out or retry freely; once "Create trip" is clicked,
+  it runs to completion or failure, it can't be cancelled partway. On
+  failure the partially-created trip is deleted (`abandonTripImport`) —
+  everything under a trip `cascade: true`s away with it (migration
+  `1788000000`) — so a failed import leaves nothing behind rather than a
+  half-built trip sitting in the list, without needing real batch
+  atomicity to get there.
+- Cascade preview (showing computed times/warnings *before* committing) is
+  not built — the preview step shows counts (days, stops, car legs to be
+  routed, stops needing geocoding, stops with no location at all,
+  uncategorized count) but not a live cascade run, since that would need
+  routing to happen twice (once to preview, once for real) for a
+  meaningful preview. The uncategorized count folds into the app's
+  existing review banner once the trip is open, rather than a separate
+  wizard-only view of it.
+Bug found and fixed while building this: `export-trip.ts`'s `notesFrom`
+joined *every* note block regardless of visibility, so a private "My
+notes" remark (WORK 16.5) rode along in an exported document meant to be
+handed to someone else. Private notes are excluded now; a regression test
+covers it. Also found: `import-trip-doc.ts`'s leg-mode enum was missing
+`bike`, silently rejecting a valid `CascadeLeg['mode']`/`ImportLeg.mode` —
+fixed, with a test asserting every mode the cascade engine understands
+parses.
+`resolvePlaceHint` (`src/lib/geocode.ts`) is the geocode-on-import step,
+extracted out of `import-highlights-commit.ts` so both importers share one
+answer to "what does resolving a place mean" rather than two that could
+drift.
+Verified end to end against `fixtures/iceland-day1.json` in a real
+browser: import → real Photon geocode → real ORS routing (one leg routed,
+one manual) → the resulting trip's cascade computes an `AFTER_DARK`
+warning and a dwell derived from the imported activity, both matching what
+the editor would compute for the same data entered by hand → exported back
+out at the current version → the exported document's stops are intact.
 
 ---
 

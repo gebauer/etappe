@@ -85,10 +85,20 @@ function linksFrom(blocks: BlocksResponse[]): ImportLink[] {
 }
 
 /** Note blocks joined into the format's single `notes` string. Keeping each
- * block separate would need a shape the import format doesn't have. */
+ * block separate would need a shape the import format doesn't have.
+ *
+ * Excludes `private` notes — bug found 2026-09-02 while building the
+ * counterpart importer: this originally joined every note regardless of
+ * visibility, so a "My notes" private remark (WORK 16.5) would ride along
+ * in an exported document whose whole point is to be handed to someone
+ * else or archived outside the app. A private note earns that name from
+ * the API rule that already hides it from other trip members; the export
+ * has to honour the same boundary, not just the live UI. */
 function notesFrom(blocks: BlocksResponse[]): string | undefined {
   const text = blocks
-    .filter((b) => b.kind === 'note' && b.body?.trim())
+    .filter(
+      (b) => b.kind === 'note' && b.body?.trim() && b.visibility !== 'private',
+    )
     .map((b) => b.body!.trim())
     .join('\n\n');
   return text || undefined;

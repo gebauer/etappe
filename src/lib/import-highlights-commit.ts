@@ -16,7 +16,7 @@ import {
   type ExistingPlace,
 } from './import-dedupe';
 import type { BlocksResponse } from '../types/pb';
-import { photonSearch } from './photon';
+import { resolvePlaceHint } from './geocode';
 import { fetchPhotoFile } from './pb-photo-fetch';
 
 /** What the importer was told to do with a highlight that already exists. */
@@ -44,32 +44,6 @@ export interface HighlightImportResult {
    * protection, not an image). They keep their URL, so they still display —
    * they just can't become a map-pin thumbnail. */
   photosFailed: number;
-}
-
-async function resolveCoords(h: Highlight): Promise<{
-  lat?: number;
-  lon?: number;
-  geocoded: boolean;
-  geocodeFailed: boolean;
-}> {
-  if (h.lat !== undefined && h.lon !== undefined) {
-    return { lat: h.lat, lon: h.lon, geocoded: false, geocodeFailed: false };
-  }
-  if (!h.place_hint) {
-    return { geocoded: false, geocodeFailed: false };
-  }
-  try {
-    const [match] = await photonSearch(h.place_hint, { limit: 1 });
-    if (!match) return { geocoded: false, geocodeFailed: true };
-    return {
-      lat: match.lat,
-      lon: match.lon,
-      geocoded: true,
-      geocodeFailed: false,
-    };
-  } catch {
-    return { geocoded: false, geocodeFailed: true };
-  }
 }
 
 async function createHighlightBlocks(
@@ -210,7 +184,7 @@ export async function importHighlights(
       continue;
     }
 
-    const coords = await resolveCoords(h);
+    const coords = await resolvePlaceHint(h);
     const poiId = await addWishlistItem(pb, tripId, {
       title: h.title,
       kind: h.kind,
