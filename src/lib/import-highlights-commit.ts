@@ -157,9 +157,17 @@ export async function importHighlights(
 
   const results: HighlightImportResult[] = [];
   for (const [index, h] of doc.highlights.entries()) {
-    onProgress?.(results.length, doc.highlights.length, h.title);
+    // `index`, not `results.length` — a skipped highlight advances the loop
+    // without adding a result, and progress must still reach 100%.
+    onProgress?.(index, doc.highlights.length, h.title);
 
     const instruction = decisions?.get(index);
+    if (instruction?.decision === 'skip') {
+      // Not imported at all — the existing record is untouched, and this
+      // highlight leaves no trace (no poi, no blocks, not even a result
+      // row saying "created": there is nothing to report on).
+      continue;
+    }
     if (instruction && instruction.decision !== 'add') {
       // Folding into a record that is already here: write only the fields
       // the plan allows, then append the blocks it doesn't already carry.

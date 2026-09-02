@@ -25,7 +25,9 @@ import type { BlocksResponse } from '../types/pb';
 /** Same radius as the capture-time merge prompt (WORK 6.5, BUILD §6). */
 export const DUPLICATE_RADIUS_M = 100;
 
-export type DuplicateDecision = 'merge' | 'replace' | 'add';
+/** What to do with a highlight that matched an existing place.
+ * `skip` — do not import this one at all, existing record untouched. */
+export type DuplicateDecision = 'merge' | 'replace' | 'add' | 'skip';
 
 /** An existing poi or stop, flattened to what matching needs. */
 export interface ExistingPlace {
@@ -209,7 +211,7 @@ export function planReplace(
 }
 
 export function planFor(
-  decision: Exclude<DuplicateDecision, 'add'>,
+  decision: Exclude<DuplicateDecision, 'add' | 'skip'>,
   existing: ExistingPlace,
   existingBlocks: BlocksResponse[],
   incoming: Highlight,

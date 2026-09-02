@@ -39,7 +39,7 @@ type Step =
       matches: Map<number, DuplicateMatch>;
     }
   | { kind: 'importing'; total: number; done: number; current: string }
-  | { kind: 'done'; results: HighlightImportResult[] };
+  | { kind: 'done'; results: HighlightImportResult[]; skipped: number };
 
 /** Paste → validate → preview → commit (BUILD §8's wizard shape, applied to
  * the lighter Highlights format): pasting an LLM-produced list of POIs lands
@@ -117,7 +117,10 @@ export function HighlightsImportDialog({
           setStep({ kind: 'importing', total, done, current }),
         instructions,
       );
-      setStep({ kind: 'done', results });
+      const skipped = [...instructions.values()].filter(
+        (i) => i.decision === 'skip',
+      ).length;
+      setStep({ kind: 'done', results, skipped });
       onImported();
     } catch (err) {
       setStep({
@@ -220,26 +223,25 @@ export function HighlightsImportDialog({
                 </strong>{' '}
                 Merge fills only what is missing and adds any new notes, links
                 and photos. Replace overwrites the text but keeps the record —
-                so a placement or a star survives.
+                so a placement or a star survives. Skip leaves it out of the
+                import entirely.
                 <span className="mt-1.5 flex items-center gap-1.5">
                   Apply to all:
-                  {(['merge', 'replace', 'add'] as DuplicateDecision[]).map(
-                    (d) => (
-                      <button
-                        key={d}
-                        onClick={() =>
-                          setDecisions(
-                            new Map(
-                              [...step.matches.keys()].map((i) => [i, d]),
-                            ),
-                          )
-                        }
-                        className="rounded border border-amber-300 bg-white px-1.5 py-0.5 capitalize hover:bg-amber-100"
-                      >
-                        {d === 'add' ? 'add anyway' : d}
-                      </button>
-                    ),
-                  )}
+                  {(
+                    ['merge', 'replace', 'add', 'skip'] as DuplicateDecision[]
+                  ).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() =>
+                        setDecisions(
+                          new Map([...step.matches.keys()].map((i) => [i, d])),
+                        )
+                      }
+                      className="rounded border border-amber-300 bg-white px-1.5 py-0.5 capitalize hover:bg-amber-100"
+                    >
+                      {d === 'add' ? 'add anyway' : d}
+                    </button>
+                  ))}
                 </span>
               </div>
             )}
@@ -284,23 +286,28 @@ export function HighlightsImportDialog({
                       >
                         already {step.matches.get(i)!.existing.where}
                       </span>
-                      {(['merge', 'replace', 'add'] as DuplicateDecision[]).map(
-                        (d) => (
-                          <button
-                            key={d}
-                            onClick={() =>
-                              setDecisions(new Map(decisions).set(i, d))
-                            }
-                            className={`rounded px-1.5 py-0.5 text-[11px] capitalize ${
-                              (decisions.get(i) ?? 'merge') === d
-                                ? 'bg-slate-900 text-white'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {d}
-                          </button>
-                        ),
-                      )}
+                      {(
+                        [
+                          'merge',
+                          'replace',
+                          'add',
+                          'skip',
+                        ] as DuplicateDecision[]
+                      ).map((d) => (
+                        <button
+                          key={d}
+                          onClick={() =>
+                            setDecisions(new Map(decisions).set(i, d))
+                          }
+                          className={`rounded px-1.5 py-0.5 text-[11px] capitalize ${
+                            (decisions.get(i) ?? 'merge') === d
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
                     </span>
                   )}
                 </li>
@@ -317,7 +324,11 @@ export function HighlightsImportDialog({
                 onClick={() => commit(step.doc, step.matches)}
                 className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
               >
-                Import {step.doc.highlights.length}
+                Import{' '}
+                {step.doc.highlights.length -
+                  [...step.matches.keys()].filter(
+                    (i) => decisions.get(i) === 'skip',
+                  ).length}
               </button>
             </div>
           </div>
@@ -345,6 +356,12 @@ export function HighlightsImportDialog({
             <p className="text-sm text-slate-700">
               Imported {step.results.length} highlight
               {step.results.length === 1 ? '' : 's'} to the wishlist.
+              {step.skipped > 0 && (
+                <span className="text-slate-500">
+                  {' '}
+                  {step.skipped} skipped, left as they were.
+                </span>
+              )}
               {step.results.some((r) => r.photosFailed > 0) && (
                 <span className="mt-1 block text-amber-700">
                   {step.results.reduce((n, r) => n + r.photosFailed, 0)} photo
