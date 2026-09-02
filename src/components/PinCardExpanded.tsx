@@ -54,6 +54,8 @@ interface Props {
   onUpdateBlock: (blockId: string, patch: BlockPatch) => void;
   onDeleteBlock: (blockId: string) => void;
   onMoveBlock: (blockId: string, dir: -1 | 1) => void;
+  /** Drop a dragged block at an arbitrary position (WORK 18.2). */
+  onReorderBlock?: (blockId: string, targetIndex: number) => void;
   onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
   openKindPickerSignal?: number;
 }
@@ -64,9 +66,10 @@ interface Props {
  * accommodation, address and raw lat/lon, none of them touched often enough
  * to earn a slot in the docked card's inline edit region (WORK 12.2).
  *
- * The Blocks section reuses `BlockEditor` as-is rather than re-implementing
- * block CRUD in the dark palette — restyling it is out of this bundle's
- * scope (the handoff's own "Scope of this bundle" list doesn't mention it).
+ * The Blocks section mounts `BlockEditor`, redesigned in WORK 18.2 to the
+ * handoff's collapsed-list shape (one block open at a time, drag handle,
+ * segmented visibility, dashed dropzone) — it was the last light-themed
+ * surface inside this dark modal.
  */
 export function PinCardExpanded({
   stop,
@@ -89,6 +92,7 @@ export function PinCardExpanded({
   onUpdateBlock,
   onDeleteBlock,
   onMoveBlock,
+  onReorderBlock,
   onUploadBlockFile,
   openKindPickerSignal,
 }: Props) {
@@ -349,6 +353,7 @@ export function PinCardExpanded({
                 onUpdate={onUpdateBlock}
                 onDelete={onDeleteBlock}
                 onMove={onMoveBlock}
+                onReorder={onReorderBlock}
                 onUploadFile={onUploadBlockFile}
               />
             </div>

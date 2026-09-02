@@ -45,6 +45,7 @@ import {
   updateBlock,
   deleteBlock,
   moveBlock,
+  reorderBlock,
   blocksFor,
   reparentBlocks,
   uploadBlockPhoto,
@@ -1168,6 +1169,20 @@ export function TripEditor({
           dir,
         ),
       ),
+    onReorderBlock: (
+      parentId: string,
+      blockId: string,
+      targetIndex: number,
+      parentType: 'stop' | 'poi' = 'stop',
+    ) =>
+      run(() =>
+        reorderBlock(
+          pb,
+          blocksFor(records.blocks, parentType, parentId),
+          blockId,
+          targetIndex,
+        ),
+      ),
     onUploadBlockFile: (blockId: string, file: File) =>
       run(() => uploadBlockPhoto(pb, blockId, file)),
   };
@@ -1892,6 +1907,14 @@ export function TripEditor({
           onMoveBlock={(blockId, dir) =>
             blockHandlers.onMoveBlock(cardTarget.item.id, blockId, dir, 'poi')
           }
+          onReorderBlock={(blockId, index) =>
+            blockHandlers.onReorderBlock(
+              cardTarget.item.id,
+              blockId,
+              index,
+              'poi',
+            )
+          }
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
         />
@@ -1935,6 +1958,9 @@ export function TripEditor({
           onDeleteBlock={blockHandlers.onDeleteBlock}
           onMoveBlock={(blockId, dir) =>
             blockHandlers.onMoveBlock(cardTarget.stop.id, blockId, dir)
+          }
+          onReorderBlock={(blockId, index) =>
+            blockHandlers.onReorderBlock(cardTarget.stop.id, blockId, index)
           }
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}

@@ -148,6 +148,42 @@ export async function deleteBlock(
 
 /** Move a block one slot up or down among its siblings by swapping
  * order_index with its neighbour. No-op at the ends. */
+/**
+ * Move a block to an arbitrary position among its siblings (WORK 18.2) —
+ * what dragging a row needs, where `moveBlock` only ever swaps neighbours.
+ * Rewrites `order_index` across the affected span in one batch, the same
+ * shape `moveStop` uses for stops.
+ *
+ * `targetIndex` is the position in the *current* order the block should end
+ * up at; it is clamped, and a no-op move sends nothing.
+ */
+export async function reorderBlock(
+  pb: TypedPocketBase,
+  siblings: BlocksResponse[],
+  blockId: string,
+  targetIndex: number,
+): Promise<void> {
+  const ordered = [...siblings].sort(
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0),
+  );
+  const from = ordered.findIndex((b) => b.id === blockId);
+  if (from < 0) return;
+  const to = Math.max(0, Math.min(ordered.length - 1, targetIndex));
+  if (to === from) return;
+
+  const [moved] = ordered.splice(from, 1);
+  ordered.splice(to, 0, moved!);
+
+  const batch = pb.createBatch();
+  let writes = 0;
+  ordered.forEach((b, i) => {
+    if ((b.order_index ?? 0) === i) return;
+    batch.collection('blocks').update(b.id, { order_index: i });
+    writes += 1;
+  });
+  if (writes > 0) await batch.send();
+}
+
 export async function moveBlock(
   pb: TypedPocketBase,
   siblings: BlocksResponse[],

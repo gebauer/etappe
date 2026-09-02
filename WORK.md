@@ -1873,15 +1873,41 @@ no layout, behaviour, taxonomy or `k`-binding change.
   either file, no console errors.
 - Commit: `phase 18.1: dark-theme retrofit for the search and kind overlays`.
 
-**18.2 Block editor redesign** · Standard · ⬜
-Not started. The handoff's "Block editor" section: a collapsed list of
-42px rows (drag handle replacing ↑ ↓, 44px type column, one-line summary,
-static visibility pill, ✕ with confirmation) with **one block open at a
-time**; the open block becomes a panel with a two-segment visibility
-control replacing the native `<select>`, 34px dark fields, and a 92px
-dashed dropzone replacing `Choose file / No file chosen`. Add buttons
-move below the list. No white fields anywhere. `BlockEditor.tsx` today
-has 13 light-theme classes and stacks every block open.
+**18.2 Block editor redesign** · Standard · ✅
+`BlockEditor.tsx` rebuilt to the handoff's shape: a collapsed list of 42px
+rows (`⠿` drag handle, 44px mono type column, one-line summary — note's
+first line / link title + bare domain / photo thumbnail + caption / file
+name — a static visibility pill and a `✕`) with **one block open at a
+time**; the open block becomes a `surface-4` panel whose 40px header
+carries the handle, the type label and a segmented visibility control,
+over 34px dark fields. Add buttons moved below the list. Zero white fields
+left; zero native `<select>`s.
+- **Reordering:** the ↑ ↓ buttons are gone. Dragging a row calls a new
+  `reorderBlock(pb, siblings, blockId, targetIndex)` (`pb-blocks.ts`) that
+  rewrites the affected `order_index` span in one batch, the same shape
+  `moveStop` uses — `moveBlock` only ever swapped neighbours, which a drag
+  to an arbitrary position can't express. `onMove` is kept for the handle's
+  arrow keys, which the handoff explicitly wants as the accessible path.
+- **Deletion** asks first for a block that has content (the app's
+  click-to-arm two-press pattern, `✕` → `Delete?`), and deletes an empty
+  one outright.
+- **Three deliberate deviations:**
+  1. **Three visibility segments, not the specced two.** The handoff says
+     `Trip` / `Private` — "two options do not deserve a dropdown". There
+     are three: `public` is what `share.pb.js` publishes (WORK 16.6), so
+     dropping it would make a public block unreachable and quietly break
+     the read-only link. Same control, one more segment.
+  2. The dropzone's constraint line reads `Images · up to 10 MB`, not the
+     handoff's `JPG or PNG · up to 12 MB` — `blocks.file` is
+     `maxSize: 10485760` with no mime restriction (migration
+     `1788000000`), so the specced copy would have been wrong about our
+     own backend.
+  3. A `+ File` add button was added alongside Note/Link/Photo — `file` is
+     a real block kind the old editor could render but never create.
+- Verified in a browser (`.claude/skills/run-etappe/block-editor-check.mjs`):
+  two collapsed rows, zero `<select>`s in the modal, exactly one open
+  block at a time, and the dashed dropzone rendering — no console errors.
+- Commit: `phase 18.2: redesign the block editor`.
 
 **18.4 Move the whole trip to different dates** · Cheap · ✅
 Author request 2026-09-02, straight after an import landed on the dates
