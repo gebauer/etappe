@@ -73,13 +73,16 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start justify-center bg-black/30 pt-24"
+      className="fixed inset-0 z-30 flex items-start justify-center bg-scrim pt-24 font-sans"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-lg bg-white text-slate-900 shadow-xl"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-border-strong bg-surface-2 text-text shadow-[0_24px_60px_oklch(0.10_0.01_250/0.55)]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Transparent on the panel, not an inner white field — the reported
+            contrast failure was a light-grey placeholder on white, and the
+            typed query must never read lighter than the placeholder. */}
         <input
           ref={inputRef}
           value={q}
@@ -88,9 +91,9 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
             if (e.key === 'Escape') onClose();
           }}
           placeholder="Search a place, or paste coordinates / a Maps link…"
-          className="w-full border-b border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:outline-none"
+          className="w-full border-b border-border bg-transparent px-4 py-3 text-[16px] text-text placeholder:text-text-4 focus:outline-none"
         />
-        {error && <p className="px-4 py-2 text-xs text-red-600">{error}</p>}
+        {error && <p className="px-4 py-2 text-xs text-danger-text">{error}</p>}
 
         <ul className="max-h-80 overflow-y-auto">
           {sniff?.kind === 'coords' && (
@@ -114,32 +117,34 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
             />
           )}
           {sniff?.kind === 'url' && (
-            <li className="px-4 py-3 text-sm text-slate-400">
+            <li className="px-4 py-3 text-[13px] text-text-4">
               That link has no coordinates — paste a place name instead.
             </li>
           )}
 
           {!isPaste && busy && results.length === 0 && (
-            <li className="px-4 py-3 text-sm text-slate-400">Searching…</li>
+            <li className="px-4 py-3 text-[13px] text-text-4">Searching…</li>
           )}
           {!isPaste &&
             !busy &&
             q.trim() !== '' &&
             results.length === 0 &&
             !error && (
-              <li className="px-4 py-3 text-sm text-slate-400">No results.</li>
+              <li className="px-4 py-3 text-[13px] text-text-4">No results.</li>
             )}
           {!isPaste &&
             results.map((place, i) => (
               <li key={i}>
+                {/* The 2px accent left edge marks keyboard position without
+                    relying on the hover background alone. */}
                 <button
                   onClick={() => onPick(place)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm hover:bg-slate-50"
+                  className="flex h-11 w-full items-center justify-between gap-2 border-l-2 border-transparent px-4 text-left text-text-2 outline-none hover:bg-control hover:text-text focus-visible:border-accent focus-visible:bg-control focus-visible:text-text"
                 >
-                  <span className="min-w-0 truncate font-medium text-slate-900">
+                  <span className="min-w-0 truncate text-[15px] font-medium">
                     {place.name}
                   </span>
-                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                  <span className="shrink-0 rounded-md bg-field px-2 py-0.5 text-[11px] text-text-4">
                     {place.kind}
                   </span>
                 </button>
@@ -162,7 +167,7 @@ function PasteAction({
     <li>
       <button
         onClick={onClick}
-        className="w-full px-4 py-3 text-left text-sm font-medium text-sky-700 hover:bg-sky-50"
+        className="w-full border-l-2 border-transparent px-4 py-3 text-left text-[13.5px] font-medium text-accent outline-none hover:bg-control focus-visible:border-accent focus-visible:bg-control"
       >
         {label}
       </button>

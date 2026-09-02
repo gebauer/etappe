@@ -1826,6 +1826,70 @@ re-framing the map.
 
 ---
 
+## Phase 18 — Dark-theme debt the handoff mandated
+
+Source: `design_handoff_map_first_planner(9)/CLAUDE_CODE_PROMPT.md` lists
+two changes that never got a task — "Two carried-over overlays fail
+contrast and must be retrofitted" and "The block editor inside the
+expanded card is redesigned". Both were left behind when Phase 12 shipped
+(12.x notes the BlockEditor mismatch but calls it out of scope; the
+revised handoff pulled it back in). Opened 2026-09-02 at the author's
+request ("solve A").
+
+**18.1 Dark-theme retrofit: search overlay + kind picker** · Cheap · ✅
+Colour only, per the handoff's own "This is colour only" instruction —
+no layout, behaviour, taxonomy or `k`-binding change.
+- `SearchPalette`: panel moves to `surface-2` + `border-strong` + the
+  spec's `0 24px 60px oklch(0.10 0.01 250 / 0.55)` shadow on the `scrim`
+  backdrop. The query input loses its inner white field entirely
+  (transparent on the panel, 16px `text`, placeholder `text-4` — the
+  reported failure was light-grey-on-white with the typed query lighter
+  still). Result rows 44px, name `text-2` lifting to `text` on hover,
+  kind tag on `field`/`text-4`. Hover fills `control`; a 2px `accent`
+  left edge marks keyboard position, wired to `focus-visible` (the
+  component's existing keyboard path — adding arrow-key nav would have
+  been the behaviour change the handoff forbids here).
+- `KindPicker`: filter field on `field` with `text-4` placeholder and
+  `text` typed text; cells `rounded-lg`, transparent at rest with a
+  transparent border so the selected cell's 1px border doesn't shift the
+  grid; glyphs render `text` at rest (they inherited near-black before —
+  `KindIcon` masks to `currentColor`, so the fix is a text colour on the
+  cell, not a change to the icon); labels `text-3`. Selected is **gold**
+  (`oklch(0.82 0.13 80)` on `oklch(0.26 0.045 80)`, border
+  `oklch(0.42 0.09 80)`) rather than accent blue — accent already means
+  "selected on the map". Scrollbar retinted via `::-webkit-scrollbar`
+  arbitrary variants.
+- **Two deliberate deviations, both geometry the spec's own container
+  assumes and this one doesn't have:** the picker's popover is 320px
+  wide (`PinCardEdit` / `PinCardExpanded`), so the spec's 74×74 cells are
+  impossible — 6 columns land at ~47px. Cells keep their existing size,
+  and labels went to 10px rather than the spec's 11px, which at 47px
+  would truncate almost every label to 4–5 characters (worse than the 9px
+  they had). Colour is exactly per spec.
+- Verified in a real browser at 1440px
+  (`.claude/skills/run-etappe/overlays-dark-check.mjs`): both panels
+  screenshot dark, computed backgrounds read `oklch(0.2 0.013 250)` and
+  `oklch(0.22 0.012 250)`, zero `slate-*`/`bg-white` classes left in
+  either file, no console errors.
+- Commit: `phase 18.1: dark-theme retrofit for the search and kind overlays`.
+
+**18.2 Block editor redesign** · Standard · ⬜
+Not started. The handoff's "Block editor" section: a collapsed list of
+42px rows (drag handle replacing ↑ ↓, 44px type column, one-line summary,
+static visibility pill, ✕ with confirmation) with **one block open at a
+time**; the open block becomes a panel with a two-segment visibility
+control replacing the native `<select>`, 34px dark fields, and a 92px
+dashed dropzone replacing `Choose file / No file chosen`. Add buttons
+move below the list. No white fields anywhere. `BlockEditor.tsx` today
+has 13 light-theme classes and stacks every block open.
+
+**18.3 UncategorizedReview dark pass** · Cheap · ⬜
+Not started. Still a fully light drawer (6 light-theme classes) — same
+family as 18.1/18.2 and the last light surface left in the app. No
+redesign in the handoff, so this is a straight token swap.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

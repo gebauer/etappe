@@ -45,29 +45,37 @@ export function KindPicker({ value, onChange, onEscape, autoFocus }: Props) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Type to filter…"
-        className="mb-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        className="mb-2 h-[30px] w-full rounded-lg border border-border-strong bg-field px-2.5 text-[13px] text-text placeholder:text-text-4 focus:border-accent focus:outline-none"
       />
-      <div className="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto">
+      <div className="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-track]:bg-control [&::-webkit-scrollbar]:w-1.5">
         {filtered.map((k) => (
           <button
             key={k}
             type="button"
             onClick={() => onChange(k)}
             title={TAXONOMY[k].label}
-            className={`flex flex-col items-center gap-1 rounded p-1.5 text-center hover:bg-[oklch(0.6_0.01_250/0.18)] ${
+            // Selected is gold, not accent blue: accent already means
+            // "selected on the map", and a kind choice is a different kind
+            // of state. Transparent border at rest so the selected cell's
+            // 1px border doesn't shift the grid.
+            className={`flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center ${
               k === value
-                ? 'text-wishlist ring-1 ring-[oklch(0.78_0.13_80/0.55)]'
-                : ''
+                ? 'border-[oklch(0.42_0.09_80)] bg-[oklch(0.26_0.045_80)] text-[oklch(0.82_0.13_80)]'
+                : 'border-transparent text-text hover:bg-control'
             }`}
           >
             <KindIcon kind={k} />
-            <span className="w-full truncate text-[9px] leading-tight">
+            <span
+              className={`w-full truncate text-[10px] leading-tight ${
+                k === value ? '' : 'text-text-3'
+              }`}
+            >
               {TAXONOMY[k].label}
             </span>
           </button>
         ))}
         {filtered.length === 0 && (
-          <p className="col-span-6 py-4 text-center text-xs text-slate-400">
+          <p className="col-span-6 py-4 text-center text-xs text-text-4">
             No match.
           </p>
         )}
