@@ -1,6 +1,7 @@
 import { pb } from './pb';
 import { defaultDwellSeed } from './taxonomy';
 import type {
+  InvitesResponse,
   TripsResponse,
   TripMembersResponse,
   TripMembersRoleOptions,
@@ -75,4 +76,55 @@ export async function assignRole(
   role: TripMembersRoleOptions,
 ): Promise<void> {
   await pb.collection('trip_members').update(memberId, { role });
+}
+
+/** Pending and past invites for a trip. Readable by every member; only an
+ * owner can create or revoke one (migration `1788000002`). */
+export async function listInvites(tripId: string): Promise<InvitesResponse[]> {
+  return pb.collection('invites').getFullList({
+    filter: pb.filter('trip = {:trip}', { trip: tripId }),
+    sort: '-created',
+    requestKey: null,
+  });
+}
+
+/** Withdraw an invite that hasn't been taken up. Marked revoked rather than
+ * deleted, so re-inviting the same address doesn't collide with the unique
+ * (trip, email) index and the history stays visible. */
+export async function revokeInvite(inviteId: string): Promise<void> {
+  await pb.collection('invites').update(inviteId, { status: 'revoked' });
+}
+
+/** Remove someone from a trip. Owner-only by rule; leaving is the same call
+ * made against your own membership, which the rules also allow an owner to
+ * do — so the UI, not the API, is what stops a trip losing its last owner. */
+export async function removeMember(memberId: string): Promise<void> {
+  await pb.collection('trip_members').delete(memberId);
+}
+
+/** Turn the public link on or off (WORK 16.6). Owner-only by rule. */
+export async function setShareEnabled(
+  tripId: string,
+  enabled: boolean,
+): Promise<void> {
+  await pb.collection('trips').update(tripId, { share_enabled: enabled });
+}
+
+/**
+ * Mint a new share token, invalidating the old link.
+ *
+ * PocketBase's autogenerate only fires on create, so the new value is
+ * generated here and written like any other field. Returns it so the caller
+ * can show the new URL without a refetch.
+ */
+export async function regenerateShareToken(tripId: string): Promise<string> {
+  const alphabet =
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = new Uint8Array(22);
+  crypto.getRandomValues(bytes);
+  const token = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join(
+    '',
+  );
+  await pb.collection('trips').update(tripId, { share_token: token });
+  return token;
 }

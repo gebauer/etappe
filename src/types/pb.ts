@@ -356,6 +356,12 @@ export const StopsAnchorTypeOptions = {
 	"departure": "departure",
 } as const
 export type StopsAnchorTypeOptions = typeof StopsAnchorTypeOptions[keyof typeof StopsAnchorTypeOptions]
+
+export const StopsRoutingKindOptions = {
+	"stop": "stop",
+	"waypoint": "waypoint",
+} as const
+export type StopsRoutingKindOptions = typeof StopsRoutingKindOptions[keyof typeof StopsRoutingKindOptions]
 export type StopsRecord = {
 	access_lat?: number
 	access_lon?: number
@@ -372,6 +378,7 @@ export type StopsRecord = {
 	lat?: number
 	lon?: number
 	order_index?: number
+	routing_kind?: StopsRoutingKindOptions
 	starred?: boolean
 	title: string
 	updated: IsoAutoDateString
@@ -386,6 +393,7 @@ export type TripMembersRoleOptions = typeof TripMembersRoleOptions[keyof typeof 
 export type TripMembersRecord = {
 	created: IsoAutoDateString
 	id: string
+	label?: string
 	role: TripMembersRoleOptions
 	trip: RecordIdString
 	updated: IsoAutoDateString

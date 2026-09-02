@@ -4,6 +4,7 @@ import { logout } from './lib/auth';
 import { LoginForm } from './components/LoginForm';
 import { TripList } from './components/TripList';
 import { TripEditor } from './components/TripEditor';
+import { ShareView } from './components/ShareView';
 
 /** The PWA share_target action (BUILD §6.4, public/manifest.json): Android's
  * share sheet navigates here with title/text/url query params. Read once and
@@ -17,7 +18,22 @@ function readSharedCapture(): string | null {
   return guess?.trim() || null;
 }
 
+/** /share/<token> is public — no auth gate, no chrome, an unauthenticated
+ * reader must reach it directly (WORK 9.2 / 16.6). */
+function shareToken(): string | null {
+  const m = /^\/share\/([^/]+)\/?$/.exec(window.location.pathname);
+  return m ? m[1]! : null;
+}
+
+/** The token is fixed for the life of a page load — this only ever runs
+ * before AppShell's hooks the first time, never conditionally between
+ * renders of the same tree, so it doesn't trip the rules-of-hooks lint. */
 export default function App() {
+  const token = shareToken();
+  return token ? <ShareView token={token} /> : <AppShell />;
+}
+
+function AppShell() {
   const { isLoggedIn, user } = useAuth();
   const [tripId, setTripId] = useState<string | null>(null);
   const [sharedCapture, setSharedCapture] = useState<string | null>(null);

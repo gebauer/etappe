@@ -80,6 +80,7 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
         anchor_time: s.anchor_time || null,
         anchor_type: (s.anchor_type || null) as CascadeStop['anchor_type'],
         dwell_override: s.dwell_override || null,
+        routing_kind: (s.routing_kind || null) as CascadeStop['routing_kind'],
         activities: (activitiesByStop.get(s.id) ?? []).map((a) => ({
           duration_min: a.duration_min,
           kind: a.kind,

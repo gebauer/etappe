@@ -6,6 +6,8 @@ import { insertDay, deleteDay } from '../lib/pb-days';
 import { addCost, deleteCost, type NewCost } from '../lib/pb-costs';
 import { costsFor } from '../lib/costs';
 import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
+import { SharePanel } from './SharePanel';
+import { listMembers } from '../lib/pb-trips';
 import {
   addStopAtEnd,
   addStopAt,
@@ -178,6 +180,8 @@ export function TripEditor({
   // should know about but nothing went wrong.
   const [notice, setNotice] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -202,6 +206,21 @@ export function TripEditor({
   // with useTripEditor's reload.
   /** Returns the fresh list too, for callers that must act on the item they
    * just changed (re-opening its card, say) rather than the stale copy. */
+  useEffect(() => {
+    if (!records || !user) return;
+    let cancelled = false;
+    listMembers(records.trip.id)
+      .then((members) => {
+        if (cancelled) return;
+        const mine = members.find((m) => m.user === user.id);
+        setIsOwner(mine?.role === 'owner');
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [records?.trip.id, user]);
+
   const reloadWishlist = useCallback(() => {
     return listWishlist(pb, tripId)
       .then((items) => {
@@ -1200,6 +1219,13 @@ export function TripEditor({
           </button>
           <div className="relative">
             <button
+              onClick={() => setShareOpen(true)}
+              title="Share this trip with people, or publish a read-only link"
+              className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+            >
+              Share
+            </button>
+            <button
               onClick={() => setExportOpen((open) => !open)}
               title="Download this trip as JSON"
               className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
@@ -1523,6 +1549,18 @@ export function TripEditor({
           onUseExisting={useExistingStop}
           onCreateNew={createSeparateStop}
           onCancel={() => setMergeCheck(null)}
+        />
+      )}
+      {shareOpen && records && user && (
+        <SharePanel
+          trip={records.trip}
+          currentUserId={user.id}
+          isOwner={isOwner}
+          publicBlockCount={
+            records.blocks.filter((b) => b.visibility === 'public').length
+          }
+          onClose={() => setShareOpen(false)}
+          onChanged={() => void reload()}
         />
       )}
       {timingConflict && (
