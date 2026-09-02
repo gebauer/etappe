@@ -3,9 +3,11 @@ import { formatDayDate } from '../lib/format';
 import { formatClock, type CascadeResult } from '../lib/cascade';
 import { warningText } from '../lib/warnings';
 import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { costsFor } from '../lib/costs';
 import { pb } from '../lib/pb';
 import type {
   BlocksResponse,
+  CostsResponse,
   DaysResponse,
   StopsResponse,
   LegsResponse,
@@ -22,6 +24,7 @@ interface Props {
   stops: StopsResponse[];
   legs: LegsResponse[];
   blocks: BlocksResponse[];
+  costs: CostsResponse[];
   result: CascadeResult | null;
   onAddStop: (dayId: string) => void;
   /** Delete the focused day and its stops (WORK 16.2). Confirmed here. */
@@ -72,6 +75,7 @@ export function Timeline({
   stops,
   legs,
   blocks,
+  costs,
   result,
   onAddStop,
   onDeleteDay,
@@ -326,6 +330,7 @@ export function Timeline({
                       seq={i + 1}
                       timing={timingByStop.get(stop.id)}
                       photoUrl={cover ? blockFileUrl(pb, cover, '80x80') : null}
+                      cost={costsFor(costs, 'stop', stop.id)[0] ?? null}
                       selected={selectedStopIds.has(stop.id)}
                       hovered={hoveredStopId === stop.id}
                       onSelect={(additive) => onSelectStop(stop.id, additive)}

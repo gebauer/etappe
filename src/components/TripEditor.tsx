@@ -1651,6 +1651,7 @@ export function TripEditor({
             stops={stops}
             legs={legs}
             blocks={records.blocks}
+            costs={records.costs}
             result={result}
             selectedStopIds={selectedStopIds}
             onSelectStop={toggleSelect}

@@ -1,7 +1,8 @@
 import { formatClock, type StopTiming } from '../lib/cascade';
 import { formatDuration } from '../lib/format';
+import { formatMoney } from '../lib/costs';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
-import type { StopsResponse } from '../types/pb';
+import type { CostsResponse, StopsResponse } from '../types/pb';
 
 interface Props {
   stop: StopsResponse;
@@ -11,10 +12,19 @@ interface Props {
   seq: number;
   timing?: StopTiming;
   photoUrl?: string | null;
+  /** The stop's first cost row, if any (WORK 17.5). Drives a gold €/€€/€€€
+   * band on the meta line — a glance, not a total, so it stays in the
+   * cost's own currency with the exact amount in `title`. */
+  cost?: CostsResponse | null;
   selected?: boolean;
   hovered?: boolean;
   onSelect?: (additive: boolean) => void;
   onHover?: (hovering: boolean) => void;
+}
+
+/** 1–50 → €, 51–250 → €€, 251+ → €€€. */
+function costBand(amount: number): '€' | '€€' | '€€€' {
+  return amount <= 50 ? '€' : amount <= 250 ? '€€' : '€€€';
 }
 
 /**
@@ -30,12 +40,14 @@ export function StopRow({
   seq,
   timing,
   photoUrl,
+  cost,
   selected,
   hovered,
   onSelect,
   onHover,
 }: Props) {
   const dwell = timing ? formatDuration(timing.dwell) : null;
+  const costMark = cost && cost.amount > 0 ? costBand(cost.amount) : null;
   const isWaypoint = stop.routing_kind === 'waypoint';
   const kind = isWaypoint
     ? 'Routing point'
@@ -91,6 +103,15 @@ export function StopRow({
         <span className="mt-0.5 block truncate text-[11.5px] text-[oklch(0.63_0.01_250)]">
           {kind}
           {dwell ? ` · ${dwell}` : ''}
+          {costMark && (
+            <span
+              className="text-wishlist"
+              title={formatMoney(cost!.amount, cost!.currency)}
+            >
+              {' · '}
+              {costMark}
+            </span>
+          )}
         </span>
       </span>
 

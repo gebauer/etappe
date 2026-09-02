@@ -1750,16 +1750,16 @@ strip: `dawn +4:48` / `dusk −7:30` (real minus sign). `PinCard` uses
 `PinCardExpanded` swaps the Daylight cell value for `.token`. 7 new unit
 tests. Commit: `phase 17.4: daylight line reads against dawn or dusk`.
 
-**17.5 Cost marks in itinerary rows** · Cheap · ⬜
-Not started. Handoff: a gold €/€€/€€€ band on `StopRow`'s meta line for
-any stop that has a cost — 1–50 → €, 51–250 → €€, 251+ → €€€ (in the
-stop's own currency, not converted; converting per-row would mean an
-exchange-rate fetch per row for a marker that's meant to be a glance,
-not a total). Exact amount goes in the element's `title` for a hover
-tooltip. Nothing renders for a stop with no cost — no "€0" band. Reads
-`CostsResponse` the same way `CostField`/`BudgetPopover` already do
-(first cost row for the parent); no new data layer needed. Independent
-of every other task in this phase.
+**17.5 Cost marks in itinerary rows** · Cheap · ✅
+`StopRow` gained a `cost?: CostsResponse | null` prop and renders a gold
+(`text-wishlist`) ` · €`/`€€`/`€€€` band on the meta line after the
+kind/dwell — `costBand()` splits 1–50 / 51–250 / 251+, `title` carries
+`formatMoney(amount, currency)` (the stop's own currency, unconverted).
+Nothing renders when there is no cost or `amount <= 0`. `Timeline` takes
+a `costs` prop (passed `records.costs`) and hands each row
+`costsFor(costs, 'stop', stop.id)[0]` — the same first-row read
+`CostField`/`BudgetPopover` use. Commit: `phase 17.5: cost marks on
+itinerary rows`.
 
 ---
 
