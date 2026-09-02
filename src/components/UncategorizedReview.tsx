@@ -24,21 +24,21 @@ export function UncategorizedReview({
 }: Props) {
   return (
     <Drawer side="right" width="w-96" onClose={onClose}>
-      <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-        <h2 className="text-sm font-semibold text-slate-900">
+      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
+        <h2 className="text-[13px] font-semibold text-text">
           {stops.length} uncategorized
         </h2>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600"
+          className="text-text-4 hover:text-text"
           aria-label="Close"
         >
           ✕
         </button>
       </div>
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-border">
         {stops.length === 0 && (
-          <li className="px-3 py-6 text-center text-sm text-slate-400">
+          <li className="px-3 py-6 text-center text-[13px] text-text-4">
             All caught up.
           </li>
         )}
@@ -47,7 +47,7 @@ export function UncategorizedReview({
             <button
               onClick={() => onSelectStop(stop.id)}
               title="Select this stop"
-              className="mb-2 block max-w-full truncate text-left text-sm font-medium text-slate-900 hover:underline"
+              className="mb-2 block max-w-full truncate text-left text-[13.5px] font-medium text-text hover:underline"
             >
               {stop.title}
             </button>

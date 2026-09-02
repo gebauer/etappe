@@ -1933,10 +1933,27 @@ now check for the other format's array first and return one sentence
 naming the mistake and the screen to use instead. Two tests, one per
 direction. The prompt templates themselves were correct and unchanged.
 
-**18.3 UncategorizedReview dark pass** · Cheap · ⬜
-Not started. Still a fully light drawer (6 light-theme classes) — same
-family as 18.1/18.2 and the last light surface left in the app. No
-redesign in the handoff, so this is a straight token swap.
+**18.3 UncategorizedReview dark pass** · Cheap · ✅
+Straight token swap — no redesign in the handoff. `UncategorizedReview`'s
+header, dividers and row titles move onto `border`/`text`/`text-4`, and
+`Drawer` itself (its only consumer) goes from `bg-white shadow-xl` over
+`bg-black/30` to `surface-2` + a side border + `shadow-card` over the
+`scrim` token. `TripEditor`'s "Loading trip…" line came along for the
+ride. The kind grids inside each row were already fixed by 18.1.
+
+**18.6 The rest of the light-theme debt** · Standard · ⬜
+Not started. Auditing for 18.3 showed the "Noticed" note's "three
+surfaces" was an undercount — these are still fully light, by hit count
+of `slate-*` / `bg-white` / `text-red-*` / `sky-*` / `amber-*`:
+`HighlightsImportDialog` 45 · `ImportTripDialog` 36 · `ShareView` 22 ·
+`TripList` 18 · `PlacementPicker` 14 · `MergePrompt` 9 · `LoginForm` 8 ·
+`MapPane` 7 (the dev-only Nearby control — the white box top-left in
+every screenshot). `DayPills`, `WishlistCarousel` and `TripEditor`'s
+remaining hits are false positives (`bg-white/5`, `left-1.5`).
+`ImportTripDialog` is the one the author meets most often; it gets done
+as part of 18.7 rather than waiting for this. None of these are in the
+handoff — it only ever specced the two overlays and the block editor — so
+this is a consistency pass, not spec work.
 
 ---
 

@@ -1064,7 +1064,7 @@ export function TripEditor({
 
   if (!records) {
     return (
-      <div className="p-6 text-sm text-slate-400">
+      <div className="p-6 font-sans text-[13px] text-text-4">
         {error ?? 'Loading trip…'}
       </div>
     );
