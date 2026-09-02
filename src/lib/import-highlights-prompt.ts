@@ -50,7 +50,12 @@ especially for specific trailheads, viewpoints or landmarks vs. a whole \
 town). Omit both if you're not sure — they'll then be geocoded from \
 "place_hint" on import, which is coarser.
 - "links" and "photos" are optional arrays — omit them entirely for a \
-highlight with none, don't invent URLs.
+highlight with none. For "links", include the English Wikipedia article \
+when one exists (title "Wikipedia") and a Google Maps link built as \
+https://www.google.com/maps/search/?api=1&query=URL-ENCODED-PLACE-NAME \
+(title "Map"); add the official site too if you actually know it. Do not \
+invent Wikipedia URLs, and do not paste shortened or /maps/place/ links \
+you cannot verify.
 - Leave out "notes" — that's for me to fill in myself after importing.
 
 Destination: <fill in your destination here>`;

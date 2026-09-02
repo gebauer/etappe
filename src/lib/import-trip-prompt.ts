@@ -71,8 +71,13 @@ legs — never invent a duration.
 - If a stop forces a detour without being worth stopping at — a mountain \
 pass, a specific junction — you can mark it "routing_kind": "waypoint" \
 instead of a real stop; it will not get any dwell time.
-- "links" is optional per stop — omit it entirely for a stop with none, \
-don't invent URLs.
+- "links" is optional per stop — omit it entirely for a stop with none. \
+When you do add links, include the English Wikipedia article if one \
+exists (title "Wikipedia") and a Google Maps link built as \
+https://www.google.com/maps/search/?api=1&query=URL-ENCODED-PLACE-NAME \
+(title "Map"); add the official site too if you actually know it. Do not \
+invent Wikipedia URLs, and do not paste shortened or /maps/place/ links \
+you cannot verify.
 - Leave out "activities" — that's for me to fill in myself after importing.
 
 Destination and rough length: <fill in here>`;
