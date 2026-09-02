@@ -515,16 +515,17 @@ category breakdown.
 Buffer percentage, surface multipliers, default dwells per kind, timezone,
 currency, members, share token.
 
-**11.3 Deploy** · Standard
+**11.3 Deploy** · Standard · ✅
 Coolify config, volume, backup note, committed migrations, smoke test against
 the deployed instance.
 Pulled ahead for an alpha (2026-08-31), repo side only — `c51ef93`:
 Dockerfile/docker-compose.yml build-time env var fix (TILE_URL etc. weren't
 reaching the SPA bundle at all), admin bootstrap entrypoint, healthcheck.
-Not run live — no Docker daemon in this environment to test a real build,
-and the actual Coolify resource/domain/env-var setup is a manual step only
-the author can do. Still open: first live build+deploy, smoke test against
-it, backup note.
+Not run live from this environment (no Docker daemon here to test a real
+build, and the actual Coolify resource/domain/env-var setup is a manual
+step only the author can do) — but the author confirms (2026-09-02) the
+live deployment is up and working, closing out the manual half of this
+task.
 
 ---
 
@@ -1558,8 +1559,16 @@ stop as a diamond on the route rather than a numbered pin.
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
 
-- Stop deletion (row ✕ and the Delete key) has **no confirmation** — added
-  unconfirmed for fast test cleanup. Add a confirm (or undo) before v1.
+- Stop deletion via the **Delete/Backspace keyboard shortcut**
+  (`deleteSelected` in `TripEditor.tsx`) still has **no confirmation** —
+  it deletes the instant the key is pressed. (The row ✕ this note
+  originally meant was removed entirely in the Phase 12 redesign — the
+  card's own `Remove`/`Delete` button is the only per-item delete
+  affordance now, and it already asks twice, made more visible 2026-09-02
+  to show "Delete stop?"/"Delete idea?" on screen instead of relying on a
+  hover tooltip — see `ToDo.md`.) Add a confirm here too before v1, or
+  decide deliberately that a keyboard shortcut trading safety for speed is
+  the point of it and leave it — author's call, not made unasked.
 - Bundle is large (MapLibre); consider code-splitting the map.
 - The route hook still can't tell the client "routing genuinely failed" apart
   from "no road nearby" (both 200 `routable:false`). Low priority now that

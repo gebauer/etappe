@@ -212,14 +212,15 @@ export function PinCard({
                 onClick={() =>
                   confirmingRemove ? onRemove() : setConfirmingRemove(true)
                 }
-                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
-                className={`${ICON_BTN} border ${
+                onBlur={() => setConfirmingRemove(false)}
+                title={confirmingRemove ? undefined : 'Delete'}
+                className={
                   confirmingRemove
-                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                    : 'border-border-strong text-text-2 hover:bg-control'
-                }`}
+                    ? `${BTN} flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
+                    : `${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`
+                }
               >
-                🗑
+                {confirmingRemove ? 'Delete stop?' : '🗑'}
               </button>
             </div>
           </>
@@ -253,13 +254,15 @@ export function PinCard({
               onClick={() =>
                 confirmingRemove ? onDelete() : setConfirmingRemove(true)
               }
-              className={`${ICON_BTN} ml-auto border ${
+              onBlur={() => setConfirmingRemove(false)}
+              title={confirmingRemove ? undefined : 'Delete'}
+              className={
                 confirmingRemove
-                  ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                  : 'border-border-strong text-text-2 hover:bg-control'
-              }`}
+                  ? `${BTN} ml-auto flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
+                  : `${ICON_BTN} ml-auto border border-border-strong text-text-2 hover:bg-control`
+              }
             >
-              🗑
+              {confirmingRemove ? 'Delete idea?' : '🗑'}
             </button>
           </>
         )}

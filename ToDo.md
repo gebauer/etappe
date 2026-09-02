@@ -11,8 +11,25 @@ pick up before v1.
       as of 12.10 (12.7, the phone layout, closed out Phase 12 entirely,
       2026-09-02). Left below for the historical record of how the
       decision was reached; nothing in that section is still open.
-- [ ] Confirmation (or undo) before deleting stops — row ✕, Delete key, and the
-      inspector currently delete without asking.
+- [x] **Confirmation before deleting a stop or wishlist idea** — the row
+      ✕ this was originally written about no longer exists (removed in the
+      Phase 12 redesign; `Remove`/`Delete` on the card is the only per-item
+      delete affordance now, which is a click-to-arm two-press pattern:
+      click once, the button turns red and asks "Delete stop?"/"Delete
+      idea?", click again to actually delete). What was missing was that
+      the confirm state relied on a hover-only tooltip with no on-screen
+      text, easy to miss and useless on a touch device — fixed 2026-09-02
+      to show the question directly on the button, matching the day-delete
+      row's already-established pattern, and to reset on blur (clicking
+      away cancels it) the same way that row does too.
+      **Still genuinely open, found while checking this:** the Delete/
+      Backspace _keyboard_ shortcut on a selected stop (`deleteSelected` in
+      `TripEditor.tsx`) has no confirmation at all — it deletes the
+      instant the key is pressed, unlike the card's button. Not touched
+      here; the author was specifically asked whether to add one before
+      changing it, since a keyboard shortcut trades safety for speed on
+      purpose and that's a call for whoever plans to lean on it daily, not
+      one to make unasked.
 - [x] **Manual legs still not routing** — root cause: `buildLegRecord`
       collapses a genuine "no road nearby" (ORS 404) and an actual provider
       failure (network/auth/rate-limit, hook 502) into the identical `manual`
