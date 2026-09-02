@@ -67,13 +67,17 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
     setStep({ kind: 'preview', doc: result.doc });
   }
 
-  async function commit(doc: ImportDoc) {
+  async function commit(doc: ImportDoc, startDate: string) {
     setStep({ kind: 'importing', progress: null });
     const routing = createPocketBaseRouting(pb);
     let createdTripId: string | null = null;
     try {
-      const result = await commitTripImport(pb, routing, doc, (progress) =>
-        setStep({ kind: 'importing', progress }),
+      const result = await commitTripImport(
+        pb,
+        routing,
+        doc,
+        startDate,
+        (progress) => setStep({ kind: 'importing', progress }),
       );
       createdTripId = result.trip.id;
       setStep({ kind: 'done', result });
@@ -105,21 +109,19 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start justify-center bg-black/30 pt-16"
+      className="fixed inset-0 z-30 flex items-start justify-center bg-scrim pt-16 font-sans"
       onClick={busy ? undefined : onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 text-slate-900 shadow-xl"
+        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-border-strong bg-surface-2 p-5 text-text shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Import a trip
-          </h2>
+          <h2 className="text-[13px] font-semibold text-text">Import a trip</h2>
           {!busy && (
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600"
+              className="text-text-4 hover:text-text"
               aria-label="Close"
             >
               ✕
@@ -129,7 +131,7 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
 
         {step.kind === 'paste' && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-[13px] text-text-2">
               Ask an LLM (in your own chat window) for a day-by-day itinerary,
               using the prompt below, then paste its JSON reply here. This
               creates a new trip — it doesn&rsquo;t touch any trip you already
@@ -137,7 +139,7 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
             </p>
             <button
               onClick={copyPrompt}
-              className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              className="h-[30px] rounded-lg border border-border-strong px-2.5 text-[12px] text-text-2 hover:bg-control hover:text-text"
             >
               {copied ? 'Copied ✓' : '📋 Copy prompt'}
             </button>
@@ -146,10 +148,10 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
               onChange={(e) => setText(e.target.value)}
               rows={10}
               placeholder='{"version": 1, "title": "...", "days": [...]}'
-              className="w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs placeholder:text-slate-400"
+              className="w-full rounded-lg border border-border-strong bg-field px-2.5 py-2 font-mono text-[12px] text-text outline-none placeholder:text-text-4 focus:border-accent"
             />
             {step.errors && step.errors.length > 0 && (
-              <ul className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+              <ul className="rounded-lg border border-danger-border bg-[oklch(0.26_0.03_25)] p-2.5 text-[12px] text-danger-text">
                 {step.errors.map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
@@ -158,14 +160,14 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={onClose}
-                className="rounded px-3 py-1.5 text-sm text-slate-500"
+                className="h-[34px] rounded-lg px-3 text-[13px] text-text-3 hover:text-text"
               >
                 Cancel
               </button>
               <button
                 onClick={parse}
                 disabled={!text.trim()}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent disabled:opacity-40"
               >
                 Validate
               </button>
@@ -177,12 +179,12 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
           <TripPreview
             doc={step.doc}
             onBack={() => setStep({ kind: 'paste' })}
-            onCommit={() => commit(step.doc)}
+            onCommit={(startDate) => commit(step.doc, startDate)}
           />
         )}
 
         {step.kind === 'importing' && (
-          <div className="space-y-2 py-6 text-center text-sm text-slate-600">
+          <div className="space-y-2 py-6 text-center text-[13px] text-text-2">
             <p>
               {step.progress
                 ? `Day ${step.progress.dayIndex + 1} of ${step.progress.totalDays} — ${
@@ -194,9 +196,9 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
                   }…`
                 : 'Starting…'}
             </p>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-control">
               <div
-                className="h-full bg-slate-900 transition-all"
+                className="h-full bg-accent transition-all"
                 style={{
                   width: step.progress
                     ? `${Math.round(((step.progress.dayIndex + 1) / step.progress.totalDays) * 100)}%`
@@ -209,16 +211,16 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
 
         {step.kind === 'failed' && (
           <div className="space-y-3">
-            <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+            <p className="rounded-lg border border-danger-border bg-[oklch(0.26_0.03_25)] p-2.5 text-[13px] text-danger-text">
               {step.message}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-[11.5px] text-text-4">
               Nothing was left behind — the partial trip was removed.
             </p>
             <div className="flex justify-end">
               <button
                 onClick={() => setStep({ kind: 'paste' })}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent"
               >
                 Back
               </button>
@@ -228,7 +230,7 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
 
         {step.kind === 'done' && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-700">
+            <p className="text-[13px] text-text-2">
               Created <strong>{step.result.daysCreated}</strong> day
               {step.result.daysCreated === 1 ? '' : 's'} and{' '}
               <strong>{step.result.stopsCreated}</strong> stop
@@ -241,7 +243,7 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
               .
             </p>
             {step.result.unlocatedStops.length > 0 && (
-              <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+              <div className="rounded-lg border border-warn-border bg-warn-bg p-2.5 text-[12px] text-warn-text">
                 <strong>
                   {step.result.unlocatedStops.length} stop
                   {step.result.unlocatedStops.length === 1 ? '' : 's'}{' '}
@@ -261,7 +263,7 @@ export function ImportTripDialog({ onClose, onImported }: Props) {
             <div className="flex justify-end">
               <button
                 onClick={() => onImported(step.result.trip.id)}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent"
               >
                 Open the trip
               </button>
@@ -280,8 +282,14 @@ function TripPreview({
 }: {
   doc: ImportDoc;
   onBack: () => void;
-  onCommit: () => void;
+  onCommit: (startDate: string) => void;
 }) {
+  // The date is the importer's question, not the document's (WORK 18.7):
+  // an itinerary is day numbers, so it travels without dates. A document
+  // that happens to carry one presets the field; otherwise today does.
+  const [startDate, setStartDate] = useState(
+    doc.start_date ?? new Date().toISOString().slice(0, 10),
+  );
   const stops = doc.days.flatMap((d) => d.stops);
   const legs = doc.days.flatMap((d) => d.legs);
   const uncategorized = stops.filter((s) => s.kind === 'uncategorized').length;
@@ -295,29 +303,47 @@ function TripPreview({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-600">
-        <strong>{doc.title}</strong> — {doc.days.length} day
-        {doc.days.length === 1 ? '' : 's'}, {stops.length} stop
-        {stops.length === 1 ? '' : 's'}, starting {doc.start_date}.
+      <p className="text-[13px] text-text-2">
+        <strong className="font-semibold text-text">{doc.title}</strong> —{' '}
+        {doc.days.length} day{doc.days.length === 1 ? '' : 's'}, {stops.length}{' '}
+        stop{stops.length === 1 ? '' : 's'}.
       </p>
-      <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200 text-sm">
+
+      <label className="block rounded-lg border border-border-strong bg-surface-3 p-3">
+        <span className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+          When does the trip start?
+        </span>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="mt-1.5 h-[34px] w-full rounded-lg border border-border-strong bg-field px-2.5 font-mono text-[13px] text-text outline-none [color-scheme:dark] focus:border-accent"
+        />
+        <span className="mt-1.5 block text-[11.5px] leading-snug text-text-4">
+          {doc.start_date
+            ? `Preset from the document (${doc.start_date}). Days carry only their number, so change this freely.`
+            : 'The document carried no date — days carry only their number. Every day’s date is derived from this one.'}
+        </span>
+      </label>
+
+      <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border-strong text-[13px]">
         {doc.days.map((day) => (
           <li key={day.index} className="flex items-center gap-2 px-3 py-2">
-            <span className="flex-none font-medium text-slate-900">
+            <span className="flex-none font-medium text-text">
               Day {day.index}
             </span>
             {day.title && (
-              <span className="min-w-0 flex-1 truncate text-slate-500">
+              <span className="min-w-0 flex-1 truncate text-text-3">
                 {day.title}
               </span>
             )}
-            <span className="flex-none text-xs text-slate-400">
+            <span className="ml-auto flex-none text-[11.5px] text-text-4">
               {day.stops.length} stop{day.stops.length === 1 ? '' : 's'}
             </span>
           </li>
         ))}
       </ul>
-      <div className="space-y-1 text-xs text-slate-500">
+      <div className="space-y-1 text-[11.5px] text-text-4">
         {carLegs > 0 && (
           <p>
             {carLegs} car leg{carLegs === 1 ? '' : 's'} will be routed on import
@@ -325,14 +351,14 @@ function TripPreview({
           </p>
         )}
         {needsGeocode > 0 && (
-          <p className="text-amber-700">
+          <p className="text-warn-text">
             {needsGeocode} stop{needsGeocode === 1 ? '' : 's'} will be geocoded
             from its place hint — a rough estimate compared to named
             coordinates.
           </p>
         )}
         {noLocationAtAll > 0 && (
-          <p className="text-amber-700">
+          <p className="text-warn-text">
             {noLocationAtAll} stop{noLocationAtAll === 1 ? '' : 's'} have
             neither coordinates nor a place hint and will need a location set by
             hand after importing.
@@ -348,13 +374,14 @@ function TripPreview({
       <div className="flex justify-end gap-2">
         <button
           onClick={onBack}
-          className="rounded px-3 py-1.5 text-sm text-slate-500"
+          className="h-[34px] rounded-lg px-3 text-[13px] text-text-3 hover:text-text"
         >
           Back
         </button>
         <button
-          onClick={onCommit}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+          onClick={() => onCommit(startDate)}
+          disabled={!/^\d{4}-\d{2}-\d{2}$/.test(startDate)}
+          className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent disabled:opacity-40"
         >
           Create trip
         </button>

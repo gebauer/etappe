@@ -285,6 +285,20 @@ describe('parseTripDoc', () => {
     expect(result.ok).toBe(false);
   });
 
+  // WORK 18.7: days carry only an `index`, so an itinerary travels without
+  // dates and the importer asks for the start date instead.
+  it('accepts a document with no start_date', () => {
+    const result = parseTripDoc({
+      version: 1,
+      title: 'Dateless',
+      timezone: 'Atlantic/Reykjavik',
+      days: [{ index: 1, kind: 'travel', stops: [], legs: [] }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.doc.start_date).toBeUndefined();
+  });
+
   // Both formats declare `version: 1`, so a Highlights list clears the
   // version gate and would otherwise report four bare "Required" fields.
   it('names a Highlights list pasted into the trip importer', () => {

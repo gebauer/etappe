@@ -70,10 +70,16 @@ const DaySchema = z.object({
 const TripDocV1Schema = z.object({
   version: z.literal(1),
   title: z.string().trim().min(1, 'title is required'),
+  // Optional since WORK 18.7: a day carries only its `index`, and every
+  // date is derived from the trip's start, so an itinerary is portable
+  // without one. The importer asks for the start date and presets it from
+  // here when the document happens to carry one. Relaxing a constraint
+  // needs no new version — every v1 document that parsed before still does.
   start_date: z
     .string()
     .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD'),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+    .optional(),
   timezone: z.string().trim().min(1, 'timezone is required'),
   days: z.array(DaySchema).min(1, 'at least one day is required'),
   // Written by the export to say what the JSON couldn't carry; ignored here.

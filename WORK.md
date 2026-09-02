@@ -1941,19 +1941,60 @@ header, dividers and row titles move onto `border`/`text`/`text-4`, and
 `scrim` token. `TripEditor`'s "Loading trip…" line came along for the
 ride. The kind grids inside each row were already fixed by 18.1.
 
+**18.7 A trip document carries day numbers, not dates** · Standard · ✅
+Author, 2026-09-02: *"For the export / import of trips we should not need
+dates for days. Only day numbering and it starts at the trip date.
+Although during import we should ask when the trip should start and preset
+the date if it present in the json."*
+- Days already carried only `index` — that half was right. What was wrong
+  is that `start_date` was **required**, so a portable itinerary still had
+  to invent one.
+- `start_date` is now `.optional()` in `TripDocV1Schema` and
+  `ImportDoc.start_date?: string`. **No new format version:** relaxing a
+  constraint keeps every v1 document that parsed before parsing now, which
+  is the versioning rule's actual test.
+- `commitTripImport` takes `startDate` as an **explicit argument** rather
+  than reading it off the document — the date is the importer's question,
+  and the document's own value is only a preset. Impossible to forget at a
+  call site.
+- The preview step asks "When does the trip start?", preset from the
+  document when it has a date (saying so) and today's date when it
+  doesn't (saying that too), and blocks the commit on a malformed one.
+- The prompt template now tells the LLM `start_date` is optional and to
+  leave it out rather than invent one, and that days never carry dates.
+- `ImportTripDialog` was darkened in the same pass — it was the worst of
+  the light-theme surfaces in 18.6 (36 hits → 0) and the one the author
+  meets most often.
+- Verified end to end (`.claude/skills/run-etappe/import-date-check.mjs`):
+  a dateless document imports and the trip lands on the chosen date. The
+  first run failed on a *test* bug worth recording — an unscoped
+  `input[type="date"]` fill landed on the trip-list form behind the modal,
+  not the importer's field; the app was correct throughout.
+- Commit: `phase 18.7: a trip document carries day numbers, not dates`.
+
+**18.8 Verified: inserting a day between two days works** · ✅
+The author asked whether it was ever built. It was, in 16.2 — the hairline
+`+` in each gap of the day dock (`aria-label="Insert a day before Day N"`)
+→ `doInsertDay(atIndex)` → `insertDay`, which reindexes the days below and
+reports the day-parented blocks whose derived date moved.
+`.claude/skills/run-etappe/insert-day-check.mjs` drives the real gesture
+between day 3 and day 4 and confirms the day count grows. No code change.
+
 **18.6 The rest of the light-theme debt** · Standard · ⬜
 Not started. Auditing for 18.3 showed the "Noticed" note's "three
 surfaces" was an undercount — these are still fully light, by hit count
 of `slate-*` / `bg-white` / `text-red-*` / `sky-*` / `amber-*`:
-`HighlightsImportDialog` 45 · `ImportTripDialog` 36 · `ShareView` 22 ·
-`TripList` 18 · `PlacementPicker` 14 · `MergePrompt` 9 · `LoginForm` 8 ·
-`MapPane` 7 (the dev-only Nearby control — the white box top-left in
-every screenshot). `DayPills`, `WishlistCarousel` and `TripEditor`'s
-remaining hits are false positives (`bg-white/5`, `left-1.5`).
-`ImportTripDialog` is the one the author meets most often; it gets done
-as part of 18.7 rather than waiting for this. None of these are in the
-handoff — it only ever specced the two overlays and the block editor — so
-this is a consistency pass, not spec work.
+`HighlightsImportDialog` 45 · `ShareView` 22 · `TripList` 18 ·
+`PlacementPicker` 14 · `MergePrompt` 9 · `LoginForm` 8 · `MapPane` 7 (the
+dev-only Nearby control — the white box top-left in every screenshot).
+`DayPills`, `WishlistCarousel` and `TripEditor`'s remaining hits are false
+positives (`bg-white/5`, `left-1.5`). `ImportTripDialog` was the worst of
+them at 36 and is already done, in 18.7.
+
+None of these are in the handoff — it only ever specced the two overlays
+and the block editor — so this is a consistency pass, not spec work.
+`HighlightsImportDialog` is the obvious next one: same shape as the trip
+importer that 18.7 just darkened.
 
 ---
 

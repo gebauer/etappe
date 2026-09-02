@@ -49,7 +49,12 @@ Reply with ONLY a JSON object in exactly this shape — no other text:
 }
 
 Rules:
-- "index" starts at 1 and must be consecutive across all days.
+- "index" starts at 1 and must be consecutive across all days. Days carry \
+only their number — never a date. Every date is derived from the trip's \
+start.
+- "start_date" is **optional**: the importer asks me when the trip starts \
+and presets the field from this if it's here. Include it only if I've told \
+you actual dates; leave it out otherwise rather than inventing one.
 - "kind" (the day's) is "travel" or "rest".
 - Each stop's "kind" must be one of: waterfall, canyon, glacier, hot_spring, \
 volcano, cave, lake, coast, viewpoint, hike, museum, monument, church, \

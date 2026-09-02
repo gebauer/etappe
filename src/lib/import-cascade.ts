@@ -60,7 +60,10 @@ export interface ImportDay {
 export interface ImportDoc {
   version: number;
   title: string;
-  start_date: string;
+  /** Optional (WORK 18.7): days carry only an `index`, so an itinerary is
+   * portable without dates. The importer asks for the start date and
+   * presets it from here when the document carries one. */
+  start_date?: string;
   timezone: string;
   days: ImportDay[];
 }
@@ -161,7 +164,10 @@ export function importToCascade(
   });
 
   return {
-    start_date: doc.start_date,
+    // A dateless document only reaches here from a preview; the date drives
+    // froad-season classification alone, and the real one is chosen in the
+    // importer before anything is written.
+    start_date: doc.start_date ?? new Date().toISOString().slice(0, 10),
     car_buffer_pct: settings.car_buffer_pct,
     surface_multipliers: settings.surface_multipliers,
     default_dwell: settings.default_dwell,

@@ -59,15 +59,22 @@ export interface TripImportResult {
   unlocatedStops: UnlocatedStop[];
 }
 
+/**
+ * `startDate` is an explicit argument rather than read off the document
+ * (WORK 18.7): a trip document carries day *numbers*, not dates, so the
+ * date is the importer's question to ask — the document's own
+ * `start_date`, when it has one, is only the preset.
+ */
 export async function commitTripImport(
   pb: TypedPocketBase,
   routing: RoutingProvider,
   doc: ImportDoc,
+  startDate: string,
   onProgress?: (progress: TripImportProgress) => void,
 ): Promise<TripImportResult> {
   const trip = await createTrip({
     title: doc.title,
-    start_date: doc.start_date,
+    start_date: startDate,
     timezone: doc.timezone,
   });
 
