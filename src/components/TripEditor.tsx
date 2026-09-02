@@ -142,6 +142,7 @@ export function TripEditor({
     lon: number;
     place: PlaceResult | null;
     identifying: boolean;
+    sourceUrl?: string;
   } | null>(null);
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -205,6 +206,31 @@ export function TripEditor({
   const [browsing, setBrowsing] = useState(false);
   const [hoveredWishId, setHoveredWishId] = useState<string | null>(null);
   const [starOnly, setStarOnly] = useState(false);
+  // How wishlist pins draw on the map (WORK 18.11): photo thumbnails or the
+  // kind's icon. A per-viewer display preference, not trip data — kept in
+  // localStorage, defaulting to photos.
+  const [wishlistPinMode, setWishlistPinMode] = useState<'photo' | 'icon'>(
+    () => {
+      try {
+        return localStorage.getItem('etappe.wishlistPinMode') === 'icon'
+          ? 'icon'
+          : 'photo';
+      } catch {
+        return 'photo';
+      }
+    },
+  );
+  function toggleWishlistPinMode() {
+    setWishlistPinMode((m) => {
+      const next = m === 'photo' ? 'icon' : 'photo';
+      try {
+        localStorage.setItem('etappe.wishlistPinMode', next);
+      } catch {
+        /* private mode — the toggle still works for this session */
+      }
+      return next;
+    });
+  }
   // Phone only (WORK 17.2): the day detail can be folded down to its header
   // line so the map takes the freed height. Component-local, never
   // persisted; picking a day pill, Fit trip or adding a stop all reset it.
@@ -385,16 +411,6 @@ export function TripEditor({
       findNearbyStop({ lat: candidate.lat, lon: candidate.lon }, records.stops);
     if (existingStop) setMergeCheck({ candidate, existingStop });
     else setPendingPlacement(candidate);
-  }
-
-  function addPlaceStop(place: PlaceResult, sourceUrl?: string) {
-    beginCapture({
-      name: place.name,
-      kind: place.kind,
-      lat: place.lat,
-      lon: place.lon,
-      sourceUrl,
-    });
   }
 
   function onMapClick(lat: number, lon: number) {
@@ -1384,6 +1400,7 @@ export function TripEditor({
             flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
             hoveredWishlistId={hoveredWishId}
+            wishlistPinMode={wishlistPinMode}
             onSelectDay={selectDay}
             onFitTrip={enterTripOverview}
             onAddDay={() => doInsertDay(records.days.length)}
@@ -1477,6 +1494,8 @@ export function TripEditor({
                 onImport={() => setShowHighlightsImport(true)}
                 onPreview={showWishlistItem}
                 onBrowseAll={openBrowsing}
+                pinMode={wishlistPinMode}
+                onTogglePinMode={toggleWishlistPinMode}
               />
             </div>
           )}
@@ -1578,12 +1597,15 @@ export function TripEditor({
               }}
               onAddWishlist={() => {
                 if (cardTarget.type === 'empty') {
-                  commitWishlistPick({
-                    name: cardTarget.place?.name ?? 'Dropped pin',
-                    kind: cardTarget.place?.kind ?? 'uncategorized',
-                    lat: cardTarget.lat,
-                    lon: cardTarget.lon,
-                  });
+                  commitWishlistPick(
+                    {
+                      name: cardTarget.place?.name ?? 'Dropped pin',
+                      kind: cardTarget.place?.kind ?? 'uncategorized',
+                      lat: cardTarget.lat,
+                      lon: cardTarget.lon,
+                    },
+                    cardTarget.sourceUrl,
+                  );
                 }
                 closeCard();
               }}
@@ -1594,6 +1616,7 @@ export function TripEditor({
                     kind: cardTarget.place?.kind ?? 'uncategorized',
                     lat: cardTarget.lat,
                     lon: cardTarget.lon,
+                    sourceUrl: cardTarget.sourceUrl,
                   });
                 }
                 setEmptyCard(null);
@@ -1762,22 +1785,36 @@ export function TripEditor({
             const mode = searchMode;
             setSearchMode(null);
             setShareQuery(null);
-            if (mode === 'wishlist') commitWishlistPick(place, sourceUrl);
-            else addPlaceStop(place, sourceUrl);
+            if (mode === 'wishlist') {
+              commitWishlistPick(place, sourceUrl);
+              return;
+            }
+            // Placement mode (WORK 18.10): a search result opens the
+            // unified card first — the same "look before you commit" the
+            // rest of the app follows — rather than dropping straight into
+            // the ranked placement picker. The card's "+ Day" runs that
+            // placement; "+ Wishlist" saves it as an idea. A pasted Maps
+            // link rides along so either action can still keep it.
+            openCard(() =>
+              setEmptyCard({
+                lat: place.lat,
+                lon: place.lon,
+                place,
+                identifying: false,
+                sourceUrl,
+              }),
+            );
+            setFlyTo({ lat: place.lat, lon: place.lon, nonce: Date.now() });
           }}
           wishlist={wishlist}
-          // What picking a saved idea means depends on why the palette is
-          // open (WORK 18.9). Searching to place something puts it on a
-          // day, through the same ranked placement a pin click uses —
-          // which promotes it, blocks and all. Searching to *add* an idea
-          // instead reveals the one already there, rather than quietly
-          // making a second copy of it.
+          // Picking a saved idea (WORK 18.9) always opens its card — from
+          // "+ Idea" and from Search alike (WORK 18.10). Its "Add to
+          // itinerary" button runs the ranked placement, so the promotion
+          // still happens, just after a look rather than before it.
           onPickWishlist={(item) => {
-            const mode = searchMode;
             setSearchMode(null);
             setShareQuery(null);
-            if (mode === 'wishlist') showWishlistItem(item);
-            else placeWishlistItem(item);
+            showWishlistItem(item);
           }}
           onClose={() => {
             setSearchMode(null);

@@ -64,9 +64,15 @@ async function createHighlightBlocks(
     visibility: 'trip' as const,
     creator: creatorId,
   };
+  // Explicit, incrementing — so the first photo listed is the cover, and a
+  // later drag-reorder in the block editor starts from a clean 0..n rather
+  // than every block sitting at the same index (see `blocksFor`).
+  let order = 0;
   if (noteBodies) {
     for (const body of noteBodies) {
-      await pb.collection('blocks').create({ ...base, kind: 'note', body });
+      await pb
+        .collection('blocks')
+        .create({ ...base, kind: 'note', body, order_index: order++ });
     }
   } else {
     if (h.description) {
@@ -75,6 +81,7 @@ async function createHighlightBlocks(
         kind: 'note',
         title: 'Description',
         body: h.description,
+        order_index: order++,
       });
     }
     // `notes` (personal, "why it's on the list") is a separate field from
@@ -86,6 +93,7 @@ async function createHighlightBlocks(
         kind: 'note',
         title: 'Notes',
         body: h.notes,
+        order_index: order++,
       });
     }
   }
@@ -95,6 +103,7 @@ async function createHighlightBlocks(
       kind: 'link',
       title: link.title ?? '',
       url: link.url,
+      order_index: order++,
     });
   }
   const photoBlockIds: string[] = [];
@@ -107,6 +116,7 @@ async function createHighlightBlocks(
       attribution_author: photo.author ?? '',
       attribution_licence: photo.licence ?? '',
       attribution_url: photo.source_url ?? '',
+      order_index: order++,
     });
     photoBlockIds.push(created.id);
   }

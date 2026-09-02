@@ -25,9 +25,19 @@ export function blocksFor(
   parentType: 'stop' | 'trip' | 'day' | 'leg' | 'poi',
   parentId: string,
 ): BlocksResponse[] {
+  // `created` is the tiebreaker, and it matters: the capture and import
+  // paths append blocks without an `order_index` (only the card's own
+  // `addBlock` sets one), so without this every imported block sorts as 0
+  // and "the first photo" — the row thumbnail, the map pin, the card
+  // cover — is whatever order the fetch happened to return, not the order
+  // the photos were listed in. Creation order is that listed order.
   return blocks
     .filter((b) => b.parent_type === parentType && b.parent_id === parentId)
-    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    .sort(
+      (a, b) =>
+        (a.order_index ?? 0) - (b.order_index ?? 0) ||
+        a.created.localeCompare(b.created),
+    );
 }
 
 /** Resolves a photo/file block to a displayable URL — an uploaded file

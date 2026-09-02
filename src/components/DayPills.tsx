@@ -149,7 +149,9 @@ export function DayPills({
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     const el = scrollerRef.current;
-    if (!el) return;
+    // Primary button only — a right-click or a two-finger tap must not arm
+    // the drag, or its missing pointerup strands `drag.current` (see below).
+    if (!el || e.button !== 0) return;
     drag.current = {
       startX: e.clientX,
       startScroll: el.scrollLeft,
@@ -160,6 +162,16 @@ export function DayPills({
     const el = scrollerRef.current;
     const d = drag.current;
     if (!el || !d) return;
+    // The "mouse gets caught" bug: if a pointerup ever lands somewhere this
+    // handler can't see (released over the map, or off-window, before the
+    // 4px threshold armed pointer capture), `drag.current` stays set with a
+    // stale `startX`, and the next hover move reads a large `dx` and starts
+    // panning on movement alone. A plain hover carries no buttons — treat
+    // that as the lost pointerup and disarm.
+    if (e.buttons === 0) {
+      drag.current = null;
+      return;
+    }
     const dx = e.clientX - d.startX;
     if (!d.dragging && Math.abs(dx) > 4) {
       d.dragging = true;
@@ -170,16 +182,23 @@ export function DayPills({
   }
   function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
     const el = scrollerRef.current;
+    const wasDragging = drag.current?.dragging ?? false;
     if (el) {
       el.style.scrollBehavior = 'smooth';
       if (el.hasPointerCapture(e.pointerId))
         el.releasePointerCapture(e.pointerId);
     }
-    // Re-arm on the next tick: the click event that follows pointerup on
-    // the same target fires after this handler, so clearing immediately
-    // would let it through even after a real drag.
+    if (!wasDragging) {
+      // A plain click: clear now. `selectDay` reads `dragging` as false
+      // either way, so there is nothing to keep alive.
+      drag.current = null;
+      return;
+    }
+    // A real drag: the compatibility click fires right after this handler on
+    // the same target, so keep `dragging` truthy for one tick to suppress
+    // the day switch, then clear the whole record.
     setTimeout(() => {
-      if (drag.current) drag.current.dragging = false;
+      drag.current = null;
     }, 0);
   }
   function selectDay(dayId: string) {

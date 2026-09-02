@@ -2029,7 +2029,98 @@ importer that 18.7 just darkened.
 
 ---
 
-## Noticed
+## Phase 18 (cont.) — a batch of author fixes, 2026-09-02
+
+Five things in one message ("Okay, a few things.").
+
+**18.10 Search opens the card first** · Standard · ✅
+Author: *"Search will always first open a POI/Wishlist card, from there we
+can add it to the itinerary."* Before this, picking a search result went
+straight into the ranked `PlacementPicker` — a commit before a look, the
+one place in the app that still worked that way.
+- A geocoder result (or a pasted coordinate / Maps link) now opens the
+  unified card in **empty mode** for that place; its `+ Day` runs the
+  placement, `+ Wishlist` saves it as an idea. A pasted Maps link rides
+  along on the new `emptyCard.sourceUrl` / `CardTarget` field so either
+  action can still attach it as a link block.
+- A wishlist match (18.9) opens its card from Search now too, not just
+  from `+ Idea` — `showWishlistItem` unconditionally. The card's "Add to
+  itinerary" still runs the same ranked placement, just after a look.
+- `addPlaceStop` deleted — nothing called it once search stopped
+  capturing directly.
+- Verified: `.claude/skills/run-etappe/batch-18-check.mjs` — a search pick
+  opens the card, no placement picker.
+
+**18.11 Wishlist pin style toggle: photo ↔ icon** · Standard · ✅
+Author: *"A small toggle to change the wishlist items on the map from
+thumbnails to icons (waterfall etc)."*
+- `compositeWishlistPin` takes an optional `glyph: { atlas, iconName }`;
+  in icon mode `drawWishSquare` fills the category-colour tile and blits
+  the kind's sprite glyph as a white cutout (`drawAtlasGlyphWhite`, new,
+  the canvas mirror of `KindIcon`'s CSS mask) instead of the photo. The
+  amber border still marks it as a wishlist pin.
+- `MapPane` gains `wishlistPinMode`; loads the sprite atlas once, on
+  demand, only in icon mode; the cover effect branches on it and its
+  signature keys on `I:<star>:<kind>` so a mode flip re-composites every
+  pin without a photo fetch.
+- The toggle (`▦` / `❖`) sits in the `WishlistPanel` header — the
+  wishlist's own control surface. Per-viewer preference in
+  `localStorage` (`etappe.wishlistPinMode`), default photo. Desktop only,
+  like the panel.
+- Verified: batch-18-check confirms the toggle flips and persists;
+  screenshot shows the white waterfall glyph on the map pin.
+
+**18.12 Day-dock drag "mouse gets caught" bug** · Standard · ✅
+Author: *"sometimes the mouse gets caught and with every movement we
+scroll the panel."* Cause: `drag.current` in `DayPills` was only ever
+half-cleared (`dragging = false`) and never nulled, so after a pointerup
+this handler never saw (released over the map, off-window, before the 4px
+threshold armed pointer capture) it kept a stale `startX`. The next hover
+`pointermove` read a large `dx`, crossed the threshold, and started
+panning on movement alone.
+- `onPointerMove` now disarms on `e.buttons === 0` — a hover carries no
+  buttons, so that *is* the lost pointerup.
+- `endDrag` nulls the whole record (immediately for a plain click,
+  after one tick for a real drag so the compat click is still
+  suppressed).
+- `onPointerDown` ignores non-primary buttons.
+- Verified: `.claude/skills/run-etappe/daypill-drag-check.mjs` simulates
+  a press released off the rail, then hovers across it — `scrollLeft`
+  unchanged; plain click still selects; real drag still pans without a
+  day switch.
+
+**18.13 Cover thumbnail follows the topmost image** · Standard · ✅
+Author: *"Thumbnails should always be created from the top most image. If
+multiple images are reordered a new thumbnail must be created."* Root
+cause: the capture and Highlights-import paths create blocks with **no
+`order_index`** (only the card's own `addBlock` set one), so `blocksFor`
+sorted them all as 0 and "the first photo" — the row thumbnail, the map
+pin, the card cover — was whatever order the fetch returned, not the
+order the photos were listed in.
+- `blocksFor` gains a `created` tiebreaker: with no `order_index`, blocks
+  order by creation, which *is* the listed order (the importer creates
+  them in `photos[]` order). An explicit `order_index` from a drag
+  reorder still wins.
+- The Highlights importer now writes an explicit incrementing
+  `order_index` across all block kinds, so a later reorder starts from a
+  clean 0..n. (`import-trip-commit` already did.)
+- "A new thumbnail on reorder" already holds: the cover is derived, and
+  PocketBase generates the `80x80` thumb for whichever photo is now first
+  on its next request.
+- 6 new unit tests (`pb-blocks.test.ts`) over `blocksFor`'s ordering and
+  `reorderBlock`'s span rewrite.
+
+**18.14 Coordinate paste in All details** · Cheap · ✅
+Author: *"The location position in full details should accept a lon, lat
+paste as it comes from google."* Pasting `64.1466, -21.9426`, DMS, or a
+Google Maps URL that carries coordinates into **either** the Latitude or
+Longitude field now fills both — via `sniffPaste` on the `onPaste`, which
+`preventDefault`s only for a real coordinate pair so a bare number still
+types normally. The fields re-key on `stop.lat`/`stop.lon` so the pasted
+values show without a card reopen.
+- Verified in batch-18-check: pasting the pair into Latitude fills both.
+
+**18.6 The rest of the light-theme debt** · Standard · ⬜
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.

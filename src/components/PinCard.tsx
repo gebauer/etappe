@@ -38,6 +38,10 @@ export type CardTarget =
       lon: number;
       place: PlaceResult | null;
       identifying: boolean;
+      /** A pasted Google Maps / Komoot link that came in with the place —
+       * kept so "+ Day" / "+ Wishlist" can still attach it as a link block
+       * (WORK 18.10, when search opens the card instead of capturing). */
+      sourceUrl?: string;
     };
 
 interface Props {

@@ -20,7 +20,10 @@ import {
   compositeDayBadge,
   compositeWishlistPin,
   compositePhotoCircle,
+  loadAtlas,
+  type Atlas,
 } from '../lib/map-markers';
+import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { queryNearby, type NearbyPoi, type ParkingLot } from '../lib/overpass';
 import { categoryColor } from '../lib/map-colors';
 import { formatMeters } from '../lib/format';
@@ -144,6 +147,7 @@ export function MapPane({
   onSelectWishlist,
   selectedWishlistId,
   hoveredWishlistId,
+  wishlistPinMode = 'photo',
   onSelectDay,
   onFitTrip,
   overview,
@@ -177,6 +181,11 @@ export function MapPane({
    * (WORK 12.10) — grows its pin via the `wishlist-pins-hovered` layer.
    * Highlight only: never selects, opens a card, or moves the map. */
   hoveredWishlistId?: string | null;
+  /** How wishlist pins render (WORK 18.11): `photo` (the cover thumbnail,
+   * or a plain category tile until one loads) or `icon` (the kind's glyph
+   * on a category tile — legible on a dense map, and no waiting on
+   * photos). A per-viewer preference, not trip data. */
+  wishlistPinMode?: 'photo' | 'icon';
   /** Day pills (WORK 12.5) — the trip's only day switcher since WORK 12.6
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
@@ -249,6 +258,18 @@ export function MapPane({
   // came up with fallback-coloured wishlist pins and no photos until the
   // next edit.
   const [mapReady, setMapReady] = useState(false);
+  // The sprite atlas, loaded once for the wishlist "icon" pin mode (WORK
+  // 18.11). Null until it resolves; `photo` mode never needs it.
+  const [atlas, setAtlas] = useState<Atlas | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (wishlistPinMode === 'icon' && !atlas) {
+      loadAtlas().then((a) => live && setAtlas(a));
+    }
+    return () => {
+      live = false;
+    };
+  }, [wishlistPinMode, atlas]);
   // Which day's route the pills are pointing at. Map-local: nothing outside
   // MapPane reacts to it, and it must not touch `focusDayId`, which scopes
   // the stop pins and is a click, not a hover.
@@ -763,23 +784,51 @@ export function MapPane({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
+    // Icon mode (WORK 18.11): every pin is the kind's white glyph on a
+    // category tile — no photo lookups, no waiting. Falls through to photo
+    // mode until the atlas has loaded.
+    const iconMode = wishlistPinMode === 'icon' && !!atlas;
     for (const item of wishlist ?? []) {
       if (!item.lat || !item.lon) continue;
       const cover = blocksFor(recordsRef.current.blocks, 'poi', item.id).find(
         (b) => b.kind === 'photo',
       );
-      const url = cover ? blockFileUrl(pb, cover, '80x80') : null;
+      const url = !iconMode && cover ? blockFileUrl(pb, cover, '80x80') : null;
       const fallback = categoryColor(item.kind ?? 'uncategorized');
+      const glyph = iconMode
+        ? {
+            atlas: atlas!,
+            iconName: TAXONOMY[item.kind as Kind]?.icon ?? 'marker',
+          }
+        : null;
       // Signature of what the pin should show. Unchanged since last draw →
       // nothing to do. The wishlist and the trip document arrive from two
       // separate fetches, so this effect routinely first runs with the item
       // present but its blocks not loaded yet (url null); when they arrive
-      // the signature changes and the pin re-composites. A star toggle
-      // changes it the same way.
-      const sig = `${item.starred ? 'S' : '-'}:${url ?? ''}`;
+      // the signature changes and the pin re-composites. A star toggle, or
+      // flipping to icon mode, changes it the same way.
+      const sig = iconMode
+        ? `I:${item.starred ? 'S' : '-'}:${item.kind ?? ''}`
+        : `${item.starred ? 'S' : '-'}:${url ?? ''}`;
       const prev = wishlistPinStateRef.current.get(item.id);
       if (prev === sig) continue;
       wishlistPinStateRef.current.set(item.id, sig);
+
+      if (iconMode) {
+        try {
+          compositeWishlistPin(
+            map,
+            item.id,
+            null,
+            fallback,
+            item.starred ?? false,
+            glyph,
+          );
+        } catch (err) {
+          console.error('wishlist icon composite failed for', item.id, err);
+        }
+        continue;
+      }
 
       if (!url) {
         // No cover photo. The first paint (colour fallback) is handled by
@@ -832,7 +881,7 @@ export function MapPane({
       };
       img.src = url;
     }
-  }, [wishlist, records.blocks, mapReady]);
+  }, [wishlist, records.blocks, mapReady, wishlistPinMode, atlas]);
 
   useEffect(() => {
     const map = mapRef.current;

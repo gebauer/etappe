@@ -1,10 +1,16 @@
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent,
+} from 'react';
 import { pb } from '../lib/pb';
 import { blockFileUrl } from '../lib/pb-blocks';
 import type { BlockKind, BlockPatch } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { describeDaylight } from '../lib/daylight';
+import { sniffPaste } from '../lib/paste-sniff';
 import { formatDayDate } from '../lib/format';
 import type {
   BlocksResponse,
@@ -22,6 +28,23 @@ import { BlockEditor } from './BlockEditor';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
+}
+
+/** Pasting a coordinate pair — `64.1466, -21.9426`, DMS, or a Google Maps
+ * URL that carries coordinates — into either the Latitude or the Longitude
+ * field fills both. Google copies the pair as one string, and typing it
+ * into two `type=number` fields (which reject the comma) was needless
+ * friction. A paste that isn't a coordinate pair falls through to the
+ * browser's default so a bare number still works. */
+function makeCoordPaste(onUpdate: (patch: StopPatch) => void) {
+  return (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const sniffed = sniffPaste(text);
+    if (sniffed.kind === 'coords' || sniffed.kind === 'mapUrl') {
+      e.preventDefault();
+      onUpdate({ lat: sniffed.lat, lon: sniffed.lon });
+    }
+  };
 }
 
 const FIELD_LABEL = 'mb-1.5 block text-[11px] text-text-3';
@@ -108,6 +131,7 @@ export function PinCardExpanded({
   }, [openKindPickerSignal]);
 
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
+  const coordPaste = makeCoordPaste(onUpdate);
   const cover = blocks.find((b) => b.kind === 'photo');
   // '640x0' is the largest thumb size configured on the blocks collection
   // (see pb-blocks.ts) — reused rather than adding a new PocketBase thumb
@@ -253,9 +277,12 @@ export function PinCardExpanded({
               <label className="block">
                 <span className={FIELD_LABEL}>Latitude</span>
                 <input
+                  key={`lat:${stop.lat}`}
                   type="number"
                   step="any"
+                  inputMode="decimal"
                   defaultValue={stop.lat || ''}
+                  onPaste={coordPaste}
                   onBlur={(e) => onUpdate({ lat: Number(e.target.value) || 0 })}
                   onKeyDown={commitOnEnter}
                   className={`${FIELD} font-mono text-[13.5px]`}
@@ -264,9 +291,12 @@ export function PinCardExpanded({
               <label className="block">
                 <span className={FIELD_LABEL}>Longitude</span>
                 <input
+                  key={`lon:${stop.lon}`}
                   type="number"
                   step="any"
+                  inputMode="decimal"
                   defaultValue={stop.lon || ''}
+                  onPaste={coordPaste}
                   onBlur={(e) => onUpdate({ lon: Number(e.target.value) || 0 })}
                   onKeyDown={commitOnEnter}
                   className={`${FIELD} font-mono text-[13.5px]`}

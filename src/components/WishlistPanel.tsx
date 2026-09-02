@@ -19,6 +19,11 @@ interface Props {
   onPreview: (item: PoisResponse) => void;
   /** Opens the wishlist carousel (WORK 12.10). */
   onBrowseAll: () => void;
+  /** How wishlist pins draw on the map (WORK 18.11) — photo thumbnails or
+   * the kind's icon. The toggle sits in this header because the panel is
+   * the wishlist's own control surface. */
+  pinMode: 'photo' | 'icon';
+  onTogglePinMode: () => void;
 }
 
 /**
@@ -44,18 +49,38 @@ export function WishlistPanel({
   onImport,
   onPreview,
   onBrowseAll,
+  pinMode,
+  onTogglePinMode,
 }: Props) {
   const shown = open ? items.slice(0, 4) : [];
 
   return (
     <div className="w-[236px] overflow-hidden rounded-xl border border-[oklch(0.30_0.012_250)] bg-[oklch(0.20_0.013_250/0.88)] font-sans text-text backdrop-blur-[10px]">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-2.5 px-[11px] py-[9px] text-xs uppercase tracking-[0.08em] text-[oklch(0.86_0.006_250)]"
-      >
-        <span>Wishlist · {items.length}</span>
-        <span>{open ? '▾' : '▸'}</span>
-      </button>
+      <div className="flex w-full items-center gap-1.5 px-[11px] py-[9px] text-xs uppercase tracking-[0.08em] text-[oklch(0.86_0.006_250)]">
+        <button
+          onClick={onToggle}
+          className="flex flex-1 items-center gap-2.5 text-left"
+        >
+          <span>Wishlist · {items.length}</span>
+        </button>
+        {items.length > 0 && (
+          <button
+            onClick={onTogglePinMode}
+            title={
+              pinMode === 'photo'
+                ? 'Map pins: photos — switch to kind icons'
+                : 'Map pins: kind icons — switch to photos'
+            }
+            aria-label="Toggle wishlist pin style"
+            className="flex h-[18px] w-[22px] flex-none items-center justify-center rounded border border-border-strong text-[10px] normal-case text-text-3 hover:text-text"
+          >
+            {pinMode === 'photo' ? '▦' : '❖'}
+          </button>
+        )}
+        <button onClick={onToggle} aria-label="Collapse" className="flex-none">
+          <span>{open ? '▾' : '▸'}</span>
+        </button>
+      </div>
 
       {open && (
         <>

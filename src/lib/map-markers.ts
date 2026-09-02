@@ -102,6 +102,34 @@ function drawWhiteGlyph(
   ctx.drawImage(scratch, PIN_W / 2 - GLYPH_SIZE / 2, HEAD_CY - GLYPH_SIZE / 2);
 }
 
+/** Blits one sprite-atlas glyph, recoloured to solid white, centred at
+ * `(cx, cy)` on `ctx` at `size` device px. The sheet's glyphs are black
+ * with the shape in the alpha channel (same as `KindIcon`'s mask), so a
+ * plain `drawImage` would paint black — the `source-in` white fill on a
+ * scratch canvas turns it into a clean white cutout that reads over any
+ * pin colour. Used for the wishlist "icon" pin mode (WORK 18.11). */
+export function drawAtlasGlyphWhite(
+  ctx: CanvasRenderingContext2D,
+  atlas: Atlas,
+  iconName: string,
+  cx: number,
+  cy: number,
+  size: number,
+) {
+  const e = atlas.json[iconName];
+  if (!e) return;
+  const scratch = document.createElement('canvas');
+  scratch.width = size;
+  scratch.height = size;
+  const sctx = scratch.getContext('2d');
+  if (!sctx) return;
+  sctx.drawImage(atlas.img, e.x, e.y, e.width, e.height, 0, 0, size, size);
+  sctx.globalCompositeOperation = 'source-in';
+  sctx.fillStyle = '#ffffff';
+  sctx.fillRect(0, 0, size, size);
+  ctx.drawImage(scratch, cx - size / 2, cy - size / 2);
+}
+
 /** Draws a plain glyph (e.g. an emoji), recoloured white, centred in the
  * pin's head — used for markers that aren't a taxonomy kind, like the
  * access-point car. */
@@ -528,9 +556,23 @@ function drawWishSquare(
   borderWidth: number,
   img: HTMLImageElement | null,
   fallbackColor: string,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ) {
   roundedRectPath(ctx, x, y, size, size, radius);
-  if (img) {
+  if (glyph) {
+    // Icon mode (WORK 18.11): a filled tile with the kind's white glyph,
+    // no photo — the amber border still marks it as a wishlist pin.
+    ctx.fillStyle = fallbackColor;
+    ctx.fill();
+    drawAtlasGlyphWhite(
+      ctx,
+      glyph.atlas,
+      glyph.iconName,
+      x + size / 2,
+      y + size / 2,
+      Math.round(size * 0.52),
+    );
+  } else if (img) {
     ctx.save();
     ctx.clip();
     const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
@@ -568,6 +610,7 @@ export function compositeWishlistPin(
   img: HTMLImageElement | null,
   fallbackColor: string,
   starred: boolean,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ) {
   // One variant: a rounded photo square of side `sizeD`, optionally on an
   // amber halo of width `haloD`, with the star badge tucked into its
@@ -602,6 +645,7 @@ export function compositeWishlistPin(
       WISH_BORDER_D,
       img,
       fallbackColor,
+      glyph,
     );
     if (starred) {
       drawStarBadge(
