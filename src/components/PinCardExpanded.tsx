@@ -4,6 +4,7 @@ import { blockFileUrl } from '../lib/pb-blocks';
 import type { BlockKind, BlockPatch } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
+import { describeDaylight } from '../lib/daylight';
 import { formatDayDate } from '../lib/format';
 import type {
   BlocksResponse,
@@ -180,7 +181,11 @@ export function PinCardExpanded({
                     ...timingCells(asStop, timing).slice(0, 2),
                     {
                       label: 'Daylight',
-                      value: daylight ? formatClock(daylight.sunset) : null,
+                      value: daylight
+                        ? timing
+                          ? describeDaylight(daylight, timing.arrival).token
+                          : formatClock(daylight.sunset)
+                        : null,
                       accent: true,
                     },
                   ]}

@@ -4,6 +4,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { blockFileUrl, type BlockKind } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
+import { describeDaylight } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
 import type { CurrencyCode } from '../lib/currency';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
@@ -501,8 +502,15 @@ export function PinCard({
               <div className="mt-2.5 flex items-center gap-[7px] text-[12.5px] text-text-3">
                 <span className="h-[7px] w-[7px] flex-none rounded-full bg-daylight" />
                 <span>
-                  Daylight until {formatClock(target.daylight.sunset)} ·{' '}
-                  {target.afterDark ? 'after dark' : 'well clear'}
+                  {target.timing
+                    ? describeDaylight(
+                        target.daylight,
+                        target.timing.arrival,
+                        target.afterDark,
+                      ).line
+                    : `Daylight until ${formatClock(target.daylight.sunset)} · ${
+                        target.afterDark ? 'after dark' : 'well clear'
+                      }`}
                 </span>
               </div>
             )}

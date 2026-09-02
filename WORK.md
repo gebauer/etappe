@@ -1736,19 +1736,19 @@ when `dayCollapsed`. A `setDayFolded(next)` helper replaced the bare
 `browsing` — the two never share the phone screen. 12.7's entry updated
 to point here. Commit: `phase 17.3: phone — reach the wishlist carousel`.
 
-**17.4 Daylight wording split by time of day** · Standard · ⬜
-Not started. Handoff: the existing daylight line (`PinCard`'s docked
-view and `PinCardExpanded`'s computed strip) reads differently depending
-on whether "now" is before or after solar noon:
-- **Before noon:** "X after dawn · dawn HH:MM", with "· first light"
-  appended when dawn was under 45 minutes ago, or "Before dawn · dawn
-  HH:MM" if dawn hasn't happened yet.
-- **From noon on:** the existing "Daylight until HH:MM" phrasing, plus
-  "· well clear" or "· X left" depending on how much daylight remains.
-Independent of 17.2/17.3 — touches `src/lib/daylight.ts` (or a thin
-wrapper over it) plus both card components' rendering of its output;
-`daylight.test.ts` will need new fixtures for the before-noon branch,
-which the current tests don't exercise.
+**17.4 Daylight wording split by time of day** · Standard · ✅
+New pure `describeDaylight(daylight, arrivalMin, afterDark?)` in
+`src/lib/daylight.ts` returns `{ line, token }`. "Dawn" maps to the
+engine's `sunrise` (the morning value it already surfaces; there is no
+separate `dawn` in `Daylight`). Before noon: `4 h 48 m after dawn · dawn
+04:12`, `· first light` appended under 45 min, `Before dawn · dawn 04:12`
+before it. From noon: `Daylight until 20:00` plus `· well clear` (>3 h
+margin), `· 1 h 0 m left` (under it), or `· after dark` (AFTER_DARK
+verdict, or arrival past sunset). Token for the expanded card's computed
+strip: `dawn +4:48` / `dusk −7:30` (real minus sign). `PinCard` uses
+`.line` when `target.timing` is present, else keeps the old string;
+`PinCardExpanded` swaps the Daylight cell value for `.token`. 7 new unit
+tests. Commit: `phase 17.4: daylight line reads against dawn or dusk`.
 
 **17.5 Cost marks in itinerary rows** · Cheap · ⬜
 Not started. Handoff: a gold €/€€/€€€ band on `StopRow`'s meta line for

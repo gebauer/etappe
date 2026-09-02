@@ -9,7 +9,7 @@
  */
 
 import SunCalc from 'suncalc';
-import type { Daylight, DaylightProvider } from './cascade';
+import { formatClock, type Daylight, type DaylightProvider } from './cascade';
 
 /** Absolute instant -> minutes from midnight in `timeZone`, or null if the
  * instant is invalid (SunCalc returns an Invalid Date when an event does not
@@ -49,4 +49,78 @@ export function createSunCalcDaylight(timeZone: string): DaylightProvider {
 /** A fixed provider for tests: always returns the same daylight (or null). */
 export function stubDaylight(daylight: Daylight | null): DaylightProvider {
   return () => daylight;
+}
+
+// ---------------------------------------------------------------------------
+// Phrasing (WORK 17.4)
+//
+// The daylight line reads against dawn before noon and dusk after it. A 09:00
+// stop told "Daylight until 23:57 · well clear" is technically true and
+// useless — what a morning arrival wants is how far past first light it is.
+// Dawn ( = the engine's `sunrise`) and dusk come straight from the cascade
+// output; only the sentence is the design's.
+
+const NOON = 12 * 60;
+
+/** "4 h 48 m" / "45 m" — the spaced form the handoff prose uses, distinct
+ * from `format.ts`'s compact `formatDuration`. */
+function spacedHM(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h === 0 ? `${m} m` : `${h} h ${m} m`;
+}
+
+/** Signed "H:MM" offset for the expanded card's mono token, e.g. `+4:48`,
+ * `−8:52` (real minus sign). */
+function signedHM(min: number): string {
+  const sign = min < 0 ? '−' : '+';
+  const abs = Math.abs(min);
+  return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
+}
+
+export interface DaylightPhrase {
+  /** The card line, e.g. `4 h 48 m after dawn · dawn 04:12` or
+   * `Daylight until 23:57 · well clear`. */
+  line: string;
+  /** The expanded card's computed-strip token: `dawn +4:48` before noon,
+   * `dusk −8:52` from noon on. */
+  token: string;
+}
+
+/**
+ * Phrase a stop's daylight situation from its arrival (minutes past local
+ * midnight) and the day's daylight band. `afterDark` — the cascade's
+ * AFTER_DARK verdict for this stop — overrides the afternoon margin copy
+ * when the arrival is already past usable light.
+ */
+export function describeDaylight(
+  daylight: Daylight,
+  arrivalMin: number,
+  afterDark = false,
+): DaylightPhrase {
+  if (arrivalMin < NOON) {
+    const dawn = daylight.sunrise;
+    const delta = arrivalMin - dawn;
+    const token = `dawn ${signedHM(delta)}`;
+    if (delta < 0) {
+      return { line: `Before dawn · dawn ${formatClock(dawn)}`, token };
+    }
+    const firstLight = delta < 45 ? ' · first light' : '';
+    return {
+      line: `${spacedHM(delta)} after dawn · dawn ${formatClock(dawn)}${firstLight}`,
+      token,
+    };
+  }
+
+  const remaining = daylight.sunset - arrivalMin;
+  const margin =
+    afterDark || remaining <= 0
+      ? 'after dark'
+      : remaining > 180
+        ? 'well clear'
+        : `${spacedHM(remaining)} left`;
+  return {
+    line: `Daylight until ${formatClock(daylight.sunset)} · ${margin}`,
+    token: `dusk ${signedHM(arrivalMin - daylight.dusk)}`,
+  };
 }
