@@ -102,6 +102,27 @@ export async function removeMember(memberId: string): Promise<void> {
   await pb.collection('trip_members').delete(memberId);
 }
 
+/**
+ * Move the whole trip to different dates (WORK 18.4).
+ *
+ * This is one field write and nothing else, and that is the point:
+ * "dates are derived, never stored" (CLAUDE.md rule 2) means every day's
+ * date is `trips.start_date + days.order_index`, and anchors are a
+ * time-of-day plus a day reference. So shifting the trip cannot desync
+ * anything — no day, stop, leg or anchor record is touched, and the
+ * cascade re-runs off the new date on the next reload.
+ *
+ * `date` is `YYYY-MM-DD`; stored in the same shape `createTrip` writes.
+ */
+export async function setTripStartDate(
+  tripId: string,
+  date: string,
+): Promise<void> {
+  await pb
+    .collection('trips')
+    .update(tripId, { start_date: `${date} 00:00:00.000Z` });
+}
+
 /** Turn the public link on or off (WORK 16.6). Owner-only by rule. */
 export async function setShareEnabled(
   tripId: string,

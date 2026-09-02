@@ -1883,6 +1883,30 @@ dashed dropzone replacing `Choose file / No file chosen`. Add buttons
 move below the list. No white fields anywhere. `BlockEditor.tsx` today
 has 13 light-theme classes and stacks every block open.
 
+**18.4 Move the whole trip to different dates** · Cheap · ✅
+Author request 2026-09-02, straight after an import landed on the dates
+the LLM invented. `setTripStartDate` (`pb-trips.ts`) plus
+`TripDatePopover.tsx` in the trip header: the control shows the trip's
+span (`Thu 10 Jun – Fri 11 Jun`), opens a date picker for day 1, previews
+the delta (`+21 days · ends Fri 2 Jul`) and writes one field.
+**One field is the whole change** — CLAUDE.md rule 2 ("dates are derived,
+never stored") means every day's date is `start_date + order_index` and
+anchors are a time-of-day plus a day reference, so nothing else is
+touched and an 08:00 ferry stays 08:00. Verified in a browser
+(`.claude/skills/run-etappe/trip-shift-check.mjs`): header span and the
+itinerary column's day header both re-derive, no console errors.
+Commit: `phase 18.4: move the whole trip to different dates`.
+
+**18.5 Name a cross-pasted import document** · Cheap · ✅
+Bug report 2026-09-02: pasting into "Import a trip" reported `title:
+Required`, `start_date: Required`, `timezone: Required`, `days:
+Required` — four cryptic lines. Cause: the trip format and the Highlights
+format share the same `version: 1` envelope, so a Highlights list clears
+the version gate and then fails every trip field at once. Both parsers
+now check for the other format's array first and return one sentence
+naming the mistake and the screen to use instead. Two tests, one per
+direction. The prompt templates themselves were correct and unchanged.
+
 **18.3 UncategorizedReview dark pass** · Cheap · ⬜
 Not started. Still a fully light drawer (6 light-theme classes) — same
 family as 18.1/18.2 and the last light surface left in the app. No

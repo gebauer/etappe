@@ -9,7 +9,8 @@ import { costsFor } from '../lib/costs';
 import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import { SharePanel } from './SharePanel';
 import { BudgetPopover } from './BudgetPopover';
-import { listMembers } from '../lib/pb-trips';
+import { TripDatePopover } from './TripDatePopover';
+import { listMembers, setTripStartDate } from '../lib/pb-trips';
 import {
   addStopAtEnd,
   addStopAt,
@@ -1233,6 +1234,13 @@ export function TripEditor({
           {days.length} {days.length === 1 ? 'day' : 'days'} · {stops.length}{' '}
           {stops.length === 1 ? 'stop' : 'stops'}
         </span>
+        {days.length > 0 && (
+          <TripDatePopover
+            startDate={trip.start_date}
+            dayCount={days.length}
+            onChange={(date) => run(() => setTripStartDate(trip.id, date))}
+          />
+        )}
         {uncategorizedCount > 0 && (
           <button
             onClick={() => setShowUncategorized(true)}
