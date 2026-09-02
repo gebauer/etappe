@@ -47,12 +47,20 @@ Two things are deliberately unresolved and marked as such below: the photo-wheel
 
 `position:relative; overflow:hidden`. Clicking the surface opens the card in *empty map click* mode; cursor is `crosshair`.
 
-**Day pills**, top-left at `top:12px; left:12px`:
-- Container: `display:flex; gap:6px; padding:5px; border-radius:11px`, background `oklch(0.20 0.013 250 / 0.88)`, `backdrop-filter: blur(10px)`, border `1px solid oklch(0.30 0.012 250)`.
-- Pill: 28px tall, `padding:0 12px`, `radius:8px`, 12.5px. Active — background = accent, text `oklch(0.16 0.02 240)`. Inactive — transparent, text `oklch(0.78 0.008 250)`. Each shows `Day N` (600 weight) plus a mono meta at 10.5px / 0.7 opacity (`8 stops`, `empty`).
-- Trailing `+` button: 28×28, dashed border `oklch(0.36 0.012 250)`.
-- To the right of the container, a **Fit trip** button: 38px tall, same glass treatment, `white-space:nowrap`. This is the affordance for the known "map doesn't grow with the trip" friction — an explicit re-fit rather than automatic re-framing.
-- The whole row is `pointer-events:none` with `pointer-events:auto` on the interactive children, so the map stays draggable between pills.
+**Day dock**, top-left at `top:12px; left:12px; right:12px`. A **single row that never wraps** — a 14-day trip wrapped onto two lines and pushed the dock over the map. The row scrolls instead.
+
+- **Fit trip comes first**, as a 38×38 icon button rather than a text button: glass treatment, `radius:10px`, and a 15px **corner-brackets glyph** (four 5×5 L-corners, 2px `oklch(0.84 0.008 250)`) — the standard "frame the content" mark. `title` and `aria-label` both read *Fit trip*. It leaves the pill rail the full remaining width, and it stops moving as days are added. Still the answer to the known "map doesn't grow with the trip" friction: an explicit re-fit, never automatic re-framing.
+- **Pill container**: `min-width:0`, `display:flex; align-items:stretch; padding:5px; radius:11px`, background `oklch(0.20 0.013 250 / 0.88)`, `blur(10px)`, border `1px solid oklch(0.30 0.012 250)`.
+- **One vertical `DAYS` label** at the front of the container replaces the repeated word: 16px wide, `writing-mode:vertical-rl` + `rotate(180deg)`, 9px, `letter-spacing:0.16em`, uppercase, `oklch(0.58 0.01 250)`, then a 1px divider. The label is set once; **the pills carry only the number**. That is what makes the rail compact enough to be worth scrolling — `Day 11 · 6 stops` is 96px, `11 · 6 stops` is 62px.
+- **Pill**: 28px tall, `padding:0 11px`, `radius:8px`, `flex:0 0 auto`, `align-items:center` (baseline alignment leaves the text riding 9px high in a 28px pill). Day number in **mono 13px/600**, then the mono meta at 10.5px / 0.7 opacity (`8 stops`, `empty`). Active — background = accent, text `oklch(0.16 0.02 240)`; inactive — transparent, text `oklch(0.78 0.008 250)`.
+- **Scroller**: `overflow-x:auto; scroll-behavior:smooth`, native scrollbar hidden (`scrollbar-width:none` + a zero-height `::-webkit-scrollbar` — the one rule here that cannot be inline). Trackpad and shift-wheel scrolling work as normal; the chevrons are an addition, not the only route.
+- **Overflow indication, both halves of it:**
+  - A 22×28 chevron button on each side of the scroller — `‹` and `›`, 16px, `oklch(0.80 0.008 250)`, scrolling ±180px smoothly. At the corresponding end they dim to `oklch(0.38 0.01 250)` with `cursor:default`, so the rail's position is legible at a glance.
+  - A 26px **edge fade** over the scroller on each overflowing side: `linear-gradient` from the container's solid `oklch(0.20 0.013 250)` at 12% to transparent, `transition:opacity 140ms`, `pointer-events:none`. Pills visibly slide *under* the fade, which is the cue that reads as "more off screen" without any extra chrome. Fades and chevrons are driven off one `onScroll` handler recording `scrollLeft > 2` and `scrollLeft + clientWidth >= scrollWidth - 2`; recompute both on mount and on resize.
+- **Drag to scroll.** Pointer-drag anywhere on the rail pans it: `cursor:grab`, `touch-action:pan-x`, pointer capture on `pointerdown`, `scrollLeft = startScroll - dx` on move. Set `scroll-behavior:auto` for the duration of the drag and restore `smooth` on release, or the smooth easing fights the finger. A movement over 4px marks the gesture as a drag and **suppresses the pill click underneath** (re-arm on the next tick) — otherwise every pan ends in an accidental day switch.
+- **Clicking an edge pill reveals what is past it.** A pill within 92px of either edge of the scroller scrolls the rail so the days beyond it come into view — click day 9 at the right edge and 10 onward slide in. Compute against the pill's `offsetLeft`/`offsetWidth` and `scrollTo` the rail; the same routine covers keyboard day switching and days activated from elsewhere. **Never `scrollIntoView`** — it moves the whole app shell.
+- **Trailing `+`** (add day): 28×28, dashed `oklch(0.36 0.012 250)`, after a 1px divider, and **outside the scroller** — it stays reachable at every scroll position.
+- The row is `pointer-events:none` with `pointer-events:auto` on the interactive children, so the map stays draggable between pills.
 
 **Stop pins** (numbered, sequence order):
 - Unselected: 26px circle, background `oklch(0.24 0.013 250)`, 2px accent border, number 12px mono `oklch(0.92 0.006 250)`, `box-shadow:0 2px 10px oklch(0.12 0.02 250 / 0.45)`, z-index 4.
@@ -200,7 +208,19 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 **Purpose**: read-mostly companion during the trip, with permitted edits.
 
 - Body switches to `flex-direction:column`. Map takes `flex:0 0 58%`, itinerary column fills the rest below it (`oklch(0.195 0.012 250)`, no left border).
-- Day pills, wishlist panel and desktop card are all suppressed. The bottom-left wishlist panel does not exist at this width.
+- The wishlist panel and the desktop card are suppressed. The bottom-left wishlist panel does not exist at this width. The day dock stays — it is how the day detail is reopened.
+- **The day detail collapses.** At phone width the itinerary is half the screen, and the map is the reason the user is here, so the day panel must be dismissable:
+  - A **30px chevron button** sits in the day header's top line, right of the time span: `radius:8px`, `control` background, `border-strong`, 10px glyph — `▼` to collapse, `▲` to restore, with `title`/`aria-label` reading *Hide / Show the day's stops*. Phone only; the desktop column is always open.
+  - Collapsed, the `<aside>` drops to `flex:0 0 auto` — the header line alone — and the map section takes `flex:1 1 auto` instead of its 58%, so the map claims the freed height rather than leaving a gap.
+  - **Clicking any day pill reopens it** (`dayCollapsed: false` alongside the day change). Switching day is a request to see that day, so a collapsed panel would swallow the result.
+  - **Fit trip collapses it** on phone. Framing the whole trip is a map gesture; it should hand over as much map as the screen has. Desktop Fit trip does not touch the column.
+  - The collapsed state is UI state (`dayCollapsed: boolean`), phone-only, and is not persisted between sessions.
+- **The wishlist carousel exists on phone, and only while the day detail is collapsed.** Without it there is no way to explore places on a phone at all. Gating it on the collapsed state is what makes it fit: browsing places is a map activity, so it is offered exactly when the user has already given the map the screen.
+  - **Entry point** — a glass pill at `left:8px; bottom:8px`, 38px, `radius:19px`, `oklch(0.20 0.013 250 / 0.92)` + `blur(10px)`, border `oklch(0.34 0.012 250)`: a gold `★` and `Explore N places`. Shown only when `phone && dayCollapsed && !selection && !browsing && !picking` — it never competes with the phone card.
+  - **The carousel is the same component as desktop**, re-metered: cards 124px wide (from 178), photos 92px tall (from 136), `radius:11px`, 9px gaps, 10px side padding, 24px star buttons, and the contributor pill at 17px/9.5px. Photo-first still — the thumbnail is the card, the name and kind sit over the scrim.
+  - The desktop `‹` `›` arrows are **hidden on phone**; the strip is touch-scrolled with `scroll-snap-type:x mandatory` doing the work. The star filter chip and the `✕` close stay.
+  - Tapping a card behaves as on desktop: closes the carousel, selects the place, and opens the phone strip card for it. Hover highlighting has no phone equivalent and is simply absent.
+  - Expanding the day detail again dismisses the carousel — the two never share the screen.
 - **Phone card** — a compact strip, *not* the full-bleed photo sheet, so the map stays readable behind it:
   - `position:absolute; left:8px; right:8px; bottom:8px; z-index:20`, `radius:14px`, background `oklch(0.215 0.012 250 / 0.97)`, `backdrop-filter:blur(14px)`, border `1px solid oklch(0.31 0.012 250)`, shadow `0 10px 30px oklch(0.10 0.02 250 / 0.55)`.
   - Row 1, `padding:10px 11px; gap:11px`: 46px thumbnail (`radius:9px`; amber border for wishlist entries, `oklch(0.33 0.012 250)` for stops), name 14px/600 truncating, subtitle 11.5px, right-aligned mono arrive over dwell, 28px close button.
@@ -226,7 +246,9 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 
 **Phone swipe** — horizontal swipe on the strip with a >40px threshold calls the same step function; left = next, right = previous. Chevron nudge animation loops on a 2.4s ease-in-out cycle (rest, then a −6px kick with an opacity lift, then a −2px settle) as the discoverability cue.
 
-**Day switching** — clicking a day pill swaps the itinerary column and the map's numbered pins to that day. Wishlist pins are day-independent and always visible.
+**Daylight wording** — the line is read against **dawn before noon and dusk after it**. A 09:00 stop reading "Daylight until 23:57 · well clear" is technically true and useless; what a morning stop wants to know is how far past first light it is. So: before 12:00, `4 h 48 m after dawn · dawn 04:12`, with `· first light` appended under 45 minutes and `Before dawn · dawn 04:12` when the arrival precedes it; from 12:00, the existing `Daylight until 23:57`, plus `· well clear` over three hours of margin or `· 2 h 15 m left` under it. The expanded card's computed strip carries the same fact as one mono token — `dawn +4:48` / `dusk −8:52`. Dawn and dusk both come from the cascade engine's existing daylight output; only the phrasing is the design's.
+
+**Day switching** — clicking a day pill swaps the itinerary column and the map's numbered pins to that day; if the pill is off screen the rail scrolls it into view. Wishlist pins are day-independent and always visible.
 
 **Hover** — header ghost buttons lighten to `oklch(0.28 0.014 250)`; Fit trip to `oklch(0.25 0.014 250 / 0.94)`; `+ Stop` border to `oklch(0.46 0.012 250)` and text to `oklch(0.92 0.006 250)`; the `+` pill to `oklch(0.5 0.012 250)` border.
 
@@ -255,6 +277,8 @@ Costs are a background fact, not a planning surface — so the budget lives as *
 Each line: label 12.5px `oklch(0.84 0.007 250)`; a mono 11px `text-5` **count** of contributing stops (blank for the trip-level rental line); the amount right-aligned, mono 12.5px, `min-width:56px` — `oklch(0.92 0.006 250)` when non-zero, an em dash in `oklch(0.48 0.01 250)` when the line is empty. Empty lines stay visible: the shape of the bill should not change as costs are entered. Total row: 12.5px/600 label, mono 14px/600 amount.
 
 Footnote, 11px `text-5`: with costs, "Sum of the cost field on this trip's stops. Stops without a cost are not counted."; empty, "No costs yet. Add a cost to any stop and it lands in the matching line."
+
+**Cost marks in the itinerary** — a stop that carries a cost shows a gold **`€` / `€€` / `€€€`** mark on its meta line, right of `kind · dwell`: mono 11.5px, `oklch(0.82 0.11 85)`, with the exact amount in `title`. Bands are `€` 1–50, `€€` 51–250, `€€€` 251+. Stops without a cost render nothing at all — the marks are there to make the paid stops findable at a glance, so an em dash on every free waterfall would defeat them. Bands, not figures: the row is for scanning, and the popover is where numbers live.
 
 **Cost input** — one `Cost (€)` field in the inline card's expanded edit region, 36px, mono, alongside Title / Kind / Dwell / Anchor / Type. Nothing else. It sits behind the Edit press like every other planning field, and it is the only place a cost is ever typed. Costs are **not** shown on the card at rest, the itinerary rows, the expanded full-details modal or the phone strip — the whole point is that money stays out of the way until asked for. No per-day subtotals, no currency picker in the popover (trip currency is a trip setting), no budget target or over/under state.
 

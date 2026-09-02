@@ -4,7 +4,7 @@ Ordered tasks. Do them in sequence; each phase assumes the previous one is
 merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 `CLAUDE.md`.
 
-## Status — updated 2026-09-01
+## Status — updated 2026-09-02
 
 **Phase 6 complete; phase 7 complete (7.1, 7.2, 7.3); Highlights import
 (schema + importer) done; both Highlights follow-ups (wishlist-on-map,
@@ -63,7 +63,19 @@ handoff revision — one estimated cost per stop with its own currency,
 converted to the trip currency via a cached ~monthly rate, bucketed by the
 stop's kind (`rental` is a new kind) into a header popover — superseding
 16.7's list-of-costs UI, though the backend keeps its multi-item shape.**
-**→ Next, in order: Phase 15 (wishlist contributor attribution).**
+**Phase 17 (2026-09-02) opened from a further handoff revision — the
+"Day dock" and four smaller changes, all confirmed by the author in one
+go ("Merge 7 and build everything"). 17.1 (day dock, replacing the
+wrapping pill row that was overflowing on long trips) is done, including
+two real bugs found and fixed before commit — see its own entry. 17.2
+through 17.5 (phone day-detail collapse, phone wishlist-carousel
+reachability — an explicit reversal of 12.7's "no wishlist on phone" —
+daylight wording, cost marks on itinerary rows) are written up in full
+in their own entries below but not yet built.**
+**→ Next, in order: 17.2 (phone day-detail collapse), then 17.3, 17.4,
+17.5 in any order (each is independent of the others once 17.2 exists —
+see each entry), then Phase 15 (wishlist contributor attribution), which
+was next before this phase interrupted it.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1634,6 +1646,106 @@ starts as a bare `€`, becomes the real running total once costs exist, the
 popover's four lines total correctly, the rental bucket's label switched
 to "+ fuel" exactly when a fuel cost was added, and the stored records
 kept each cost's original currency rather than a pre-converted number.
+
+---
+
+## Phase 17 — Design handoff revision 7 (day dock, phone reachability, wording, cost marks)
+
+Source: `design_handoff_map_first_planner` was revised again 2026-09-02
+(numbered "7" by the browser download, merged into the canonical folder as
+part of 17.1). Triggered by a real bug the author hit and screenshotted: a
+13-day trip's day-pill row wrapped onto a second line and pushed the map
+down. The revision turned out to bundle five changes, not one; the author
+confirmed all five with **"Merge 7 and build everything"** (2026-09-02),
+including an explicit reversal of 12.7's "no wishlist on phone" call —
+**"12.7 is reversed, we need highlights visible during the trip for
+spontaneous detours."** Only 17.1 is built so far; 17.2–17.5 are queued,
+in the order the handoff itself presents them.
+
+**17.1 Day dock rework** · Standard · ✅
+Replaces the plain wrapping pill row (`DayPills.tsx`) with a single row
+that never wraps — a fixed-width icon button (Fit trip), a vertical "DAYS"
+label, then a horizontally-scrolling pill rail with edge-fade gradients,
+conditional `‹`/`›` chevrons (shown only when there's more to scroll to
+in that direction), and drag-to-pan. `revealDay()` keeps the active/just-
+selected pill within a 92px margin of either edge, using `scrollTo` (never
+`scrollIntoView`, which would move the whole app shell, not just the
+rail). The old auto-width row and `DayRail` (retired at 12.6) are both
+gone; this is the only day switcher now.
+- **Bug found and fixed before commit:** making the pill container
+  `flex-1` (needed so it fills available width instead of shrinking to
+  content) let it stretch under MapLibre's own `NavigationControl` (zoom
+  +/-, top-right, ~40px footprint) — something the old auto-width row
+  never reached far enough to do. Measured with `boundingBox()`: the dock
+  container's right edge landed inside the zoom control's x-range. Fixed
+  by reserving the control's footprint on the outer wrapper
+  (`right-[54px]` instead of `right-3`); reverified at 0/13-day trip
+  sizes with no overlap.
+- **Second bug found and fixed before commit, more serious:** the initial
+  drag-to-scroll implementation called `el.setPointerCapture()`
+  unconditionally on every `pointerdown`, including a plain click with no
+  movement. Pointer capture retargets the browser's compatibility `click`
+  event to the capturing element too (not just subsequent pointer
+  events), so **no day pill was clickable at all** — clicking any pill,
+  dragged or not, left the active day unchanged. Missed by the first
+  round of browser verification (which checked scroll/chevron behaviour
+  but not that a pill click actually switches days) and only caught on a
+  second, more careful pass that checked the app's own state after a
+  click. Fixed by deferring `setPointerCapture` to the *move* handler,
+  only once the 4px drag threshold is actually crossed — a plain click
+  now never captures the pointer at all. Reverified: a plain click on a
+  pill (with and without a prior scroll), a real drag-then-release, and a
+  plain click immediately following a drag all behave correctly end to
+  end (seeded 13-day trip, real browser, no mocks).
+- Commit message will read `phase 17.1: day dock — single row, never wraps`.
+
+**17.2 Phone: day detail collapse** · Standard · ⬜
+Not started. Handoff: the day header on phone gets a chevron toggle
+(~30px) that collapses the day detail region, giving the map the freed
+height. Needs a phone-only `dayCollapsed` UI state (component-local, not
+persisted); collapsing/expanding must not disturb the map's current
+view, and picking a different day pill or an action that needs the day
+detail (e.g. adding a stop) should re-expand it. Depends on nothing else
+in this phase; can be built independently of 17.3–17.5.
+
+**17.3 Phone: wishlist carousel reachability** · Standard · ⬜
+Not started. **This is the reversal of 12.7** ("wishlist panel and
+carousel not existing at all below the breakpoint, not just being
+restyled" — see 12.7's own entry). The handoff now wants an
+"★ Explore N places" glass pill shown only when
+`phone && dayCollapsed && !selection && !browsing && !picking`, i.e. day
+detail is collapsed (17.2) and nothing else is already occupying the
+screen. Tapping it opens the same `WishlistCarousel` used on desktop,
+re-metered for phone (smaller cards — ~124px, ~92px photos — and touch
+scroll-snap instead of the desktop's `‹`/`›` arrow buttons). Depends on
+17.2 existing first (the pill's visibility condition needs
+`dayCollapsed`). When this lands, update 12.7's entry to point here
+rather than silently leaving 12.7's "not built on phone" claim standing.
+
+**17.4 Daylight wording split by time of day** · Standard · ⬜
+Not started. Handoff: the existing daylight line (`PinCard`'s docked
+view and `PinCardExpanded`'s computed strip) reads differently depending
+on whether "now" is before or after solar noon:
+- **Before noon:** "X after dawn · dawn HH:MM", with "· first light"
+  appended when dawn was under 45 minutes ago, or "Before dawn · dawn
+  HH:MM" if dawn hasn't happened yet.
+- **From noon on:** the existing "Daylight until HH:MM" phrasing, plus
+  "· well clear" or "· X left" depending on how much daylight remains.
+Independent of 17.2/17.3 — touches `src/lib/daylight.ts` (or a thin
+wrapper over it) plus both card components' rendering of its output;
+`daylight.test.ts` will need new fixtures for the before-noon branch,
+which the current tests don't exercise.
+
+**17.5 Cost marks in itinerary rows** · Cheap · ⬜
+Not started. Handoff: a gold €/€€/€€€ band on `StopRow`'s meta line for
+any stop that has a cost — 1–50 → €, 51–250 → €€, 251+ → €€€ (in the
+stop's own currency, not converted; converting per-row would mean an
+exchange-rate fetch per row for a marker that's meant to be a glance,
+not a total). Exact amount goes in the element's `title` for a hover
+tooltip. Nothing renders for a stop with no cost — no "€0" band. Reads
+`CostsResponse` the same way `CostField`/`BudgetPopover` already do
+(first cost row for the parent); no new data layer needed. Independent
+of every other task in this phase.
 
 ---
 

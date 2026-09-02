@@ -20,6 +20,7 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: oklch(0.32 0.012 250); border-radius: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
+  .day-rail::-webkit-scrollbar { height: 0; width: 0; }
   @keyframes om-nudge { 0%, 62%, 100% { transform: translateX(0); opacity: .45 } 76% { transform: translateX(-6px); opacity: 1 } 88% { transform: translateX(-2px); opacity: .7 } }
 </style>
 </helmet>
@@ -30,7 +31,7 @@
     <div style="width:1px;height:20px;background:oklch(0.30 0.012 250)"></div>
     <div style="min-width:0;display:flex;align-items:baseline;gap:10px;flex:1">
       <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Iceland Ring Road</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.62 0.01 250);white-space:nowrap">2 days · 8 stops</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.62 0.01 250);white-space:nowrap">10 days · 48 stops</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <div style="position:relative;flex:0 0 auto">
@@ -89,17 +90,38 @@
         <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.num }}</button>
       </sc-for>
 
-      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none">
-        <div style="display:flex;gap:6px;padding:5px;border-radius:11px;background:oklch(0.20 0.013 250 / 0.88);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);pointer-events:auto">
-          <sc-for list="{{ dayPills }}" as="d" hint-placeholder-count="2">
-            <button onClick="{{ d.onClick }}" style="{{ d.style }}">
-              <span style="font-weight:600">{{ d.label }}</span>
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;opacity:0.7;margin-left:7px">{{ d.meta }}</span>
-            </button>
-          </sc-for>
-          <button onClick="{{ noop }}" style="height:28px;width:28px;border-radius:8px;border:1px dashed oklch(0.36 0.012 250);background:transparent;color:oklch(0.66 0.01 250);font:inherit;cursor:pointer" style-hover="color:oklch(0.9 0.01 250);border-color:oklch(0.5 0.012 250)">+</button>
+      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none">
+        <button onClick="{{ fitTrip }}" title="Fit trip" aria-label="Fit trip" style="flex:0 0 auto;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:oklch(0.20 0.013 250 / 0.88);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);cursor:pointer;pointer-events:auto" style-hover="background:oklch(0.25 0.014 250 / 0.94)">
+          <span style="position:relative;display:block;width:15px;height:15px">
+            <span style="position:absolute;top:0;left:0;width:5px;height:5px;border-top:2px solid oklch(0.84 0.008 250);border-left:2px solid oklch(0.84 0.008 250)"></span>
+            <span style="position:absolute;top:0;right:0;width:5px;height:5px;border-top:2px solid oklch(0.84 0.008 250);border-right:2px solid oklch(0.84 0.008 250)"></span>
+            <span style="position:absolute;bottom:0;left:0;width:5px;height:5px;border-bottom:2px solid oklch(0.84 0.008 250);border-left:2px solid oklch(0.84 0.008 250)"></span>
+            <span style="position:absolute;bottom:0;right:0;width:5px;height:5px;border-bottom:2px solid oklch(0.84 0.008 250);border-right:2px solid oklch(0.84 0.008 250)"></span>
+          </span>
+        </button>
+
+        <div style="min-width:0;display:flex;align-items:stretch;gap:0;padding:5px;border-radius:11px;background:oklch(0.20 0.013 250 / 0.88);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);pointer-events:auto">
+          <span style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:16px;margin-right:4px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:oklch(0.58 0.01 250)">Days</span>
+          <span style="flex:0 0 auto;width:1px;margin-right:6px;background:oklch(0.29 0.012 250)"></span>
+
+          <button onClick="{{ scrollDaysLeft }}" aria-label="Earlier days" style="{{ dayArrowLeftStyle }}">‹</button>
+          <div style="position:relative;min-width:0;display:flex">
+            <div class="day-rail" ref="{{ dayRailRef }}" onScroll="{{ onDayScroll }}" onPointerDown="{{ onDayPointerDown }}" onPointerMove="{{ onDayPointerMove }}" onPointerUp="{{ onDayPointerUp }}" onPointerCancel="{{ onDayPointerUp }}" style="display:flex;align-items:center;gap:6px;overflow-x:auto;scroll-behavior:smooth;scrollbar-width:none;cursor:grab;touch-action:pan-x">
+              <sc-for list="{{ dayPills }}" as="d" hint-placeholder-count="4">
+                <button onClick="{{ d.onClick }}" style="{{ d.style }}">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px">{{ d.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;opacity:0.7;margin-left:7px">{{ d.meta }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <span style="{{ dayFadeLeftStyle }}"></span>
+            <span style="{{ dayFadeRightStyle }}"></span>
+          </div>
+          <button onClick="{{ scrollDaysRight }}" aria-label="Later days" style="{{ dayArrowRightStyle }}">›</button>
+
+          <span style="flex:0 0 auto;width:1px;margin:0 6px;background:oklch(0.29 0.012 250)"></span>
+          <button onClick="{{ noop }}" title="Add day" aria-label="Add day" style="flex:0 0 auto;height:28px;width:28px;border-radius:8px;border:1px dashed oklch(0.36 0.012 250);background:transparent;color:oklch(0.66 0.01 250);font:inherit;cursor:pointer" style-hover="color:oklch(0.9 0.01 250);border-color:oklch(0.5 0.012 250)">+</button>
         </div>
-        <button onClick="{{ fitTrip }}" style="height:38px;padding:0 12px;border-radius:10px;white-space:nowrap;background:oklch(0.20 0.013 250 / 0.88);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);color:oklch(0.82 0.008 250);font:inherit;font-size:12.5px;cursor:pointer;pointer-events:auto" style-hover="background:oklch(0.25 0.014 250 / 0.94)">Fit trip</button>
       </div>
 
       <div style="{{ wishBoxStyle }}">
@@ -157,9 +179,16 @@
 
       <div style="position:absolute;right:10px;bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:oklch(0.55 0.01 250);pointer-events:none">MapLibre · OpenFreeMap</div>
 
+      <sc-if value="{{ showExplore }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ openBrowse }}" style="position:absolute;left:8px;bottom:8px;z-index:21;display:flex;align-items:center;gap:8px;height:38px;padding:0 13px;border-radius:19px;border:1px solid oklch(0.34 0.012 250);background:oklch(0.20 0.013 250 / 0.92);backdrop-filter:blur(10px);color:oklch(0.90 0.006 250);font:inherit;font-size:12.5px;cursor:pointer;box-shadow:0 6px 18px oklch(0.10 0.02 250 / 0.5)">
+          <span style="color:oklch(0.82 0.13 80);font-size:13px;line-height:1">★</span>
+          <span>{{ exploreLabel }}</span>
+        </button>
+      </sc-if>
+
       <sc-if value="{{ browsing }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;left:0;right:0;bottom:0;z-index:22;padding:0 0 10px;background:linear-gradient(180deg, transparent, oklch(0.15 0.014 250 / 0.86) 42%)">
-          <div style="display:flex;align-items:center;gap:10px;padding:0 16px 8px">
+          <div style="{{ browseBarStyle }}">
             <button onClick="{{ toggleStarFilter }}" style="{{ starFilterStyle }}">
               <span style="font-size:13px;line-height:1">★</span>
               <span>Top choices</span>
@@ -169,7 +198,7 @@
             <button onClick="{{ closeBrowse }}" style="width:28px;height:28px;flex:0 0 auto;border-radius:50%;border:0;background:oklch(0.22 0.013 250 / 0.9);backdrop-filter:blur(8px);color:oklch(0.88 0.006 250);font:inherit;cursor:pointer">✕</button>
           </div>
           <div style="position:relative">
-            <div ref="{{ stripRef }}" style="display:flex;gap:12px;padding:4px 16px 6px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory">
+            <div ref="{{ stripRef }}" style="{{ browseStripStyle }}">
               <sc-for list="{{ browseItems }}" as="b" hint-placeholder-count="6">
                 <div onMouseEnter="{{ b.onEnter }}" onMouseLeave="{{ b.onLeave }}" style="{{ b.style }}">
                   <button onClick="{{ b.onClick }}" style="{{ b.photoStyle }}">
@@ -184,8 +213,10 @@
                 </div>
               </sc-for>
             </div>
+            <sc-if value="{{ browseArrowsShown }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ scrollLeft }}" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid oklch(0.34 0.012 250);background:oklch(0.20 0.013 250 / 0.92);backdrop-filter:blur(8px);color:oklch(0.92 0.006 250);font:inherit;font-size:15px;cursor:pointer;z-index:2" style-hover="background:oklch(0.27 0.014 250 / 0.96)">‹</button>
             <button onClick="{{ scrollRight }}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid oklch(0.34 0.012 250);background:oklch(0.20 0.013 250 / 0.92);backdrop-filter:blur(8px);color:oklch(0.92 0.006 250);font:inherit;font-size:15px;cursor:pointer;z-index:2" style-hover="background:oklch(0.27 0.014 250 / 0.96)">›</button>
+            </sc-if>
           </div>
         </div>
       </sc-if>
@@ -226,7 +257,7 @@
                     <div style="width:1px;background:oklch(0.29 0.012 250)"></div>
                     <div style="flex:1;padding:10px 14px">
                       <div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Daylight</div>
-                      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;margin-top:2px;color:oklch(0.86 0.07 90)">clear</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;margin-top:2px;color:oklch(0.86 0.07 90)">{{ cardDaylightShort }}</div>
                     </div>
                   </div>
                 </sc-if>
@@ -540,9 +571,15 @@
           <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em">{{ dayTitle }}</div>
           <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:oklch(0.62 0.01 250);margin-top:2px">{{ dayMeta }}</div>
         </div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:oklch(0.62 0.01 250);white-space:nowrap">{{ daySpan }}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:oklch(0.62 0.01 250);white-space:nowrap">{{ daySpan }}</div>
+          <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ toggleDayList }}" title="{{ dayToggleLabel }}" aria-label="{{ dayToggleLabel }}" style="flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.24 0.013 250);color:oklch(0.84 0.008 250);font:inherit;font-size:10px;cursor:pointer" style-hover="background:oklch(0.28 0.014 250)">{{ dayToggleGlyph }}</button>
+          </sc-if>
+        </div>
       </div>
 
+      <sc-if value="{{ dayListOpen }}" hint-placeholder-val="{{ true }}">
       <div style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 90px">
         <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
           <div style="display:flex;flex-direction:column">
@@ -553,7 +590,10 @@
                 <span style="display:flex;align-items:baseline;gap:8px">
                   <span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
                 </span>
-                <span style="display:block;margin-top:2px;font-size:11.5px;color:oklch(0.63 0.01 250)">{{ r.meta }}</span>
+                <span style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
+                  <span style="font-size:11.5px;color:oklch(0.63 0.01 250)">{{ r.meta }}</span>
+                  <span title="{{ r.costTitle }}" style="{{ r.costStyle }}">{{ r.costMark }}</span>
+                </span>
               </span>
               <span style="flex:0 0 auto;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:oklch(0.80 0.008 250)">
                 <span style="display:block">{{ r.arr }}</span>
@@ -582,29 +622,66 @@
 
         <button onClick="{{ noop }}" style="margin:12px 2px 0;width:calc(100% - 4px);height:36px;border-radius:9px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ Stop</button>
       </div>
+      </sc-if>
     </aside>
   </div>
 </div>
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;startState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;rest&quot;,&quot;stop&quot;,&quot;stop-edit&quot;,&quot;wishlist&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;stop&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;forcePhone&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;showWishlistPins&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;oklch(0.72 0.13 215)&quot;,&quot;oklch(0.75 0.13 155)&quot;,&quot;oklch(0.75 0.14 65)&quot;,&quot;oklch(0.72 0.13 300)&quot;],&quot;default&quot;:&quot;oklch(0.72 0.13 215)&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+// € 1–50 · €€ 51–250 · €€€ 251+
+function costBand(c) {
+  if (!c) return "";
+  return c <= 50 ? "€" : (c <= 250 ? "€€" : "€€€");
+}
+
+const DAWN = "04:12", DUSK = "23:57";
+
+// Before noon a stop is read against dawn, not dusk: "5 h after dawn" is the
+// useful fact in the morning; "well clear of dusk" is trivially true and says nothing.
+function daylightLine(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const mins = h * 60 + m;
+  const [dh, dm] = DAWN.split(":").map(Number);
+  const [uh, um] = DUSK.split(":").map(Number);
+  if (mins < 12 * 60) {
+    const d = mins - (dh * 60 + dm);
+    if (d < 0) return "Before dawn · dawn " + DAWN;
+    const label = Math.floor(d / 60) + " h " + String(d % 60).padStart(2, "0") + " m after dawn";
+    return label + " · dawn " + DAWN + (d < 45 ? " · first light" : "");
+  }
+  const left = (uh * 60 + um) - mins;
+  return "Daylight until " + DUSK + (left > 180 ? " · well clear" : " · " + Math.floor(left / 60) + " h " + String(left % 60).padStart(2, "0") + " m left");
+}
+
+// Compact form for the computed strip: same fact, one mono token.
+function daylightShort(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const mins = h * 60 + m;
+  const ref = mins < 12 * 60 ? DAWN : DUSK;
+  const [rh, rm] = ref.split(":").map(Number);
+  const d = Math.abs(mins - (rh * 60 + rm));
+  const t = Math.floor(d / 60) + ":" + String(d % 60).padStart(2, "0");
+  return (mins < 12 * 60 ? "dawn +" : "dusk −") + t;
+}
+
 const STOPS = [
   { name: "Þingvellir", kind: "Viewpoint", cost: 12, arr: "09:00", dep: "09:20", dwell: "20 min", pos: [30, 34], leg: "18 min · 21 km", day: 1,
-    body: "Rift valley between the North American and Eurasian plates, and the site of the old parliament.", daylight: "Daylight until 23:57 · well clear" },
+    body: "Rift valley between the North American and Eurasian plates, and the site of the old parliament." },
   { name: "Geysir", kind: "Hot spring", arr: "09:20", dep: "11:20", dwell: "120 min", pos: [41, 26], leg: "34 min · 39 km", day: 1,
-    body: "Geothermal field; Strokkur erupts every few minutes.", daylight: "Daylight until 23:57 · well clear" },
+    body: "Geothermal field; Strokkur erupts every few minutes." },
   { name: "Kerið", kind: "Volcano", cost: 6, arr: "11:20", dep: "12:50", dwell: "90 min", pos: [44, 40], leg: "9 min · 8 km", day: 1,
-    body: "Volcanic crater lake in the Grímsnes area.", daylight: "Daylight until 23:57 · well clear" },
+    body: "Volcanic crater lake in the Grímsnes area." },
   { name: "Hótel Grímsborgir", kind: "Hotel", cost: 240, arr: "12:50", dep: "12:50", dwell: "0 min", pos: [47, 45], leg: "52 min · 63 km", day: 1,
-    body: "", daylight: "Daylight until 23:57 · well clear" },
+    body: "" },
   { name: "Seljalandsfoss", kind: "Waterfall", arr: "12:50", dep: "13:35", dwell: "45 min", pos: [52, 58], leg: "24 min · 29 km", day: 1,
-    body: "Waterfall with a path running behind the curtain.", daylight: "Daylight until 23:57 · well clear" },
+    body: "Waterfall with a path running behind the curtain." },
   { name: "Skógafoss", kind: "Waterfall", arr: "13:35", dep: "14:20", dwell: "45 min", pos: [58, 64], leg: "38 min · 44 km", day: 1,
-    body: "60 m drop at the foot of the Skógá river.", daylight: "Daylight until 23:57 · well clear" },
+    body: "60 m drop at the foot of the Skógá river." },
   { name: "Vík í Mýrdal", kind: "Coast", arr: "14:20", dep: "15:05", dwell: "45 min", pos: [65, 72], leg: "3 min · 1 km", day: 1,
-    body: "Southernmost village on the mainland.", daylight: "Daylight until 23:57 · well clear" },
+    body: "Southernmost village on the mainland." },
   { name: "Kaffi Vík", kind: "Restaurant", cost: 68, arr: "15:05", dep: "16:05", dwell: "60 min", pos: [67, 74], leg: "", day: 1,
-    body: "", daylight: "Daylight until 23:57 · well clear" }
+    body: "" }
 ];
 
 const WISH = [
@@ -628,13 +705,74 @@ const USERS = {
   jan:   { name: "Jan",   color: "oklch(0.75 0.13 155)", ink: "oklch(0.18 0.03 155)" }
 };
 
+const DAYS = [
+  { n: 1, meta: "8 stops" }, { n: 2, meta: "6 stops" }, { n: 3, meta: "5 stops" },
+  { n: 4, meta: "7 stops" }, { n: 5, meta: "4 stops" }, { n: 6, meta: "6 stops" },
+  { n: 7, meta: "3 stops" }, { n: 8, meta: "5 stops" }, { n: 9, meta: "4 stops" },
+  { n: 10, meta: "empty" }
+];
+
 class Component extends DCLogic {
+  rail = React.createRef();
+
+  railMetrics() {
+    const el = this.rail.current;
+    if (!el) return null;
+    this.setState({
+      dayScroll: el.scrollLeft > 2,
+      dayAtEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2
+    });
+    return el;
+  }
+
+  // Clicking a pill sitting against either edge scrolls the rail so the days
+  // beyond it come into view — one click reveals what comes next.
+  revealNeighbours(idx) {
+    const el = this.rail.current;
+    const pill = el && el.children[idx];
+    if (!pill) return;
+    const pad = 92;
+    const left = pill.offsetLeft - el.scrollLeft;
+    const right = left + pill.offsetWidth;
+    let to = null;
+    if (right > el.clientWidth - pad) to = pill.offsetLeft + pill.offsetWidth + pad - el.clientWidth;
+    else if (left < pad) to = pill.offsetLeft - pad;
+    if (to === null) return;
+    el.scrollTo({ left: Math.max(0, to), behavior: "smooth" });
+  }
+
+  dragStart = (e) => {
+    const el = this.rail.current;
+    if (!el) return;
+    this._drag = { x: e.clientX, from: el.scrollLeft };
+    this._moved = false;
+    el.style.scrollBehavior = "auto";
+  };
+
+  dragMove = (e) => {
+    const el = this.rail.current;
+    if (!el || !this._drag) return;
+    const dx = e.clientX - this._drag.x;
+    if (Math.abs(dx) > 4) this._moved = true;
+    el.scrollLeft = this._drag.from - dx;
+  };
+
+  dragEnd = () => {
+    const el = this.rail.current;
+    if (el) el.style.scrollBehavior = "smooth";
+    this._drag = null;
+    // let the click that follows the drag be swallowed, then re-arm
+    setTimeout(() => { this._moved = false; }, 0);
+  };
+
   state = { sel: null, editing: false, day: 1, wishOpen: true, w: 1440, expanded: false, accom: false, browsing: false, hover: null, stars: { gullfoss: true, solheimajokull: true }, starOnly: false, picking: false, access: null };
   strip = React.createRef();
 
   componentDidMount() {
     this._onResize = () => this.setState({ w: window.innerWidth });
     this._onResize();
+    const rail = this.rail.current;
+    if (rail) this.setState({ dayAtEnd: rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2 });
     window.addEventListener("resize", this._onResize);
     const s = this.props.startState || "stop";
     if (s === "rest") this.setState({ sel: null });
@@ -726,20 +864,29 @@ class Component extends DCLogic {
       };
     });
 
-    const pillBase = "height:28px;padding:0 12px;border-radius:8px;border:0;font:inherit;font-size:12.5px;cursor:pointer;display:flex;align-items:center;white-space:nowrap";
-    const dayPills = [1, 2].map((d) => ({
-      label: "Day " + d,
-      meta: d === 1 ? "8 stops" : "empty",
-      onClick: () => this.setState({ day: d }),
-      style: `${pillBase};background:${this.state.day === d ? acc : "transparent"};color:${this.state.day === d ? "oklch(0.16 0.02 240)" : "oklch(0.78 0.008 250)"}`
+    const pillBase = "flex:0 0 auto;height:28px;padding:0 11px;border-radius:8px;border:0;font:inherit;font-size:12.5px;cursor:pointer;display:flex;align-items:center;white-space:nowrap";
+    const dayPills = DAYS.map((d) => ({
+      label: String(d.n),
+      meta: d.meta,
+      onClick: () => { if (this._moved) return; this.setState({ day: d.n, dayCollapsed: false }); this.revealNeighbours(d.n - 1); },
+      style: `${pillBase};background:${this.state.day === d.n ? acc : "transparent"};color:${this.state.day === d.n ? "oklch(0.16 0.02 240)" : "oklch(0.78 0.008 250)"}`
     }));
+    const atStart = !this.state.dayScroll;
+    const atEnd = !!this.state.dayAtEnd;
+    const arrow = (dim) => `flex:0 0 auto;width:22px;height:28px;display:flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:${dim ? "oklch(0.38 0.01 250)" : "oklch(0.80 0.008 250)"};font:inherit;font-size:16px;line-height:1;cursor:${dim ? "default" : "pointer"}`;
+    const fade = (side, show) => `position:absolute;top:0;bottom:0;${side}:0;width:26px;pointer-events:none;opacity:${show ? 1 : 0};transition:opacity 140ms ease;background:linear-gradient(to ${side === "left" ? "right" : "left"},oklch(0.20 0.013 250) 12%,oklch(0.20 0.013 250 / 0))`;
 
+    const dayCollapsed = phone && !!this.state.dayCollapsed;
     const dayStops = this.state.day === 1 ? STOPS : [];
+
     const rows = dayStops.map((s, i) => {
       const on = isStop && sel.i === i;
       return {
         num: String(i + 1), name: s.name, arr: s.arr, dep: s.dep,
         meta: s.kind + " · " + s.dwell,
+        costMark: costBand(s.cost),
+        costTitle: s.cost ? "€" + s.cost : "",
+        costStyle: `flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:0.02em;color:oklch(0.82 0.11 85);${s.cost ? "" : "display:none"}`,
         legLabel: s.leg || "",
         onClick: () => this.select("stop", i),
         thumbStyle: `width:38px;height:38px;flex:0 0 auto;border-radius:8px;background:${thumb};border:1px solid ${on ? acc.replace(")", " / 0.6)") : "oklch(0.31 0.012 250)"}`,
@@ -838,16 +985,29 @@ class Component extends DCLogic {
         ? "flex:1 1 auto;min-height:0;display:flex;flex-direction:column"
         : "flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 400px",
       mapStyle: phone
-        ? "position:relative;flex:0 0 58%;min-height:0;overflow:hidden;border-bottom:1px solid oklch(0.27 0.012 250)"
+        ? `position:relative;${dayCollapsed ? "flex:1 1 auto" : "flex:0 0 58%"};min-height:0;overflow:hidden;border-bottom:1px solid oklch(0.27 0.012 250)`
         : "position:relative;min-width:0;overflow:hidden",
       sideStyle: phone
-        ? "flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:oklch(0.195 0.012 250)"
+        ? (dayCollapsed
+            ? "flex:0 0 auto;display:flex;flex-direction:column;background:oklch(0.195 0.012 250)"
+            : "flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:oklch(0.195 0.012 250)")
         : "min-height:0;display:flex;flex-direction:column;background:oklch(0.195 0.012 250);border-left:1px solid oklch(0.27 0.012 250)",
       wishBoxStyle: (phone || !showWish || !!sel || this.state.browsing)
         ? "display:none"
         : "position:absolute;left:14px;bottom:14px;width:236px;border-radius:12px;background:oklch(0.20 0.013 250 / 0.9);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);overflow:hidden;z-index:8",
       showWish,
       pins, wishPins, dayPills, rows,
+      dayRailRef: this.rail,
+      onDayScroll: () => this.railMetrics(),
+      onDayPointerDown: this.dragStart,
+      onDayPointerMove: this.dragMove,
+      onDayPointerUp: this.dragEnd,
+      scrollDaysLeft: () => { if (this.rail.current) this.rail.current.scrollBy({ left: -180, behavior: "smooth" }); },
+      scrollDaysRight: () => { if (this.rail.current) this.rail.current.scrollBy({ left: 180, behavior: "smooth" }); },
+      dayArrowLeftStyle: arrow(atStart),
+      dayArrowRightStyle: arrow(atEnd),
+      dayFadeLeftStyle: fade("left", !atStart),
+      dayFadeRightStyle: fade("right", !atEnd),
       wishOpen: this.state.wishOpen,
       wishChevron: this.state.wishOpen ? "▾" : "▸",
       toggleWishlist: () => this.setState({ wishOpen: !this.state.wishOpen }),
@@ -863,7 +1023,10 @@ class Component extends DCLogic {
         rowStyle: `display:flex;align-items:center;gap:10px;padding:8px 11px;background:${isWish && sel.i === i ? "oklch(0.26 0.02 235)" : (hov === i ? "oklch(0.24 0.013 250)" : "transparent")};border:0;color:inherit;font:inherit;cursor:pointer;text-align:left`
       })),
       browseLabel: `Browse all ${WISH.length}`,
-      browsing: this.state.browsing && !phone,
+      browsing: this.state.browsing && (!phone || dayCollapsed),
+      showExplore: phone && dayCollapsed && !sel && !this.state.browsing && !picking,
+      exploreLabel: `Explore ${WISH.length} places`,
+      browseArrowStyle: (side) => side,
       browseMeta: this.state.starOnly
         ? `${WISH.filter((w) => this.state.stars[w.id]).length} starred · nearest first`
         : `${WISH.length} places · nearest first`,
@@ -875,6 +1038,9 @@ class Component extends DCLogic {
       openBrowse: () => this.setState({ browsing: true, sel: null }),
       closeBrowse: () => this.setState({ browsing: false, hover: null }),
       stripRef: this.strip,
+      browseArrowsShown: !phone,
+      browseStripStyle: `display:flex;gap:${phone ? 9 : 12}px;padding:4px ${phone ? 10 : 16}px 6px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory`,
+      browseBarStyle: `display:flex;align-items:center;gap:10px;padding:0 ${phone ? 10 : 16}px 8px`,
       scrollLeft: () => this.strip.current && this.strip.current.scrollBy({ left: -3 * 190, behavior: "smooth" }),
       scrollRight: () => this.strip.current && this.strip.current.scrollBy({ left: 3 * 190, behavior: "smooth" }),
       browseItems: this.wishOrder()
@@ -886,18 +1052,18 @@ class Component extends DCLogic {
           return {
             name: w.name, kind: w.kind,
             author: (USERS[w.by] || {}).name || "",
-            authorStyle: `position:absolute;right:9px;bottom:9px;display:flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:10px;font-size:10.5px;font-weight:500;color:oklch(0.94 0.005 250);background:oklch(0.16 0.014 250 / 0.72);backdrop-filter:blur(6px);white-space:nowrap`,
+            authorStyle: `position:absolute;right:${phone ? 6 : 9}px;bottom:${phone ? 6 : 9}px;${phone ? "height:17px;padding:0 6px;font-size:9.5px;gap:4px;" : "height:20px;padding:0 8px;font-size:10.5px;gap:5px;"}display:flex;align-items:center;border-radius:10px;font-weight:500;color:oklch(0.94 0.005 250);background:oklch(0.16 0.014 250 / 0.72);backdrop-filter:blur(6px);white-space:nowrap`,
             authorDotStyle: `width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:${(USERS[w.by]||{}).color}`,
             onClick: () => this.setState({ browsing: false, hover: null, sel: { t: "wish", i: idx }, editing: false, expanded: false }),
             onStar: () => this.setState({ stars: Object.assign({}, this.state.stars, { [w.id]: !starred }) }),
             onEnter: () => this.setState({ hover: idx }),
             onLeave: () => this.setState({ hover: null }),
-            style: `position:relative;width:178px;flex:0 0 auto;scroll-snap-align:start;border-radius:13px;overflow:hidden;` +
+            style: `position:relative;width:${phone ? 124 : 178}px;flex:0 0 auto;scroll-snap-align:start;border-radius:${phone ? 11 : 13}px;overflow:hidden;` +
               `transform:translateY(${on ? "-4px" : "0"});transition:transform .16s ease,box-shadow .16s ease;` +
               `box-shadow:0 ${on ? 14 : 6}px ${on ? 30 : 16}px oklch(0.10 0.02 250 / ${on ? 0.6 : 0.4})`,
-            photoStyle: `position:relative;display:block;width:100%;height:136px;padding:0;border-radius:13px;cursor:pointer;background:${thumb};` +
+            photoStyle: `position:relative;display:block;width:100%;height:${phone ? 92 : 136}px;padding:0;border-radius:${phone ? 11 : 13}px;cursor:pointer;background:${thumb};` +
               `border:2px solid ${on ? "oklch(0.90 0.10 85)" : "transparent"};overflow:hidden`,
-            starStyle: `position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:0;cursor:pointer;font-size:14px;line-height:1;padding:0;backdrop-filter:blur(6px);` +
+            starStyle: `position:absolute;top:${phone ? 6 : 8}px;right:${phone ? 6 : 8}px;width:${phone ? 24 : 28}px;height:${phone ? 24 : 28}px;border-radius:50%;border:0;cursor:pointer;font-size:${phone ? 12 : 14}px;line-height:1;padding:0;backdrop-filter:blur(6px);` +
               (starred
                 ? "background:oklch(0.78 0.13 80);color:oklch(0.20 0.04 80)"
                 : "background:oklch(0.16 0.014 250 / 0.6);color:oklch(0.88 0.01 250)")
@@ -942,7 +1108,13 @@ class Component extends DCLogic {
       accessPinStyle: this.state.access
         ? `position:absolute;left:${px(this.state.access)}%;top:${py(this.state.access)}%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;z-index:7;background:oklch(0.22 0.013 250);border:2px dashed ${acc};display:flex;align-items:center;justify-content:center;font-size:10px;color:${acc};pointer-events:none`
         : "display:none",
-      fitTrip: () => {},
+      fitTrip: () => { if (phone) this.setState({ dayCollapsed: true }); },
+      isPhone: phone,
+      dayCollapsed,
+      dayListOpen: !dayCollapsed,
+      toggleDayList: () => this.setState({ dayCollapsed: !dayCollapsed }),
+      dayToggleGlyph: dayCollapsed ? "▲" : "▼",
+      dayToggleLabel: dayCollapsed ? "Show the day's stops" : "Hide the day's stops",
       dayTitle: "Day " + this.state.day,
       dayMeta: this.state.day === 1 ? "Thu 10 Jun · travel" : "Fri 11 Jun · travel",
       daySpan: this.state.day === 1 ? "09:00 – 16:05" : "—",
@@ -979,7 +1151,8 @@ class Component extends DCLogic {
       cardArrive: stop ? stop.arr : "",
       cardDepart: stop ? stop.dep : "",
       cardDwell: stop ? stop.dwell.replace(" min", "m") : "",
-      cardDaylight: stop ? stop.daylight : "",
+      cardDaylight: stop ? daylightLine(stop.arr) : "",
+      cardDaylightShort: stop ? daylightShort(stop.arr) : "",
       cardActions: actions,
       editing: this.state.editing && isStop,
       prevStop: () => this.step(-1),
