@@ -1980,6 +1980,37 @@ reports the day-parented blocks whose derived date moved.
 `.claude/skills/run-etappe/insert-day-check.mjs` drives the real gesture
 between day 3 and day 4 and confirms the day count grows. No code change.
 
+**18.9 Search the wishlist, not just the geocoder** · Standard · ✅
+Author, 2026-09-02: *"During search we currently only search external
+services. We should first suggest highlights and then with a visual
+separator new POIs — otherwise we have no way to find a POI from our
+wishlist."* Correct, and it was a real hole: a hundred places imported
+from Highlights could only be reached by hunting pins on the map or
+scrolling the panel, never by name.
+- `SearchPalette` takes `wishlist` + `onPickWishlist`. Matching is local
+  and instant (no debounce, no request) against the title **and** the
+  kind's label, so "waterfall" finds every saved waterfall. Capped at 6
+  rows so the geocoder stays on screen, and skipped entirely when the
+  query is a pasted coordinate or URL.
+- Two sections: `FROM THE WISHLIST`, then a 1px rule and `NEW PLACES`.
+  The separator and the second heading only render when there is
+  something above them — a fresh trip sees the old flat list.
+- **Picking a saved idea depends on why the palette is open.** From the
+  header Search / ⌘K (placement mode) it goes through `placeWishlistItem`
+  — the same ranked placement a pin click uses, which promotes the idea
+  with its blocks and deletes the poi. From "+ Idea" (wishlist mode) it
+  calls `showWishlistItem` and opens the existing card instead, rather
+  than quietly creating a second copy of something already saved.
+- **Wording:** the request said "new POIs"; the section reads `New places`.
+  "POI" appears nowhere else in the UI — the app says "place", "idea",
+  "wishlist" — and one screen using the internal term would be the odd one
+  out. One word to change if the author disagrees.
+- Verified in a browser
+  (`.claude/skills/run-etappe/search-wishlist-check.mjs`): both headings
+  render, and the DOM order puts the wishlist section above the new
+  places. No console errors.
+- Commit: `phase 18.9: search the wishlist alongside the geocoder`.
+
 **18.6 The rest of the light-theme debt** · Standard · ⬜
 Not started. Auditing for 18.3 showed the "Noticed" note's "three
 surfaces" was an undercount — these are still fully light, by hit count

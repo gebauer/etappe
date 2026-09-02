@@ -1765,6 +1765,20 @@ export function TripEditor({
             if (mode === 'wishlist') commitWishlistPick(place, sourceUrl);
             else addPlaceStop(place, sourceUrl);
           }}
+          wishlist={wishlist}
+          // What picking a saved idea means depends on why the palette is
+          // open (WORK 18.9). Searching to place something puts it on a
+          // day, through the same ranked placement a pin click uses —
+          // which promotes it, blocks and all. Searching to *add* an idea
+          // instead reveals the one already there, rather than quietly
+          // making a second copy of it.
+          onPickWishlist={(item) => {
+            const mode = searchMode;
+            setSearchMode(null);
+            setShareQuery(null);
+            if (mode === 'wishlist') showWishlistItem(item);
+            else placeWishlistItem(item);
+          }}
           onClose={() => {
             setSearchMode(null);
             setShareQuery(null);

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { photonSearch, type PlaceResult } from '../lib/photon';
 import { sniffPaste } from '../lib/paste-sniff';
 import { resolveLink } from '../lib/pb-capture';
 import { pb } from '../lib/pb';
+import { TAXONOMY, type Kind } from '../lib/taxonomy';
+import type { PoisResponse } from '../types/pb';
 
 interface Props {
   onPick: (place: PlaceResult, sourceUrl?: string) => void;
@@ -10,15 +12,42 @@ interface Props {
   /** Prefills the input — used by the share target and wishlist "+ Idea",
    * which arrive already holding a query rather than starting from empty. */
   initialQuery?: string;
+  /** The trip's wishlist, searched alongside the geocoder (WORK 18.9).
+   * Without this the only way to reach a saved idea by name was to scroll
+   * the panel or the carousel. */
+  wishlist?: PoisResponse[];
+  onPickWishlist?: (item: PoisResponse) => void;
 }
+
+/** How many saved ideas to offer before the new-places section — enough to
+ * find the one you meant, few enough that the geocoder stays on screen. */
+const WISHLIST_LIMIT = 6;
 
 function coordPlace(lat: number, lon: number): PlaceResult {
   return { name: 'Pasted location', lat, lon, kind: 'uncategorized' };
 }
 
-/** ⌘K capture: Photon typeahead for names, and a paste sniffer for pasted
- * coordinates / Google Maps or Komoot URLs (BUILD §6). */
-export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
+function kindLabel(kind: string | undefined): string {
+  return TAXONOMY[kind as Kind]?.label ?? kind ?? 'uncategorized';
+}
+
+/**
+ * ⌘K capture: the trip's own wishlist first, then Photon typeahead for new
+ * places, plus a paste sniffer for pasted coordinates / Google Maps or
+ * Komoot URLs (BUILD §6).
+ *
+ * The wishlist section (WORK 18.9) is what makes a saved idea reachable by
+ * name at all — before it, search only ever spoke to external services, so
+ * the hundred places imported from Highlights could only be found by
+ * hunting pins or scrolling the panel.
+ */
+export function SearchPalette({
+  onPick,
+  onClose,
+  initialQuery,
+  wishlist,
+  onPickWishlist,
+}: Props) {
   const [q, setQ] = useState(initialQuery ?? '');
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -27,6 +56,20 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
 
   const sniff = useMemo(() => (q.trim() ? sniffPaste(q) : null), [q]);
   const isPaste = sniff !== null && sniff.kind !== 'address';
+
+  // Matched locally and instantly — no debounce, no request. Title first,
+  // then the kind's label, so "waterfall" finds every saved waterfall.
+  const wishlistMatches = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle || isPaste || !wishlist || !onPickWishlist) return [];
+    return wishlist
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(needle) ||
+          kindLabel(item.kind).toLowerCase().includes(needle),
+      )
+      .slice(0, WISHLIST_LIMIT);
+  }, [q, isPaste, wishlist, onPickWishlist]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -122,6 +165,38 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
             </li>
           )}
 
+          {wishlistMatches.length > 0 && (
+            <>
+              <SectionLabel>From the wishlist</SectionLabel>
+              {wishlistMatches.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => onPickWishlist?.(item)}
+                    className="flex h-11 w-full items-center justify-between gap-2 border-l-2 border-transparent px-4 text-left text-text-2 outline-none hover:bg-control hover:text-text focus-visible:border-accent focus-visible:bg-control focus-visible:text-text"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {item.starred && (
+                        <span className="flex-none text-wishlist">★</span>
+                      )}
+                      <span className="truncate text-[15px] font-medium">
+                        {item.title}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-md bg-field px-2 py-0.5 text-[11px] text-text-4">
+                      {kindLabel(item.kind)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+
+          {/* The separator only earns its place once there is something
+              above it to separate from. */}
+          {wishlistMatches.length > 0 && !isPaste && (
+            <SectionLabel divided>New places</SectionLabel>
+          )}
+
           {!isPaste && busy && results.length === 0 && (
             <li className="px-4 py-3 text-[13px] text-text-4">Searching…</li>
           )}
@@ -130,7 +205,9 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
             q.trim() !== '' &&
             results.length === 0 &&
             !error && (
-              <li className="px-4 py-3 text-[13px] text-text-4">No results.</li>
+              <li className="px-4 py-3 text-[13px] text-text-4">
+                {wishlistMatches.length > 0 ? 'No new places.' : 'No results.'}
+              </li>
             )}
           {!isPaste &&
             results.map((place, i) => (
@@ -153,6 +230,26 @@ export function SearchPalette({ onPick, onClose, initialQuery }: Props) {
         </ul>
       </div>
     </div>
+  );
+}
+
+/** A section heading inside the result list. `divided` adds the rule that
+ * separates saved ideas from new ones. */
+function SectionLabel({
+  children,
+  divided,
+}: {
+  children: ReactNode;
+  divided?: boolean;
+}) {
+  return (
+    <li
+      className={`px-4 pb-1 text-[10.5px] uppercase tracking-[0.08em] text-text-4 ${
+        divided ? 'mt-1 border-t border-border pt-2.5' : 'pt-2.5'
+      }`}
+    >
+      {children}
+    </li>
   );
 }
 
