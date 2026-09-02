@@ -50,6 +50,18 @@ export default {
       screens: {
         desktop: '860px',
       },
+      // The phone card's swipe-discoverability cue (WORK 12.7): rest, a
+      // -6px kick with a lift, then a -2px settle, on a 2.4s loop.
+      keyframes: {
+        'om-nudge': {
+          '0%, 20%, 100%': { transform: 'translateX(0)', opacity: '0.75' },
+          '35%': { transform: 'translateX(-6px)', opacity: '1' },
+          '55%': { transform: 'translateX(-2px)', opacity: '0.9' },
+        },
+      },
+      animation: {
+        'om-nudge': 'om-nudge 2.4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

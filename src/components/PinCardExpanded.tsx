@@ -116,10 +116,16 @@ export function PinCardExpanded({
       onClick={onClose}
     >
       <div
-        className="flex h-[min(700px,100%)] w-[min(1120px,100%)] overflow-hidden rounded-2xl border border-border-strong bg-surface-4 font-sans text-text shadow-expanded"
+        className="flex h-[min(700px,100%)] w-[min(1120px,100%)] flex-col overflow-hidden rounded-2xl border border-border-strong bg-surface-4 font-sans text-text shadow-expanded desktop:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative min-w-0 flex-[0_0_46%] border-r border-[oklch(0.28_0.012_250)] bg-control">
+        {/* WORK 12.7: the fixed 46%/54% two-column split only works at
+            desktop widths — on phone it squeezed a 334px modal into two
+            ~160px columns, unreadable. Stacked below 860px instead; the
+            handoff called this "not built" and left it a modal, but
+            stacking it costs one class change and turns "All details"
+            from broken into merely tall. */}
+        <div className="relative h-48 min-w-0 flex-none border-b border-[oklch(0.28_0.012_250)] bg-control desktop:h-auto desktop:flex-[0_0_46%] desktop:border-b-0 desktop:border-r">
           {coverSrc ? (
             <img
               src={coverSrc}

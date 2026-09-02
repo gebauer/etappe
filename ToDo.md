@@ -3,9 +3,14 @@
 Deferred fixes and polish found while building. Not blocking the current phase;
 pick up before v1.
 
-- [ ] **Map-click and wishlist-click capture flow** — superseded by the
-      unified pin-click card in "Design direction" below; see there instead
-      of this line (was: "Fix adding POIs by map-clicking").
+- [x] **Map-click and wishlist-click capture flow** — superseded by the
+      unified pin-click card, built as Phase 12 (WORK.md) via
+      `design_handoff_map_first_planner`. The whole "Design direction"
+      section below it — the pin-click card, the map-dominant layout,
+      wishlist-on-map, the photo wheel — is the same story: fully shipped
+      as of 12.10 (12.7, the phone layout, closed out Phase 12 entirely,
+      2026-09-02). Left below for the historical record of how the
+      decision was reached; nothing in that section is still open.
 - [ ] Confirmation (or undo) before deleting stops — row ✕, Delete key, and the
       inspector currently delete without asking.
 - [x] **Manual legs still not routing** — root cause: `buildLegRecord`
@@ -34,7 +39,17 @@ pick up before v1.
       lines themselves. Must not reintroduce a `text-field` on the legs source.
 - [ ] Code-split the map — MapLibre makes the main bundle large (>500 kB).
 
-## Design direction (not a task — a reference for later visual passes)
+## Design direction (historical — fully shipped as Phase 12, closed
+
+2026-09-02 with 12.7's phone layout)
+
+Everything below was the reasoning trail that led to
+`design_handoff_map_first_planner/README.md` and, from there, to Phase 12 in
+WORK.md — the map-dominant shell, the unified pin-click card, wishlist pins
+on the map, the wishlist carousel, the access-point picking mode, and the
+phone layout. Kept intact as the record of _why_ those decisions were made
+(the resolved questions below in particular), not because anything here is
+still open.
 
 - [ ] **Move the whole GUI toward a more visual, less technical feel**,
       inspired by a reference screenshot the author liked (a Google Maps

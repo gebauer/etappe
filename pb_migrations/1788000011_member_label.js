@@ -16,7 +16,13 @@ migrate(
     members.fields.push(new Field({ name: 'label', type: 'text' }));
     app.save(members);
 
-    for (const row of app.findRecordsByFilter('trip_members', '1=1', '', 0, 0)) {
+    for (const row of app.findRecordsByFilter(
+      'trip_members',
+      '1=1',
+      '',
+      0,
+      0,
+    )) {
       try {
         const user = app.findRecordById('users', row.get('user'));
         row.set('label', user.get('email'));

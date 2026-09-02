@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type TouchEvent } from 'react';
 import { pb } from '../lib/pb';
 import { renderMarkdown } from '../lib/markdown';
 import { blockFileUrl, type BlockKind } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
+import { formatDuration } from '../lib/format';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
 import type { PlaceResult } from '../lib/photon';
 import type { StopPatch } from '../lib/pb-stops';
@@ -73,6 +74,12 @@ interface Props {
   onAddCost: (cost: NewCost) => void;
   onDeleteCost: (costId: string) => void;
   openKindPickerSignal?: number;
+  /** WORK 12.7 — the compact bottom-sheet strip instead of the docked card.
+   * A prop, not an internal media query: `TripEditor` already knows the
+   * breakpoint (it decides whether to mount `PinCard` or nothing at all
+   * for the wishlist panel), and one source of truth is simpler than two
+   * components independently asking the same question. */
+  phone?: boolean;
 }
 
 const BTN = 'h-[34px] whitespace-nowrap rounded-lg px-3 text-[13px]';
@@ -114,6 +121,7 @@ export function PinCard({
   onAddCost,
   onDeleteCost,
   openKindPickerSignal,
+  phone = false,
 }: Props) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
@@ -178,8 +186,229 @@ export function PinCard({
       : `${kindLabel(target.place?.kind ?? 'uncategorized')} · ${coords}`;
   }
 
+  function renderActions() {
+    return (
+      <div className="flex flex-none items-center gap-2.5 border-t border-[oklch(0.28_0.012_250)] bg-surface-3 px-4 py-[11px]">
+        {target.type === 'stop' && (
+          <>
+            <button
+              onClick={onToggleEdit}
+              className={editing ? PRIMARY : GHOST}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
+            <button onClick={onOpenDetails} className={GHOST}>
+              All details
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={onDowngrade}
+                title="Move back to wishlist"
+                className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
+              >
+                ♻
+              </button>
+              <button
+                onClick={() =>
+                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
+                }
+                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
+                className={`${ICON_BTN} border ${
+                  confirmingRemove
+                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                    : 'border-border-strong text-text-2 hover:bg-control'
+                }`}
+              >
+                🗑
+              </button>
+            </div>
+          </>
+        )}
+
+        {target.type === 'wish' && (
+          <>
+            <button
+              onClick={onToggleEdit}
+              className={editing ? PRIMARY : GHOST}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
+            <button onClick={onOpenDetails} className={GHOST}>
+              All details
+            </button>
+            {located ? (
+              <button onClick={onAddToItinerary} className={GHOST}>
+                Add to itinerary
+              </button>
+            ) : (
+              <button
+                onClick={onSetLocation}
+                title="Geocoding found nothing for this one — click the map to say where it is"
+                className={PRIMARY}
+              >
+                Set location on the map
+              </button>
+            )}
+            <button
+              onClick={() =>
+                confirmingRemove ? onDelete() : setConfirmingRemove(true)
+              }
+              className={`${ICON_BTN} ml-auto border ${
+                confirmingRemove
+                  ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                  : 'border-border-strong text-text-2 hover:bg-control'
+              }`}
+            >
+              🗑
+            </button>
+          </>
+        )}
+
+        {target.type === 'empty' && (
+          <>
+            <button onClick={onAddWishlist} className={PRIMARY}>
+              + Wishlist
+            </button>
+            <button onClick={onAddDay} className={GHOST}>
+              + Day
+            </button>
+            <button onClick={onClose} className={`${GHOST} ml-auto`}>
+              Dismiss
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // WORK 12.7: a compact bottom sheet, not the full-bleed card — the map
+  // has to stay visible and readable behind it. Reuses every computed value
+  // and handler above; only the layout differs, so a fix to the desktop
+  // card's action bar or edit region (`renderActions`, `PinCardEdit`)
+  // reaches this without a second edit.
+  if (phone) {
+    let touchStartX: number | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0]?.clientX ?? null;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchStartX == null || !hasNav) return;
+      const dx = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+      touchStartX = null;
+      // >40px threshold (design handoff): left = next, right = previous.
+      if (Math.abs(dx) > 40) onStep(dx < 0 ? 1 : -1);
+    };
+
+    return (
+      <div
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        // `absolute`, not `fixed` — this sits inside the map's own relative
+        // wrapper (TripEditor), which is only the top 58% of the viewport
+        // on phone. `fixed` would anchor it to the *screen* bottom instead,
+        // covering the itinerary column rather than sitting at the bottom
+        // of the map above it.
+        className="absolute inset-x-0 bottom-0 z-30 flex max-h-[76vh] flex-col overflow-hidden rounded-t-2xl border-t border-border-strong bg-[oklch(0.215_0.012_250/0.97)] font-sans text-text shadow-phone-card backdrop-blur-[14px]"
+      >
+        <div className="flex flex-none items-center gap-[11px] px-[11px] py-2.5">
+          <span
+            className={`relative h-[46px] w-[46px] flex-none overflow-hidden rounded-[9px] border bg-control ${
+              target.type === 'wish'
+                ? 'border-wishlist'
+                : 'border-[oklch(0.33_0.012_250)]'
+            }`}
+          >
+            {coverSrc && (
+              <img
+                src={coverSrc}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-semibold">
+              {title}
+            </span>
+            <span className="mt-0.5 block truncate text-[11.5px] text-text-4">
+              {subtitle}
+            </span>
+          </span>
+          {target.type === 'stop' && target.timing && (
+            <span className="flex-none text-right font-mono text-[13px] text-[oklch(0.84_0.008_250)]">
+              <span className="block">
+                {formatClock(target.timing.arrival)}
+              </span>
+              <span className="block text-[11px] text-[oklch(0.60_0.01_250)]">
+                {formatDuration(target.timing.dwell)}
+              </span>
+            </span>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-[oklch(0.26_0.013_250)] text-text-2"
+          >
+            ✕
+          </button>
+        </div>
+
+        {hasNav && (
+          <div className="flex flex-none items-center gap-2 px-[11px] pb-2.5">
+            <button
+              onClick={() => onStep(-1)}
+              aria-label="Previous"
+              className="h-[30px] w-[30px] flex-none rounded-lg border border-border-strong text-text-2"
+            >
+              ‹
+            </button>
+            <span className="flex flex-1 items-center justify-center gap-[7px] whitespace-nowrap font-mono text-[10.5px] tracking-[0.06em] text-text-3">
+              <span>{navLabel}</span>
+              <span className="inline-flex animate-om-nudge text-[13px] leading-none">
+                ›
+              </span>
+            </span>
+            <button
+              onClick={() => onStep(1)}
+              aria-label="Next"
+              className="h-[30px] w-[30px] flex-none rounded-lg border border-border-strong text-text-2"
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+        {editing && (target.type === 'stop' || target.type === 'wish') && (
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden border-t border-[oklch(0.28_0.012_250)] px-[11px] py-3">
+            <PinCardEdit
+              key={
+                target.type === 'stop'
+                  ? `${target.stop.id}:${target.stop.updated}`
+                  : `${target.item.id}:${target.item.updated}`
+              }
+              stop={target.type === 'stop' ? target.stop : target.item}
+              isWish={target.type === 'wish'}
+              onUpdate={onUpdateStop}
+              onPlaceAccessPoint={onPlaceAccessPoint}
+              onClearAccessPoint={onClearAccessPoint}
+              onAddBlock={onAddBlock}
+              onAddPrivateNote={onAddPrivateNote}
+              openKindPickerSignal={openKindPickerSignal}
+            />
+          </div>
+        )}
+
+        {renderActions()}
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed bottom-3.5 left-3.5 z-30 flex max-h-[calc(100vh-140px)] w-[min(382px,calc(100vw-28px))] flex-col overflow-hidden rounded-[14px] border border-border-strong bg-surface-4 font-sans text-text shadow-card">
+    // `absolute` within the map's relative wrapper, not `fixed` — same
+    // reasoning as the phone branch above; on desktop the wrapper spans the
+    // same box the viewport-fixed version used to assume, so this is a
+    // no-op there and a correctness fix on phone.
+    <div className="absolute bottom-3.5 left-3.5 z-30 flex max-h-[calc(100vh-140px)] w-[min(382px,calc(100vw-28px))] flex-col overflow-hidden rounded-[14px] border border-border-strong bg-surface-4 font-sans text-text shadow-card">
       <div className="relative h-[158px] flex-none bg-control">
         {coverSrc ? (
           <img
@@ -356,96 +585,7 @@ export function PinCard({
         )}
       </div>
 
-      <div className="flex flex-none items-center gap-2.5 border-t border-[oklch(0.28_0.012_250)] bg-surface-3 px-4 py-[11px]">
-        {target.type === 'stop' && (
-          <>
-            <button
-              onClick={onToggleEdit}
-              className={editing ? PRIMARY : GHOST}
-            >
-              {editing ? 'Done' : 'Edit'}
-            </button>
-            <button onClick={onOpenDetails} className={GHOST}>
-              All details
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={onDowngrade}
-                title="Move back to wishlist"
-                className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
-              >
-                ♻
-              </button>
-              <button
-                onClick={() =>
-                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
-                }
-                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
-                className={`${ICON_BTN} border ${
-                  confirmingRemove
-                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                    : 'border-border-strong text-text-2 hover:bg-control'
-                }`}
-              >
-                🗑
-              </button>
-            </div>
-          </>
-        )}
-
-        {target.type === 'wish' && (
-          <>
-            <button
-              onClick={onToggleEdit}
-              className={editing ? PRIMARY : GHOST}
-            >
-              {editing ? 'Done' : 'Edit'}
-            </button>
-            <button onClick={onOpenDetails} className={GHOST}>
-              All details
-            </button>
-            {located ? (
-              <button onClick={onAddToItinerary} className={GHOST}>
-                Add to itinerary
-              </button>
-            ) : (
-              <button
-                onClick={onSetLocation}
-                title="Geocoding found nothing for this one — click the map to say where it is"
-                className={PRIMARY}
-              >
-                Set location on the map
-              </button>
-            )}
-            <button
-              onClick={() =>
-                confirmingRemove ? onDelete() : setConfirmingRemove(true)
-              }
-              className={`${ICON_BTN} ml-auto border ${
-                confirmingRemove
-                  ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                  : 'border-border-strong text-text-2 hover:bg-control'
-              }`}
-            >
-              🗑
-            </button>
-          </>
-        )}
-
-        {target.type === 'empty' && (
-          <>
-            <button onClick={onAddWishlist} className={PRIMARY}>
-              + Wishlist
-            </button>
-            <button onClick={onAddDay} className={GHOST}>
-              + Day
-            </button>
-            <button onClick={onClose} className={`${GHOST} ml-auto`}>
-              Dismiss
-            </button>
-          </>
-        )}
-      </div>
+      {renderActions()}
     </div>
   );
 }

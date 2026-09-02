@@ -24,16 +24,19 @@ live Photon instance never returns a `wikidata` tag).
 full multi-day §8 import wizard, which is now deferred) — see Phase 12
 below. `design_handoff_map_first_planner/README.md` is the pixel-accurate
 spec; it formalizes and supersedes `ToDo.md`'s "Design direction" notes.
-12.1–12.6 are done plus 12.8 (wishlist photos stored server-side), 12.9
-(access-point picking mode) and 12.10 (wishlist carousel + persistent
-starring) — the redesign's desktop shell is in: design tokens,
-unified pin-click card, expanded full-details card, pin visuals, day
-pills/Fit trip, the map-dominant shell itself, the access-point picking
-mode and the wishlist "photo wheel".
+**Phase 12 (map-first redesign) is done — every task, 12.1 through 12.11.**
+The desktop shell: design tokens, unified pin-click card, expanded
+full-details card, pin visuals, day pills/Fit trip, the map-dominant shell
+itself, the access-point picking mode (12.9) and the wishlist "photo
+wheel" (12.10). 12.7 (phone layout, 2026-09-02) closed the phase: the
+shell reflows below 860px, the docked card becomes a compact bottom sheet,
+and the header's Search/Import/Share/Export group — the thing actually
+overflowing the phone viewport — hides below the breakpoint. 12.11
+(cleanup) found nothing to remove and closed the two open doc items.
 The handoff was revised 2026-09-01 (`design_handoff_map_first_planner`,
 in place — the old copy is superseded) with two new surfaces: a built
 wishlist carousel and a proper access-point picking mode — 12.10 and 12.9,
-now both done.
+done then; 12.7/12.11 finished the phase a day later.
 **Phase 13 (day-start continuity — a day leaves from the previous day's
 accommodation via a routed leading leg) is done: 13.1 schema+cascade, 13.2
 leg lifecycle+routing, 13.3 rendering+editor.**
@@ -52,8 +55,7 @@ protects them, the UI doesn't yet reflect it). 16.7 is the entry surface
 phase 11.1 needs. 16.8 (skip on wishlist-import dedup) and 16.9 (a routing
 kind that forces a leg through a stop with no dwell) added 2026-09-02 and
 done.**
-**→ Next, in order: 12.7 (phone layout, also what fixes the
-sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15.**
+**→ Next, in order: Phase 15 (wishlist contributor attribution).**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -403,12 +405,16 @@ count → commit. Cancellable at every step, atomic on commit.
 
 ## Phase 9 — Share and print
 
-**9.1 Share endpoint** · Standard
+**9.1 Share endpoint** · Standard · ✅
 `pb_hooks/share.js` assembling the public payload server-side. No collection
 rules involved. Token regeneration and an enable toggle.
+Built as `pb_hooks/share.pb.js`, as part of WORK 16.6 rather than reached
+in phase order — see that task for the detail.
 
-**9.2 Share view** · Standard
+**9.2 Share view** · Standard · ✅
 Read-only, unauthenticated, same cascade output, public blocks only.
+Built as `src/components/ShareView.tsx` + `src/lib/share-doc.ts`, as part
+of WORK 16.6.
 
 **9.3 Print stylesheet** · Standard
 One page per day, MapLibre canvas to PNG per day, attribution block, private-
@@ -666,7 +672,7 @@ no file, so those pins stay colour-only until re-imported or a backfill is
 added. `pendingPhotoBlocks()` in `src/lib/pb-photo-fetch.ts` exists for
 that; wiring a "fetch missing photos" action is not built.
 
-**12.7 Phone layout** · Standard
+**12.7 Phone layout** · Standard · ✅
 `<860px`: map takes `flex:0 0 58%`, itinerary column fills the rest below
 it, day pills/wishlist panel/desktop card all suppressed. Compact phone
 card (not the full card) with horizontal swipe navigation (>40px
@@ -674,7 +680,75 @@ threshold, same step function as the desktop card's `‹`/`›`) and a looping
 chevron nudge as the discoverability cue; edit region uses 44px targets.
 Drag-to-expand and a rubber-band swipe transform are explicitly not built.
 
-**12.9 Access-point picking mode** · Standard
+**Built as:** verified directly against the live prototype
+(`Etappe Redesign.dc.html`, served locally and driven in a real browser at
+390px) rather than only the README prose, which turned out to have drifted
+in one place — the prototype's own code keeps day pills visible on phone
+(no phone-conditional in its `dayPills` styling) even though the prose says
+they're suppressed; the pills are the only way to switch days on a screen
+with no other affordance for it, so the working code wins and the README's
+paraphrase is what's stale.
+- `useIsPhone()` (`src/hooks/useIsPhone.ts`) is the one JS seam — a
+  `matchMedia` hook — for the handful of things pure CSS can't do
+  (mounting the phone card instead of the docked one; the wishlist panel
+  and carousel not existing at all below the breakpoint, not just being
+  restyled). The shell's own column/grid split needed no JS at all: a
+  `flex-col desktop:grid` container plus `[flex:0_0_58%]` on the map
+  wrapper is inert once the parent becomes a grid, so one class list
+  serves both widths.
+- The compact phone card lives inside `PinCard` itself (a `phone` prop, an
+  early-return branch), not a separate component — it reuses every
+  computed value (title, subtitle, cover photo) and, via an extracted
+  `renderActions()`, the *exact* action-bar JSX and handlers the desktop
+  card uses, so a future change to what a stop's actions are can't drift
+  between the two. The edit region reuses `PinCardEdit` unchanged; its
+  44px-target requirement turned out to need zero new code because
+  `PinCardEdit` is only ever rendered from `PinCard` — making its field
+  height `h-11 desktop:h-9` satisfies the phone spec and the desktop one
+  from the same class list, the same trick as the shell.
+  Deliberate deviation from the prototype: its snapshot of the edit form
+  (Title/Kind/Dwell/Anchor + block buttons) predates 16.1 and 16.9, so
+  copying it would have *regressed* phone editing below what the app can
+  already do. The phone card gets the current `PinCardEdit` — routing
+  point, costs, private notes, all of it — not the 2026-08 mockup.
+- Positioning bug caught before commit: the docked/phone card used to be
+  `fixed` to the viewport, harmless on desktop (the map fills the viewport
+  below the header) but wrong on phone, where the map is only the top 58%
+  — a `fixed bottom-0` card would sit at the *screen* bottom, over the
+  itinerary column, not at the bottom of the map above it. Moved the
+  card's mount point to be a child of the map's own relative wrapper and
+  switched `fixed` → `absolute` on both branches; a no-op on desktop,
+  correct on phone. Confirmed in a screenshot that the itinerary list is
+  fully visible below the card, not covered.
+- The header overflowed the phone viewport by ~130px — measured, not
+  guessed (`document.body.scrollWidth` vs `window.innerWidth`), and the
+  overflowing element was exactly the Search/Import/Share/Export button
+  group, none of which shrink or wrap. Hidden below the breakpoint: none
+  of the four are things a phone companion view needs permanently on
+  screen (search-and-place, importing, sharing settings, exporting are all
+  planning-desk actions), and hiding them is also literally the fix for
+  the overflow. This is the rest of the "phone width breaks the header
+  first" friction the avatar fix (already shipped) only partly addressed.
+- `PinCardExpanded` ("All details") was not rebuilt for phone — its fixed
+  46%/54% two-column split doesn't fit a ~334px modal at all, and the
+  handoff calls a phone-specific version "not built" outright. The cheap
+  half of that gap is closed anyway: the two columns now stack
+  (`flex-col desktop:flex-row`) instead of squeezing into two ~160px
+  slivers, so it's usable rather than broken. Known remaining rough edge,
+  not fixed: the ARRIVE/DEPART cells' native `<input type="time">` clips
+  its own text at ~96px column width in a 3-column row — a browser
+  rendering limit on the native control, not a layout bug, and out of
+  proportion to fix here (would mean a custom time input).
+- Swipe: the touch handlers (`onTouchStart`/`onTouchEnd`, 40px threshold,
+  calling the same `onStep` the `‹`/`›` buttons use) were code-reviewed and
+  the `onStep` path itself was verified working via those buttons.
+  Synthesizing a real touch gesture through headless Chromium/CDP for an
+  end-to-end check did not work reliably in this harness — a known
+  limitation of touch-event simulation, not evidence against the code — so
+  the gesture itself is unverified in the browser, only reasoned to be
+  correct from reading it.
+
+**12.9 Access-point picking mode** · Standard · ✅
 Revised handoff: `Set on map` is unusable from the `All details` modal (it
 covers the map), and even from the inline card you aim at a country-scale
 view with no help finding a car park. Replaces the thin `placingAccessFor`
@@ -753,11 +827,32 @@ Built as specced. Notes:
   errors. Screenshots taken, not committed. The stale `run-etappe` driver
   (still expects the pre-12.5 "+ Day" button) was not touched — see below.
 
-**12.11 Cleanup and polish** · Cheap
+**12.11 Cleanup and polish** · Cheap · ✅
 Dead-code removal for everything retired in 12.5/12.6, keyboard shortcuts
 re-verified (`k` still opens the kind picker from the card), `npm run
 check` and `npm run format:check`, this file and `ToDo.md` updated to
 reflect the shipped design. (Renumbered from a second "12.8" heading.)
+
+**Done, 2026-09-02, closing out Phase 12:**
+- Dead-code sweep: grepped for every name WORK.md's own notes call out as
+  retired (`DayRail`, `WishlistPreview`, `placingAccessFor`, BUILD §5.3's
+  marker-tier system) and cross-checked every component file has at least
+  one real importer. Nothing found — the only hits were doc comments
+  narrating the history, which is what they're for, not code.
+- `k` still opens the kind picker (verified by reading the handler, and
+  incidentally exercised live during 16.9's browser check).
+- `npm run check` and `npm run format:check` both clean (258 tests).
+- `ToDo.md` updated: the "Design direction" section (the reasoning trail
+  that led to the handoff) marked historical now that 12.7 closed the
+  phase it was building toward; its resolved-question sub-notes kept
+  intact rather than deleted, since they're the record of *why*, not
+  open work. Two items genuinely still open there and left as such:
+  no confirm/undo before deleting a stop (row ✕, Delete key — every
+  *other* delete in the app now confirms: wishlist 14.3, a day 16.2,
+  this one never did), and re-adding leg-direction arrows. Both are real
+  gaps, deliberately not folded into this cleanup task — a new
+  confirmation dialog is a feature, not dead-code removal, and doesn't
+  belong in a "Cheap" task picked up on the way past.
 
 ---
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
+import { useIsPhone } from '../hooks/useIsPhone';
 import { insertDay, deleteDay } from '../lib/pb-days';
 import { addCost, deleteCost, type NewCost } from '../lib/pb-costs';
 import { costsFor } from '../lib/costs';
@@ -108,6 +109,7 @@ export function TripEditor({
 }) {
   const { records, result, error, reload } = useTripEditor(tripId);
   const { user } = useAuth();
+  const phone = useIsPhone();
   const routing = useMemo(() => createPocketBaseRouting(pb), []);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(
@@ -1203,60 +1205,71 @@ export function TripEditor({
           </button>
         )}
         <div className="ml-auto flex flex-none items-center gap-2">
-          <button
-            onClick={() => setSearchMode('placement')}
-            title="Search places (⌘K)"
-            className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
-          >
-            Search
-          </button>
-          <button
-            onClick={() => setShowHighlightsImport(true)}
-            title="Import highlights from pasted JSON"
-            className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
-          >
-            Import
-          </button>
-          <div className="relative">
+          {/* WORK 12.7: these are planning-desk actions — search-and-place,
+              importing a list, configuring who a trip is shared with,
+              exporting it — not things a phone companion view needs
+              permanently on screen. Hiding them below 860px is also the fix
+              for the header overflowing the viewport at phone widths (this
+              group was the entire 130px of it, measured): four buttons in
+              a row that never wrapped or shrank. The avatar (outside this
+              group) is unaffected and was already the fix for the same
+              friction with the trip title/email. */}
+          <div className="hidden items-center gap-2 desktop:flex">
             <button
-              onClick={() => setShareOpen(true)}
-              title="Share this trip with people, or publish a read-only link"
+              onClick={() => setSearchMode('placement')}
+              title="Search places (⌘K)"
               className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
             >
-              Share
+              Search
             </button>
             <button
-              onClick={() => setExportOpen((open) => !open)}
-              title="Download this trip as JSON"
+              onClick={() => setShowHighlightsImport(true)}
+              title="Import highlights from pasted JSON"
               className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
             >
-              Export
+              Import
             </button>
-            {exportOpen && (
-              <div
-                onMouseLeave={() => setExportOpen(false)}
-                className="absolute right-0 top-[34px] z-40 w-56 overflow-hidden rounded-lg border border-border-strong bg-surface-2 py-1 shadow-card"
+            <div className="relative">
+              <button
+                onClick={() => setShareOpen(true)}
+                title="Share this trip with people, or publish a read-only link"
+                className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
               >
-                <button
-                  onClick={() => doExport('trip')}
-                  className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
+                Share
+              </button>
+              <button
+                onClick={() => setExportOpen((open) => !open)}
+                title="Download this trip as JSON"
+                className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+              >
+                Export
+              </button>
+              {exportOpen && (
+                <div
+                  onMouseLeave={() => setExportOpen(false)}
+                  className="absolute right-0 top-[34px] z-40 w-56 overflow-hidden rounded-lg border border-border-strong bg-surface-2 py-1 shadow-card"
                 >
-                  Whole trip
-                  <span className="mt-0.5 block text-[11px] text-text-4">
-                    days, stops, legs, notes and links
-                  </span>
-                </button>
-                <button
-                  onClick={() => doExport('wishlist')}
-                  className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
-                >
-                  Wishlist only
-                  <span className="mt-0.5 block text-[11px] text-text-4">
-                    the Highlights format — pastes back into Import
-                  </span>
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={() => doExport('trip')}
+                    className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
+                  >
+                    Whole trip
+                    <span className="mt-0.5 block text-[11px] text-text-4">
+                      days, stops, legs, notes and links
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => doExport('wishlist')}
+                    className="block w-full px-3 py-2 text-left text-[13px] text-text-2 hover:bg-control"
+                  >
+                    Wishlist only
+                    <span className="mt-0.5 block text-[11px] text-text-4">
+                      the Highlights format — pastes back into Import
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {/* The email never renders as text at any width — the fix for the
               known "phone width breaks the header first" friction. */}
@@ -1280,8 +1293,8 @@ export function TripEditor({
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_400px]">
-        <div className="relative min-h-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col desktop:grid desktop:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="relative min-h-0 flex-none overflow-hidden border-b border-border [flex:0_0_58%] desktop:flex-1 desktop:border-b-0">
           <MapPane
             records={records}
             result={result}
@@ -1374,7 +1387,7 @@ export function TripEditor({
           {/* Wishlist fallback list, the carousel and the card all share the
               bottom-left slot; the card wins, then the carousel (design
               handoff). Everything here hides while picking. */}
-          {!cardOpen && !picking && !browsing && (
+          {!cardOpen && !picking && !browsing && !phone && (
             <div className="absolute bottom-3.5 left-3.5 z-10">
               <WishlistPanel
                 items={wishlist}
@@ -1395,7 +1408,7 @@ export function TripEditor({
             </div>
           )}
 
-          {browsing && !cardOpen && !picking && (
+          {browsing && !cardOpen && !picking && !phone && (
             <WishlistCarousel
               items={wishlist}
               order={wishChain}
@@ -1415,9 +1428,149 @@ export function TripEditor({
               }}
             />
           )}
+          {cardTarget && !picking && (
+            <PinCard
+              phone={phone}
+              target={cardTarget}
+              blocks={
+                cardTarget.type === 'stop'
+                  ? blocksFor(records.blocks, 'stop', cardTarget.stop.id)
+                  : cardTarget.type === 'wish'
+                    ? blocksFor(records.blocks, 'poi', cardTarget.item.id)
+                    : []
+              }
+              editing={editing}
+              onToggleEdit={() => setEditing((v) => !v)}
+              onClose={closeCard}
+              onStep={stepCard}
+              onOpenDetails={() => setExpanded(true)}
+              onRemove={() => {
+                if (cardTarget.type === 'stop')
+                  deleteOneStop(cardTarget.stop.id);
+                closeCard();
+              }}
+              onDowngrade={() => {
+                if (cardTarget.type === 'stop')
+                  downgradeStop(cardTarget.stop.id);
+                closeCard();
+              }}
+              onAddToItinerary={() => {
+                if (cardTarget.type === 'wish')
+                  placeWishlistItem(cardTarget.item);
+                closeCard();
+              }}
+              onEditTiming={(cell, value) => {
+                if (cardTarget.type === 'stop') {
+                  editTiming(cardTarget.stop.id, cell, value);
+                }
+              }}
+              timingFlashStopId={timingFlash}
+              onSetLocation={() => {
+                if (cardTarget.type !== 'wish') return;
+                setPlacingWish({
+                  id: cardTarget.item.id,
+                  title: cardTarget.item.title,
+                });
+                closeCard();
+              }}
+              onDelete={() => {
+                if (cardTarget.type === 'wish')
+                  deleteWishlist(cardTarget.item.id);
+                closeCard();
+              }}
+              onAddWishlist={() => {
+                if (cardTarget.type === 'empty') {
+                  commitWishlistPick({
+                    name: cardTarget.place?.name ?? 'Dropped pin',
+                    kind: cardTarget.place?.kind ?? 'uncategorized',
+                    lat: cardTarget.lat,
+                    lon: cardTarget.lon,
+                  });
+                }
+                closeCard();
+              }}
+              onAddDay={() => {
+                if (cardTarget.type === 'empty') {
+                  beginCapture({
+                    name: cardTarget.place?.name ?? 'Dropped pin',
+                    kind: cardTarget.place?.kind ?? 'uncategorized',
+                    lat: cardTarget.lat,
+                    lon: cardTarget.lon,
+                  });
+                }
+                setEmptyCard(null);
+                setEditing(false);
+              }}
+              onUpdateStop={(patch) => {
+                if (cardTarget.type === 'wish') {
+                  const id = cardTarget.item.id;
+                  void run(async () => {
+                    await updatePoi(pb, id, patch);
+                    await reloadWishlist();
+                  });
+                  return;
+                }
+                if (cardTarget.type === 'stop')
+                  handleUpdateStop(cardTarget.stop.id, patch);
+              }}
+              onPlaceAccessPoint={() => {
+                if (cardTarget.type === 'stop')
+                  startPlacingAccessPoint(cardTarget.stop.id);
+              }}
+              onClearAccessPoint={() => {
+                if (cardTarget.type === 'stop')
+                  clearAccessPoint(cardTarget.stop.id);
+              }}
+              onAddBlock={(kind) => {
+                if (cardTarget.type === 'stop')
+                  blockHandlers.onAddBlock(cardTarget.stop.id, kind);
+                else if (cardTarget.type === 'wish')
+                  blockHandlers.onAddBlock(cardTarget.item.id, kind, 'poi');
+              }}
+              costs={
+                cardTarget.type === 'stop'
+                  ? costsFor(records.costs, 'stop', cardTarget.stop.id)
+                  : cardTarget.type === 'wish'
+                    ? costsFor(records.costs, 'poi', cardTarget.item.id)
+                    : []
+              }
+              currency={trip.currency}
+              onAddCost={(cost: NewCost) => {
+                const parent =
+                  cardTarget.type === 'stop'
+                    ? ({ type: 'stop', id: cardTarget.stop.id } as const)
+                    : cardTarget.type === 'wish'
+                      ? ({ type: 'poi', id: cardTarget.item.id } as const)
+                      : null;
+                if (parent) {
+                  void run(() =>
+                    addCost(pb, tripId, parent, cost, trip.currency),
+                  );
+                }
+              }}
+              onDeleteCost={(costId) => void run(() => deleteCost(pb, costId))}
+              onAddPrivateNote={() => {
+                if (cardTarget.type === 'stop')
+                  blockHandlers.onAddBlock(
+                    cardTarget.stop.id,
+                    'note',
+                    'stop',
+                    'private',
+                  );
+                else if (cardTarget.type === 'wish')
+                  blockHandlers.onAddBlock(
+                    cardTarget.item.id,
+                    'note',
+                    'poi',
+                    'private',
+                  );
+              }}
+              openKindPickerSignal={kindPickerSignal}
+            />
+          )}
         </div>
 
-        <aside className="min-h-0 border-l border-border">
+        <aside className="min-h-0 flex-1 border-border desktop:border-l">
           <Timeline
             trip={trip}
             day={activeDay}
@@ -1592,139 +1745,6 @@ export function TripEditor({
             setAccommodationAsk(null);
           }}
           onDismiss={() => setAccommodationAsk(null)}
-        />
-      )}
-      {cardTarget && !picking && (
-        <PinCard
-          target={cardTarget}
-          blocks={
-            cardTarget.type === 'stop'
-              ? blocksFor(records.blocks, 'stop', cardTarget.stop.id)
-              : cardTarget.type === 'wish'
-                ? blocksFor(records.blocks, 'poi', cardTarget.item.id)
-                : []
-          }
-          editing={editing}
-          onToggleEdit={() => setEditing((v) => !v)}
-          onClose={closeCard}
-          onStep={stepCard}
-          onOpenDetails={() => setExpanded(true)}
-          onRemove={() => {
-            if (cardTarget.type === 'stop') deleteOneStop(cardTarget.stop.id);
-            closeCard();
-          }}
-          onDowngrade={() => {
-            if (cardTarget.type === 'stop') downgradeStop(cardTarget.stop.id);
-            closeCard();
-          }}
-          onAddToItinerary={() => {
-            if (cardTarget.type === 'wish') placeWishlistItem(cardTarget.item);
-            closeCard();
-          }}
-          onEditTiming={(cell, value) => {
-            if (cardTarget.type === 'stop') {
-              editTiming(cardTarget.stop.id, cell, value);
-            }
-          }}
-          timingFlashStopId={timingFlash}
-          onSetLocation={() => {
-            if (cardTarget.type !== 'wish') return;
-            setPlacingWish({
-              id: cardTarget.item.id,
-              title: cardTarget.item.title,
-            });
-            closeCard();
-          }}
-          onDelete={() => {
-            if (cardTarget.type === 'wish') deleteWishlist(cardTarget.item.id);
-            closeCard();
-          }}
-          onAddWishlist={() => {
-            if (cardTarget.type === 'empty') {
-              commitWishlistPick({
-                name: cardTarget.place?.name ?? 'Dropped pin',
-                kind: cardTarget.place?.kind ?? 'uncategorized',
-                lat: cardTarget.lat,
-                lon: cardTarget.lon,
-              });
-            }
-            closeCard();
-          }}
-          onAddDay={() => {
-            if (cardTarget.type === 'empty') {
-              beginCapture({
-                name: cardTarget.place?.name ?? 'Dropped pin',
-                kind: cardTarget.place?.kind ?? 'uncategorized',
-                lat: cardTarget.lat,
-                lon: cardTarget.lon,
-              });
-            }
-            setEmptyCard(null);
-            setEditing(false);
-          }}
-          onUpdateStop={(patch) => {
-            if (cardTarget.type === 'wish') {
-              const id = cardTarget.item.id;
-              void run(async () => {
-                await updatePoi(pb, id, patch);
-                await reloadWishlist();
-              });
-              return;
-            }
-            if (cardTarget.type === 'stop')
-              handleUpdateStop(cardTarget.stop.id, patch);
-          }}
-          onPlaceAccessPoint={() => {
-            if (cardTarget.type === 'stop')
-              startPlacingAccessPoint(cardTarget.stop.id);
-          }}
-          onClearAccessPoint={() => {
-            if (cardTarget.type === 'stop')
-              clearAccessPoint(cardTarget.stop.id);
-          }}
-          onAddBlock={(kind) => {
-            if (cardTarget.type === 'stop')
-              blockHandlers.onAddBlock(cardTarget.stop.id, kind);
-            else if (cardTarget.type === 'wish')
-              blockHandlers.onAddBlock(cardTarget.item.id, kind, 'poi');
-          }}
-          costs={
-            cardTarget.type === 'stop'
-              ? costsFor(records.costs, 'stop', cardTarget.stop.id)
-              : cardTarget.type === 'wish'
-                ? costsFor(records.costs, 'poi', cardTarget.item.id)
-                : []
-          }
-          currency={trip.currency}
-          onAddCost={(cost: NewCost) => {
-            const parent =
-              cardTarget.type === 'stop'
-                ? ({ type: 'stop', id: cardTarget.stop.id } as const)
-                : cardTarget.type === 'wish'
-                  ? ({ type: 'poi', id: cardTarget.item.id } as const)
-                  : null;
-            if (parent) {
-              void run(() => addCost(pb, tripId, parent, cost, trip.currency));
-            }
-          }}
-          onDeleteCost={(costId) => void run(() => deleteCost(pb, costId))}
-          onAddPrivateNote={() => {
-            if (cardTarget.type === 'stop')
-              blockHandlers.onAddBlock(
-                cardTarget.stop.id,
-                'note',
-                'stop',
-                'private',
-              );
-            else if (cardTarget.type === 'wish')
-              blockHandlers.onAddBlock(
-                cardTarget.item.id,
-                'note',
-                'poi',
-                'private',
-              );
-          }}
-          openKindPickerSignal={kindPickerSignal}
         />
       )}
       {expanded && !picking && cardTarget?.type === 'wish' && (

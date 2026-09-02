@@ -12,8 +12,13 @@ function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
 
 const LABEL =
   'mb-1.5 block text-[11px] uppercase tracking-[0.07em] text-text-4';
+// 44px on phone, the design handoff's touch-target minimum (WORK 12.7);
+// 36px at desktop widths, unchanged from before. This is the only place
+// PinCardEdit is used, whether the docked desktop card or the compact
+// phone strip renders it, so the responsive height alone is enough — no
+// separate "phone mode" prop needed here.
 const FIELD =
-  'h-9 w-full rounded-lg border border-border-strong bg-field px-[11px] text-text outline-none focus:border-accent';
+  'h-11 desktop:h-9 w-full rounded-lg border border-border-strong bg-field px-[11px] text-text outline-none focus:border-accent';
 
 const BLOCK_KINDS: BlockKind[] = ['note', 'link', 'photo', 'file'];
 
