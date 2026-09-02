@@ -2,6 +2,7 @@ import { pb } from '../lib/pb';
 import { firstPhotoUrl } from '../lib/pb-blocks';
 import type { BlocksResponse, PoisResponse } from '../types/pb';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
+import { ContributorChip } from './ContributorMark';
 
 interface Props {
   items: PoisResponse[];
@@ -105,6 +106,7 @@ export function WishlistPanel({
                     {TAXONOMY[item.kind as Kind]?.label ?? item.kind}
                   </span>
                 </span>
+                <ContributorChip poi={item} />
               </button>
             );
           })}

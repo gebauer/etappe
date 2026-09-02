@@ -72,8 +72,11 @@ collapse, phone wishlist-carousel reachability (an explicit reversal of
 12.7's "no wishlist on phone"), daylight wording split by dawn/dusk, cost
 marks on itinerary rows, and Fit trip → trip overview. See each entry
 below.**
-**→ Next: Phase 15 (wishlist contributor attribution), which was next
-before this phase interrupted it.**
+**Phase 15 (wishlist contributor attribution) also done 2026-09-02 —
+15.1 (schema + per-user colour, snapshotted onto each poi) and 15.2 (the
+chip + two pills on the panel, carousel and docked card).**
+**→ Next: nothing queued. `design_handoff_map_first_planner(9)/` is fully
+absorbed; `ToDo.md` may have loose ends worth a pass.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1193,6 +1196,8 @@ current data.
 
 ## Phase 15 — Wishlist contributor attribution
 
+**Done 2026-09-02 (15.1 + 15.2).**
+
 Source: a 2026-09-01 revision of the design handoff
 (`design_handoff_map_first_planner/README.md`, "Contributor identity" in
 State management, plus `CLAUDE_CODE_PROMPT.md`'s "Collaboration
@@ -1224,21 +1229,38 @@ the candidate list is personal.
     right-aligned — dot + nickname, 11px, 22px tall, `radius:11px`,
     background `oklch(0.25 0.012 250)`, border `oklch(0.32 0.012 250)`.
 
-**15.1 Schema + colour**
-Migration: `pois.creator` relation → users (set on create in
-`addWishlistItem` / the Highlights importer / promotion-side... actually a
-promoted stop keeps no attribution, so only the wishlist-create paths set
-it); `users.color` text. A `pb_hooks` `onRecordCreate` for `users` that
-assigns the next band hue (a small ordered hue list in the hook, pick by
-count of existing users, wrap if exhausted). `listWishlist` expands
-`creator`; the trip's members' `{id, name/nickname, color}` need to be
-readable by every trip member — check the `users` view rule. Types regen.
+**15.1 Schema + colour** · ✅
+Migration `1788000015`: `pois.creator` relation → users
+(`cascadeDelete: false`), `pois.creator_name` + `pois.creator_color`
+(**snapshotted** at create time — resolving through `users` at render
+time is out, that collection stays self-only per WORK 16.6), and
+`users.color` text. Existing accounts backfilled by creation order into a
+fixed L 0.74 / C 0.13 hue band clear of the accent (215) and amber (80);
+first two hues match the handoff demo pair. `pb_hooks/
+contributor_color.pb.js` assigns the next band hue to every new account —
+`onRecordAfterCreateSuccess` + an explicit save, matching
+`membership.pb.js`'s existing `users` hook (a first draft used
+`onRecordCreate`, which this PB build rejects — registration 400'd until
+switched). `addWishlistItem` is the one chokepoint for poi creation
+(every path funnels through it — verified by grep), so it stamps
+`creator`/`creator_name`/`creator_color` from `pb.authStore.record`; name
+falls back to the email local part. Types regenerated. Commit: `phase
+15.1: wishlist contributor — schema + colour`.
 
-**15.2 Contributor marks**
-The three surfaces above. A shared `<ContributorChip>` / `<ContributorPill>`
-pair (initial-only vs dot+name variants) fed `{name, color}` resolved from
-the expanded creator. No mark when the creator is unknown (older rows
-before the migration, or a since-deleted user).
+**15.2 Contributor marks** · ✅
+New `src/components/ContributorMark.tsx`: `contributorOf(poi)` reads the
+snapshot fields (null when `creator_color` is empty — pre-migration rows
+or a deleted account), `ContributorChip` (18px initial-only circle,
+`title="Added by …"`) and `ContributorPill` (dot + nickname, `card` /
+`carousel` / `carousel-phone` metrics). Wired into `WishlistPanel` (chip,
+right of the row), `WishlistCarousel` (pill bottom-right over the scrim,
+name block pulled in to `right-[74px]`, phone metrics via the existing
+`phone` prop) and `PinCard`'s desktop docked card (pill on the `<h2>`
+row, which became `flex-1 truncate` to share the line). Browser-verified
+at 1440px (`.claude/skills/run-etappe/contributor-15-check.mjs`): the
+panel chip renders at 18×18 and the card pill shows the contributor, no
+console errors. Commit: `phase 15.2: wishlist contributor — the three
+marks`.
 
 ---
 

@@ -5,6 +5,7 @@ import { blockFileUrl, type BlockKind } from '../lib/pb-blocks';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { describeDaylight } from '../lib/daylight';
+import { ContributorPill } from './ContributorMark';
 import { formatDuration } from '../lib/format';
 import type { CurrencyCode } from '../lib/currency';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
@@ -479,9 +480,14 @@ export function PinCard({
               {target.seq}
             </span>
           )}
-          <h2 className="m-0 text-[19px] font-semibold tracking-[-0.01em]">
+          <h2 className="m-0 min-w-0 flex-1 truncate text-[19px] font-semibold tracking-[-0.01em]">
             {title}
           </h2>
+          {target.type === 'wish' && (
+            <span className="self-center">
+              <ContributorPill poi={target.item} variant="card" />
+            </span>
+          )}
         </div>
         <div className="mt-1 text-[13px] text-text-3">{subtitle}</div>
 
