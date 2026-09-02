@@ -58,6 +58,10 @@ export function PinCardEdit({
 }) {
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
+  // routing_kind exists only on a real stop, never on a wishlist idea; this
+  // block already renders behind `!isWish`, so the cast is just telling
+  // TypeScript what that guard already guarantees.
+  const asStop = isWish ? null : (stop as StopsResponse);
 
   useEffect(() => {
     if (openKindPickerSignal) setKindPickerOpen(true);
@@ -105,6 +109,36 @@ export function PinCardEdit({
           </div>
         )}
       </div>
+
+      {!isWish && (
+        <div className="col-span-2 flex items-center justify-between gap-3 rounded-[9px] border border-border-strong bg-surface-4 px-3 py-2.5">
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-medium">Routing point</div>
+            <div className="mt-0.5 text-[11.5px] text-text-4">
+              {asStop?.routing_kind === 'waypoint'
+                ? 'Forces the route through here. No time is spent — dwell stays zero.'
+                : 'An ordinary stop. Switch on to force a detour through here without stopping.'}
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              onUpdate({
+                routing_kind:
+                  asStop?.routing_kind === 'waypoint' ? 'stop' : 'waypoint',
+              })
+            }
+            role="switch"
+            aria-checked={asStop?.routing_kind === 'waypoint'}
+            className={`flex h-7 w-12 flex-none items-center rounded-full p-[3px] transition-colors ${
+              asStop?.routing_kind === 'waypoint'
+                ? 'justify-end bg-wishlist'
+                : 'justify-start bg-control'
+            }`}
+          >
+            <span className="h-[22px] w-[22px] rounded-full bg-[oklch(0.97_0.005_250)] shadow-sm" />
+          </button>
+        </div>
+      )}
 
       <div className="col-span-2 flex items-center justify-between gap-3 rounded-[9px] border border-border-strong bg-surface-4 px-3 py-2.5">
         <div className="min-w-0">

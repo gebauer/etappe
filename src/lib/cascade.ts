@@ -30,6 +30,17 @@ export interface CascadeStop {
   /** Minutes; null means "sum of activities, else the taxonomy default". */
   dwell_override?: number | null;
   activities: CascadeActivity[];
+  /**
+   * `'waypoint'` marks a stop that exists only to steer the route — a
+   * mountain pass, a detour, a junction you want the leg to pass through —
+   * not a place worth spending time at. Its dwell is always zero, whatever
+   * `dwell_override` or its activities say, because a waypoint being there
+   * at all is what "force the route through here" means; a delay layered on
+   * top would be a second, unrelated feature.
+   * `'stop'` (or absent, for every row that predates this) is the ordinary
+   * case: a real destination, timed as it always has been.
+   */
+  routing_kind?: 'stop' | 'waypoint' | null;
 }
 
 export interface CascadeLeg {
@@ -204,6 +215,7 @@ export function formatClock(minutes: number): string {
 // ---------------------------------------------------------------------------
 
 function resolveDwell(stop: CascadeStop, trip: CascadeTrip): number {
+  if (stop.routing_kind === 'waypoint') return 0;
   if (stop.dwell_override != null) return stop.dwell_override;
   if (stop.activities.length > 0) {
     return stop.activities.reduce((sum, a) => sum + a.duration_min, 0);

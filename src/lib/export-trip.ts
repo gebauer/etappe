@@ -115,6 +115,9 @@ function exportStop(
     ...(stop.lat ? { lat: stop.lat } : {}),
     ...(stop.lon ? { lon: stop.lon } : {}),
     ...(stop.is_accommodation ? { is_accommodation: true } : {}),
+    ...(stop.routing_kind === 'waypoint'
+      ? { routing_kind: 'waypoint' as const }
+      : {}),
     ...(stop.anchor_time?.trim() ? { anchor_time: stop.anchor_time } : {}),
     ...(stop.anchor_time?.trim() && stop.anchor_type
       ? { anchor_type: stop.anchor_type }

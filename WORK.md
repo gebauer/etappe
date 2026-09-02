@@ -44,16 +44,16 @@ stops+wishlist delete confirm.**
 **Phase 15 (wishlist contributor attribution) queued — from a 2026-09-01
 handoff revision that adds a per-user colour and a contributor mark on
 every wishlist entry (itinerary stops carry none).**
-**Phase 16 (planning ergonomics, portability, sharing) queued — a
-2026-09-01 author request: an editable timing row, inserting a day
-anywhere, a versioned JSON export, duplicate detection on wishlist import,
-wishlist items getting the full stop card, trip sharing (members by role +
-a public link), and surfacing the `costs` collection that has existed
-unused since phase 1. 16.6 subsumes 9.1/9.2 and phase 11.2's "members";
-16.7 is the entry surface phase 11.1 needs.**
+**Phase 16 (planning ergonomics, portability, sharing) — a 2026-09-01
+author request, all seven original tasks (16.1–16.7) done. 16.6 subsumes
+9.1/9.2 and phase 11.2's "members", with one gap noted under 16.6 itself
+(no read-only editor mode for a `viewer` member — the server rule already
+protects them, the UI doesn't yet reflect it). 16.7 is the entry surface
+phase 11.1 needs. 16.8 (skip on wishlist-import dedup) and 16.9 (a routing
+kind that forces a leg through a stop with no dwell) added 2026-09-02 and
+done.**
 **→ Next, in order: 12.7 (phone layout, also what fixes the
-sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15 →
-the rest of Phase 16 (16.1 is done).**
+sub-860px view 12.6 deliberately let break) → 12.11 (cleanup) → Phase 15.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1263,7 +1263,7 @@ Folded in on the way past: the expanded card still had its own Dwell and
 Anchor fields, the same duplication 16.1 deleted from `PinCardEdit`. Gone;
 its "Timing" section is now just Kind.
 
-**16.6 Sharing a trip** · Standard
+**16.6 Sharing a trip** · Standard · ✅ (editor-side viewer mode open, see below)
 Three audiences, two mechanisms. Most of the backend already exists and has
 never been given a UI:
 - `trip_members` with `role` ∈ owner | editor | viewer, and API rules that
@@ -1295,6 +1295,26 @@ Address the whole-trip shape, not just the button: a viewer opening a trip
 they don't own should get the editor in read-only, not a second view — one
 cascade, one renderer.
 
+**Built as:** `SharePanel` (people: invite by email + role, change role,
+revoke a pending invite, remove/leave, owner-only where the rule says so)
+and `ShareView` + `pb_hooks/share.pb.js` (the public link — 9.1/9.2, done
+as part of this). `src/lib/share-doc.ts` maps the hook's payload onto
+`CascadeTrip` so the public view runs the *same* `cascade()` as the editor,
+per CLAUDE.md rule 3. `trip_members.label` (migration `1788000011`) carries
+the invited email onto the membership row, since `users` is readable only
+by its own account and widening that felt worse than the alternative.
+Verified end to end with a real unauthenticated browser context: a public
+link shows a public note and correctly withholds a private one on the same
+stop, and the disabled/enabled states both return the right HTTP status.
+**Not built — the "one cascade, one renderer" half:** `TripEditor` has no
+read-only mode. A `viewer` member opening a trip today gets the same
+editor a owner does; the server rule already refuses their writes (verified
+since migration `1788000003`), so nothing can actually go wrong, but every
+button still looks clickable and every click quietly fails into
+`actionError` instead of never being offered. Doing this properly means
+threading the member's own role into `TripEditor` and disabling structural
+controls — its own task, not a corner to cut into this one.
+
 **16.7 Surface price tags** · Standard · ✅
 Answering "did we have price tags?" — yes, in the schema, and nowhere else.
 Migration `1788000000` created a **`costs`** collection: `trip`,
@@ -1322,6 +1342,52 @@ visible to trip members and **never enter the public payload** — the share
 hook (9.1 / 16.6) does not read the collection at all, which is also the
 cheapest way to be sure the rule holds. A public link shows the route, the
 stops and public blocks; what any of it cost is not part of that document.
+
+**16.8 Skip on wishlist-import duplicate detection** · Cheap · ✅
+Author correction, 2026-09-02: 16.4 shipped Merge / Replace / Add anyway
+per flagged row, with no way to say "leave this one alone" — the closest
+was Merge, which still writes to the existing record. `DuplicateDecision`
+gains `'skip'`: `importHighlights` treats a skipped row as absent entirely
+(no poi/stop touched, no blocks written, no result row — there is nothing
+to report on), the per-row and apply-to-all controls both offer it, and the
+Import button's count and the done summary ("N skipped, left as they
+were.") reflect it. The progress callback was quietly counting on
+`results.length` as the done-index, which undercounts the moment anything
+is skipped (a skip advances the loop without adding a result); switched to
+the loop index. Verified end to end: an existing "Gullfoss" idea marked
+Skip received zero new blocks and zero field writes, while a second,
+genuinely new item in the same import still landed.
+
+**16.9 A routing kind for stops** · Standard · ✅
+Author request, 2026-09-02: sometimes a leg has to be forced through a
+particular point — a mountain pass, a specific junction, a scenic detour —
+without that point being a destination worth its own dwell. `kind` (the
+taxonomy) stays closed and is about *what a place is* (CLAUDE.md rule 6);
+this is a second, orthogonal axis about *what role a stop plays*, so it is
+its own field (`stops.routing_kind`, migration `1788000012`) rather than a
+27th taxonomy entry that would need an icon and a default dwell it doesn't
+want.
+Two values: `stop` (default/absent — every existing row, unchanged
+behaviour) and `waypoint`. A waypoint's dwell is forced to `0` in
+`resolveDwell` regardless of `dwell_override` or its activities — the point
+being there at all *is* "force the route through here"; a delay on top
+would be a second, unrelated feature. Cascade test covers this against both
+an override and activities at once, plus the ordinary case being
+unaffected when the field is absent.
+A toggle lives in `PinCardEdit` next to Access point, stop-only (a wishlist
+idea isn't in a leg chain, so the concept doesn't apply to it). The map
+badge is a distinct small diamond with no number and no star — a waypoint
+still counts in `order_index`/day-stop-count (renumbering the sequence to
+exclude it was judged too invasive for what this needed), but it must not
+read as destination #4 of 7 on the map or in the itinerary list, so
+`StopRow` labels its kind as "Routing point" and `PinCard`'s subtitle does
+the same. Carried through the round-trip surfaces that predate it so
+nothing silently drops it: the §8 import/export format
+(`import-cascade.ts`/`export-trip.ts`/`import-trip-doc.ts`) and the public
+share payload (`share.pb.js`/`share-doc.ts`).
+Verified in the browser: the toggle writes `routing_kind: 'waypoint'` and
+`dwell_override: 0`, the card shows Dwell as `0`, and the map renders the
+stop as a diamond on the route rather than a numbered pin.
 
 ---
 

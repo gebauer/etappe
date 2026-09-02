@@ -36,7 +36,10 @@ export function StopRow({
   onHover,
 }: Props) {
   const dwell = timing ? formatDuration(timing.dwell) : null;
-  const kind = TAXONOMY[stop.kind as Kind]?.label ?? stop.kind;
+  const isWaypoint = stop.routing_kind === 'waypoint';
+  const kind = isWaypoint
+    ? 'Routing point'
+    : (TAXONOMY[stop.kind as Kind]?.label ?? stop.kind);
 
   return (
     <div

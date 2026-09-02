@@ -214,8 +214,38 @@ function drawBadgeNumber(
  * demand via styleimagemissing — one image per distinct (sequence, starred)
  * pair, shared across every day/stop that happens to land on it, since the
  * badge carries no day- or kind-specific styling otherwise. */
+/** Small neutral diamond, no number, no star — a waypoint is a route point,
+ * not a destination, and painting it like one would say otherwise. About
+ * half the destination badge's footprint so it reads as background chrome
+ * on the route rather than something competing for attention with the
+ * numbered stops either side of it. */
+function compositeWaypointBadge(map: maplibregl.Map, id: string) {
+  const d = BADGE_UNSEL_D;
+  const r = d / 2;
+  const size = d * 0.42;
+  const canvas = document.createElement('canvas');
+  canvas.width = d;
+  canvas.height = d;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.save();
+  ctx.translate(r, r);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = BADGE_BG;
+  ctx.fillRect(-size / 2, -size / 2, size, size);
+  ctx.lineWidth = BADGE_BORDER_D;
+  ctx.strokeStyle = BADGE_BORDER;
+  ctx.strokeRect(-size / 2, -size / 2, size, size);
+  ctx.restore();
+  map.addImage(id, ctx.getImageData(0, 0, d, d), { pixelRatio: 2 });
+}
+
 export function compositeNumberBadge(map: maplibregl.Map, id: string) {
   const key = id.slice('n:'.length);
+  if (key.startsWith('wp:')) {
+    compositeWaypointBadge(map, id);
+    return;
+  }
   const starred = key.endsWith(':star');
   const seq = starred ? key.slice(0, -':star'.length) : key;
   const d = BADGE_UNSEL_D;

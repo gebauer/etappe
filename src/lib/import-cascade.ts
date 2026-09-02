@@ -34,6 +34,9 @@ export interface ImportStop {
   anchor_time?: string;
   anchor_type?: 'arrival' | 'departure';
   dwell_min?: number;
+  /** WORK 16.9: 'waypoint' forces the route through this stop without it
+   * being a real destination — dwell is always 0 regardless of dwell_min. */
+  routing_kind?: 'stop' | 'waypoint';
   notes?: string;
   activities?: ImportActivity[];
   links?: ImportLink[];
@@ -116,6 +119,7 @@ export function importToCascade(
       anchor_time: s.anchor_time ?? null,
       anchor_type: s.anchor_type ?? null,
       dwell_override: s.dwell_min ?? null,
+      routing_kind: s.routing_kind ?? null,
       activities: (s.activities ?? []).map((a) => ({
         duration_min: a.duration_min,
         kind: a.kind ?? 'activity',

@@ -378,6 +378,63 @@ describe('edge cases', () => {
   });
 });
 
+// --- routing waypoints: force a leg through a point with no dwell (WORK 16.9)
+
+describe('routing waypoints', () => {
+  it('forces dwell to zero however the stop would otherwise be timed', () => {
+    const t = trip({
+      default_dwell: { viewpoint: 30 },
+      days: [
+        {
+          id: 'd1',
+          order_index: 0,
+          kind: 'travel',
+          stops: [
+            stop('a', { anchor_time: '09:00', anchor_type: 'arrival' }),
+            // Would be 30 min from the taxonomy default, or more from an
+            // override or activities — none of that should survive being
+            // marked a waypoint.
+            stop('b', {
+              kind: 'viewpoint',
+              dwell_override: 45,
+              activities: [{ duration_min: 20, kind: 'activity' }],
+              routing_kind: 'waypoint',
+            }),
+            stop('c'),
+          ],
+          legs: [leg({ duration_min: 30 }), leg({ duration_min: 30 })],
+        },
+      ],
+    });
+    const { days } = cascade(t, noDaylight);
+    const b = days[0]!.stops[1]!;
+    expect(b.dwell).toBe(0);
+    // Arrival and departure at a waypoint coincide — nothing is spent there.
+    expect(b.arrival).toBe(b.departure);
+    // The next stop's arrival reflects the zero dwell, not the 45/50 min it
+    // would have taken on: 09:00 + 35 (30 min leg + 15% buffer) + 0
+    // (waypoint) + 35 = 10:10.
+    expect(formatClock(days[0]!.stops[2]!.arrival)).toBe('10:10');
+  });
+
+  it('is the ordinary case when routing_kind is absent — no behaviour change', () => {
+    const t = trip({
+      default_dwell: { viewpoint: 30 },
+      days: [
+        {
+          id: 'd1',
+          order_index: 0,
+          kind: 'travel',
+          stops: [stop('a', { kind: 'viewpoint' })],
+          legs: [],
+        },
+      ],
+    });
+    const { days } = cascade(t, noDaylight);
+    expect(days[0]!.stops[0]!.dwell).toBe(30);
+  });
+});
+
 // --- leading leg: the morning drive from the day's start point (WORK 13.1) --
 
 describe('leading leg', () => {

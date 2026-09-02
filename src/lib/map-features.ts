@@ -187,6 +187,10 @@ export interface StopFeature {
      * "n:<seq>:star" image), kept as its own property too since `StopRow`
      * needs it without decoding the image key. */
     starred: boolean;
+    /** WORK 16.9 — a waypoint forces the route through here without being a
+     * destination; kept alongside `iconImage` (which already encodes it into
+     * a distinct "n:wp:<seq>" key) for the same reason `starred` is. */
+    routingKind: 'stop' | 'waypoint';
   };
 }
 
@@ -217,6 +221,15 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
       if (!s.lat || !s.lon) continue;
       seq += 1;
       const starred = !!s.starred;
+      const isWaypoint = s.routing_kind === 'waypoint';
+      // A waypoint's icon key never carries the star suffix — the numbered
+      // destination badge and the "starred" affordance are both about a
+      // place worth remembering, which a pure routing point isn't.
+      const iconImage = isWaypoint
+        ? `n:wp:${seq}`
+        : starred
+          ? `n:${seq}:star`
+          : `n:${seq}`;
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
@@ -225,8 +238,9 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
           title: s.title,
           dayId: day.id,
           seq,
-          iconImage: starred ? `n:${seq}:star` : `n:${seq}`,
+          iconImage,
           starred,
+          routingKind: isWaypoint ? 'waypoint' : 'stop',
         },
       });
     }

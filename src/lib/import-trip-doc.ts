@@ -45,6 +45,7 @@ const StopSchema = z.object({
   anchor_time: clock.optional(),
   anchor_type: z.enum(['arrival', 'departure']).optional(),
   dwell_min: z.number().int().min(0).optional(),
+  routing_kind: z.enum(['stop', 'waypoint']).optional(),
   notes: z.string().optional(),
   activities: z.array(ActivitySchema).default([]),
   links: z.array(LinkSchema).default([]),

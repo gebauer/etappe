@@ -265,6 +265,7 @@ export type StopPatch = Partial<
     | 'anchor_type'
     | 'is_accommodation'
     | 'starred'
+    | 'routing_kind'
   >
 >;
 

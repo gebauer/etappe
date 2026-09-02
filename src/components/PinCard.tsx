@@ -161,7 +161,10 @@ export function PinCard({
   let subtitle: string;
   if (target.type === 'stop') {
     title = target.stop.title;
-    subtitle = `${kindLabel(target.stop.kind)} · ${target.dayLabel}`;
+    subtitle =
+      target.stop.routing_kind === 'waypoint'
+        ? `Routing point · ${target.dayLabel}`
+        : `${kindLabel(target.stop.kind)} · ${target.dayLabel}`;
   } else if (target.type === 'wish') {
     title = target.item.title;
     subtitle = located
