@@ -16,11 +16,14 @@ import type { TripsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
 import { StopRow } from './StopRow';
 import { LegRow } from './LegRow';
+import { TripOverview } from './TripOverview';
 
 interface Props {
   trip: TripsResponse;
   day: DaysResponse | null;
   dayIndex: number;
+  /** Every day, ordered — for the trip-overview day list (WORK 17.6). */
+  days: DaysResponse[];
   stops: StopsResponse[];
   legs: LegsResponse[];
   blocks: BlocksResponse[];
@@ -57,6 +60,10 @@ interface Props {
    * where the column is always open and the chevron is not rendered. */
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** Trip overview (WORK 17.6): no day selected. The column becomes a day
+   * list; clicking a row selects that day. */
+  overview?: boolean;
+  onSelectDay?: (dayId: string) => void;
 }
 
 /**
@@ -72,6 +79,7 @@ export function Timeline({
   trip,
   day,
   dayIndex,
+  days,
   stops,
   legs,
   blocks,
@@ -95,6 +103,8 @@ export function Timeline({
   onClearStartPoint,
   collapsed = false,
   onToggleCollapse,
+  overview = false,
+  onSelectDay,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   // Two-click confirm rather than a dialog: deleting a day takes its stops
@@ -109,6 +119,18 @@ export function Timeline({
     );
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [scrollToStopId]);
+
+  if (overview && onSelectDay) {
+    return (
+      <TripOverview
+        trip={trip}
+        days={days}
+        stops={stops}
+        result={result}
+        onSelectDay={onSelectDay}
+      />
+    );
+  }
 
   if (!day) {
     return (

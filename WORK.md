@@ -65,17 +65,15 @@ stop's kind (`rental` is a new kind) into a header popover — superseding
 16.7's list-of-costs UI, though the backend keeps its multi-item shape.**
 **Phase 17 (2026-09-02) opened from a further handoff revision — the
 "Day dock" and four smaller changes, all confirmed by the author in one
-go ("Merge 7 and build everything"). 17.1 (day dock, replacing the
-wrapping pill row that was overflowing on long trips) is done, including
-two real bugs found and fixed before commit — see its own entry. 17.2
-through 17.5 (phone day-detail collapse, phone wishlist-carousel
-reachability — an explicit reversal of 12.7's "no wishlist on phone" —
-daylight wording, cost marks on itinerary rows) are written up in full
-in their own entries below but not yet built.**
-**→ Next, in order: 17.2 (phone day-detail collapse), then 17.3, 17.4,
-17.5 in any order (each is independent of the others once 17.2 exists —
-see each entry), then Phase 15 (wishlist contributor attribution), which
-was next before this phase interrupted it.**
+go ("Merge 7 and build everything"), plus a sixth surface (trip overview)
+from a later revision `design_handoff_map_first_planner(9)/`. All six
+(17.1–17.6) built and pushed 2026-09-02: day dock, phone day-detail
+collapse, phone wishlist-carousel reachability (an explicit reversal of
+12.7's "no wishlist on phone"), daylight wording split by dawn/dusk, cost
+marks on itinerary rows, and Fit trip → trip overview. See each entry
+below.**
+**→ Next: Phase 15 (wishlist contributor attribution), which was next
+before this phase interrupted it.**
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1665,8 +1663,11 @@ down. The revision turned out to bundle five changes, not one; the author
 confirmed all five with **"Merge 7 and build everything"** (2026-09-02),
 including an explicit reversal of 12.7's "no wishlist on phone" call —
 **"12.7 is reversed, we need highlights visible during the trip for
-spontaneous detours."** Only 17.1 is built so far; 17.2–17.5 are queued,
-in the order the handoff itself presents them.
+spontaneous detours."**
+
+**17.1–17.5 all built and pushed 2026-09-02.** A further handoff revision
+(`design_handoff_map_first_planner(9)/`, in the repo root) then added one
+more surface — the trip overview — built as **17.6** the same day.
 
 **17.1 Day dock rework** · Standard · ✅
 Replaces the plain wrapping pill row (`DayPills.tsx`) with a single row
@@ -1760,6 +1761,46 @@ a `costs` prop (passed `records.costs`) and hands each row
 `costsFor(costs, 'stop', stop.id)[0]` — the same first-row read
 `CostField`/`BudgetPopover` use. Commit: `phase 17.5: cost marks on
 itinerary rows`.
+
+**17.6 Fit trip → trip overview** · Standard · ✅
+From `design_handoff_map_first_planner(9)/` — the only change in that
+revision (diffed against the in-repo `design_handoff_map_first_planner/`).
+Fit trip now enters a real no-day-selected state instead of just
+re-framing the map.
+- **State:** a `tripOverview` boolean in `TripEditor` (not a nullable
+  `selectedDayId` — the existing `selectedDayId ?? days[0]` fallback is
+  left untouched, the boolean just overrides it). `enterTripOverview()`
+  sets it, clears every selection, and on phone folds the day detail;
+  `selectDay(id)` — used by pills, day-list rows and day-start pins alike
+  — leaves it. `doAddStopToFocus` and `commitPlacement` also leave it.
+- **Map (`MapPane`):** a new `overview` prop. `buildDayStartFeatures`
+  (`lib/map-features.ts`) builds one Point per day at its starting point —
+  the day's first stop, else the resolved start-point (nearest earlier
+  non-empty day's last accommodation stop, else its last stop, the same
+  rule the column uses), flagged `unplanned` when the day has no stops of
+  its own; a day with no anchor anywhere gets no pin. `compositeDayBadge`
+  (`lib/map-markers.ts`) draws the 30px badge — accent fill + `oklch(0.90
+  0.05 235)` ring, or `control` + dim ring when unplanned — on demand via
+  `styleimagemissing` (`d:<n>` / `d:<n>:empty` keys). A `day-starts`
+  source + symbol layer; entering the overview flips it visible and hides
+  `stops`, `stops-hover` and all five `legs-*` layers via
+  `setLayoutProperty`. Clicking a day pin calls `onSelectDay`; a bare map
+  click in the overview is inert.
+- **Column:** new `TripOverview.tsx` — header `Whole trip` / `N days ·
+  <range>`, one 26px-numbered row per day (date, first stop or `no stops
+  yet`, span, stop count); a row click selects that day. `Timeline`
+  renders it when `overview && onSelectDay`.
+- **Day pills:** a 5px leading dot (`oklch(0.46 0.01 250)`, or `oklch(0.16
+  0.02 240 / 0.55)` when active); `MapPane` passes `activeDayId={null}` in
+  the overview so no pill is active.
+- **Not done:** a canvas hover-tooltip on the day pins (the spec's `Day 4
+  · starts at Seljalandsfoss` `title`) — GL symbol pins carry no DOM
+  title, same as today's stop pins; `startLabel` is kept on the feature
+  for when/if map tooltips arrive.
+- Browser-verified at 1440px (`.claude/skills/run-etappe/
+  overview-17-6-check.mjs`): Fit trip → `Whole trip` list, row click →
+  back to the single day, no console errors.
+- Commit: `phase 17.6: Fit trip enters a trip overview`.
 
 ---
 

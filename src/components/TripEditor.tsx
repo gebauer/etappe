@@ -207,6 +207,10 @@ export function TripEditor({
   // line so the map takes the freed height. Component-local, never
   // persisted; picking a day pill, Fit trip or adding a stop all reset it.
   const [dayCollapsed, setDayCollapsed] = useState(false);
+  // Trip overview (WORK 17.6): Fit trip clears the day selection and both
+  // panes switch to a whole-trip view — numbered day pins on the map, a day
+  // list in the column. Picking any day pill, row or pin leaves it.
+  const [tripOverview, setTripOverview] = useState(false);
 
   // Wishlist lives outside the cascade-oriented trip doc (it has no day/
   // order_index), so it gets its own small fetch rather than riding along
@@ -357,6 +361,7 @@ export function TripEditor({
   function doAddStopToFocus() {
     const dayId = focusDayId();
     if (!records || !dayId) return;
+    setTripOverview(false);
     setDayFolded(false);
     void runStructural(() =>
       addStopAtEnd(
@@ -429,6 +434,7 @@ export function TripEditor({
     const candidate = pendingPlacement;
     setPendingPlacement(null);
     if (!records || !candidate) return;
+    setTripOverview(false);
     setDayFolded(false);
     const dayStops = records.stops
       .filter((s) => s.day === option.dayId)
@@ -550,6 +556,24 @@ export function TripEditor({
   function setDayFolded(next: boolean) {
     setDayCollapsed(next);
     if (!next) setBrowsing(false);
+  }
+
+  /** Land on a specific day — from a pill, a day-list row or a day-start
+   * pin. Always leaves the trip overview and unfolds the phone day detail
+   * (WORK 17.6). */
+  function selectDay(dayId: string) {
+    setTripOverview(false);
+    setSelectedDayId(dayId);
+    setDayFolded(false);
+  }
+
+  /** Fit trip → trip overview (WORK 17.6): frame the whole trip, drop every
+   * selection, and on phone hand the map the screen. */
+  function enterTripOverview() {
+    setTripOverview(true);
+    closeCard();
+    setSelectedStopIds(new Set());
+    if (phone) setDayCollapsed(true);
   }
 
   // The card's `‹`/`›` order for wishlist entries: a nearest-neighbour chain
@@ -1326,7 +1350,8 @@ export function TripEditor({
             onSelectStop={(id) => toggleSelect(id, false)}
             onHoverStop={setHoveredStopId}
             hoveredStopId={hoveredStopId}
-            focusDayId={selectedDayId}
+            focusDayId={tripOverview ? null : selectedDayId}
+            overview={tripOverview}
             selectedStop={selectedStop}
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
@@ -1336,13 +1361,8 @@ export function TripEditor({
             flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
             hoveredWishlistId={hoveredWishId}
-            onSelectDay={(id) => {
-              setSelectedDayId(id);
-              setDayFolded(false);
-            }}
-            onFitTrip={() => {
-              if (phone) setDayFolded(true);
-            }}
+            onSelectDay={selectDay}
+            onFitTrip={enterTripOverview}
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
             picking={mapPicking}
@@ -1644,6 +1664,9 @@ export function TripEditor({
             trip={trip}
             day={activeDay}
             dayIndex={activeDayIndex}
+            days={days}
+            overview={tripOverview}
+            onSelectDay={selectDay}
             collapsed={phone && dayCollapsed}
             onToggleCollapse={
               phone ? () => setDayFolded(!dayCollapsed) : undefined

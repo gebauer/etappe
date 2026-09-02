@@ -158,6 +158,53 @@ const BADGE_SEL_BORDER = oklchToHex(0.96, 0.01, 240);
 const BADGE_SEL_TEXT = oklchToHex(0.16, 0.02, 240); // on-accent
 const BADGE_HALO = oklchToHex(0.72, 0.13, 215); // accent, alpha applied separately
 
+// Trip-overview day badge (WORK 17.6): one per day at its starting point,
+// deliberately a size up from the 26px stop pins — at trip scale these are
+// the only pins and each is the day's handle. Accent fill with a lighter
+// ring; a day with no stops of its own renders on `control` with a dim ring
+// so an unplanned day is visible rather than missing.
+const DAY_BADGE_D = 60; // -> 30px CSS
+export const DAY_BADGE_CSS = DAY_BADGE_D / 2;
+const DAY_ACCENT_BG = oklchToHex(0.72, 0.13, 215); // accent
+const DAY_ACCENT_RING = oklchToHex(0.9, 0.05, 235);
+const DAY_ACCENT_TEXT = oklchToHex(0.16, 0.02, 240); // on-accent
+const DAY_EMPTY_BG = oklchToHex(0.24, 0.013, 250); // control
+const DAY_EMPTY_RING = oklchToHex(0.4, 0.012, 250);
+const DAY_EMPTY_TEXT = oklchToHex(0.92, 0.006, 250); // text
+
+/** Composites a trip-overview day badge. `id` is "d:<n>" (accent) or
+ * "d:<n>:empty" (control, for a day with no stops of its own). Called on
+ * demand via styleimagemissing, like the numbered stop badges. */
+export function compositeDayBadge(map: maplibregl.Map, id: string) {
+  const body = id.slice('d:'.length);
+  const empty = body.endsWith(':empty');
+  const num = empty ? body.slice(0, -':empty'.length) : body;
+  const d = DAY_BADGE_D;
+  const r = d / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = d;
+  canvas.height = d;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  fillCircle(
+    ctx,
+    r,
+    r,
+    r - BADGE_BORDER_D / 2,
+    empty ? DAY_EMPTY_BG : DAY_ACCENT_BG,
+  );
+  strokeCircle(
+    ctx,
+    r,
+    r,
+    r - BADGE_BORDER_D / 2,
+    empty ? DAY_EMPTY_RING : DAY_ACCENT_RING,
+    BADGE_BORDER_D,
+  );
+  drawBadgeNumber(ctx, r, r, num, empty ? DAY_EMPTY_TEXT : DAY_ACCENT_TEXT, 26);
+  map.addImage(id, ctx.getImageData(0, 0, d, d), { pixelRatio: 2 });
+}
+
 // Starred-stop badge (WORK 14.3): sized down from the wishlist pin's default
 // so it stays proportionate to the much smaller numbered circle. Bigger on
 // the selected/DOM badge since that badge itself is bigger.

@@ -286,6 +286,16 @@ export function DayPills({
                         : 'text-[oklch(0.78_0.008_250)] hover:bg-white/5'
                     }`}
                   >
+                    {/* A leading dot so a bare number still reads as a day
+                        token now that the repeated word "Day" has moved to
+                        the container label (handoff (9), trip overview). */}
+                    <span
+                      className={`h-[5px] w-[5px] flex-none rounded-full ${
+                        active
+                          ? 'bg-[oklch(0.16_0.02_240/0.55)]'
+                          : 'bg-[oklch(0.46_0.01_250)]'
+                      }`}
+                    />
                     <span className="font-mono text-[13px] font-semibold">
                       {i + 1}
                     </span>

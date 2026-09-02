@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   buildLegFeatures,
   buildStopFeatures,
+  buildDayStartFeatures,
   buildWishlistFeatures,
   type StopFeatureCollection,
 } from '../lib/map-features';
@@ -16,6 +17,7 @@ import {
   buildAccessPointElement,
   buildParkingChipElement,
   compositeNumberBadge,
+  compositeDayBadge,
   compositeWishlistPin,
   compositePhotoCircle,
 } from '../lib/map-markers';
@@ -32,6 +34,18 @@ const TILE_URL =
   'https://tiles.openfreemap.org/styles/liberty';
 
 const STOP_LAYERS = ['stops'];
+
+// Everything hidden while the trip overview (WORK 17.6) is up — its numbered
+// day pins are the only thing on the map in that state.
+const OVERVIEW_HIDDEN_LAYERS = [
+  'stops',
+  'stops-hover',
+  'legs-hover-halo',
+  'legs-flat',
+  'legs-shade',
+  'legs-dusk',
+  'legs-manual',
+];
 
 // Line width grows with zoom; shared by every leg layer.
 const WIDTH = [
@@ -132,6 +146,7 @@ export function MapPane({
   hoveredWishlistId,
   onSelectDay,
   onFitTrip,
+  overview,
   onAddDay,
   onInsertDay,
   picking,
@@ -166,8 +181,13 @@ export function MapPane({
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
   /** Fired alongside the internal map re-fit when "Fit trip" is pressed, so
-   * the shell can react (WORK 17.2: collapse the phone day detail). */
+   * the shell can react (WORK 17.2: collapse the phone day detail; WORK
+   * 17.6: enter the trip overview). */
   onFitTrip?: () => void;
+  /** Trip overview (WORK 17.6): no day selected. Stop pins and day routes
+   * are hidden; one numbered pin per day is drawn at its starting point,
+   * and clicking one selects that day. */
+  overview?: boolean;
   onAddDay?: () => void;
   /** Insert a day before the one at this index (WORK 16.2). */
   onInsertDay?: (atIndex: number) => void;
@@ -245,16 +265,23 @@ export function MapPane({
   selectWishlistRef.current = onSelectWishlist;
   const wishlistRef = useRef(wishlist ?? []);
   wishlistRef.current = wishlist ?? [];
+  const selectDayRef = useRef(onSelectDay);
+  selectDayRef.current = onSelectDay;
+  const overviewRef = useRef(overview ?? false);
+  overviewRef.current = overview ?? false;
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
     [records, result],
   );
   const stopFc = useMemo(() => buildStopFeatures(records), [records]);
+  const dayStartFc = useMemo(() => buildDayStartFeatures(records), [records]);
   const fcRef = useRef(fc);
   fcRef.current = fc;
   const stopFcRef = useRef(stopFc);
   stopFcRef.current = stopFc;
+  const dayStartFcRef = useRef(dayStartFc);
+  dayStartFcRef.current = dayStartFc;
   const nearbyFc = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
@@ -495,6 +522,25 @@ export function MapPane({
       });
       addMarkerLayers(map);
 
+      // Trip-overview day pins (WORK 17.6) — one per day at its starting
+      // point, hidden until no day is selected.
+      map.addSource('day-starts', {
+        type: 'geojson',
+        data: dayStartFcRef.current,
+        promoteId: 'dayId',
+      });
+      map.addLayer({
+        id: 'day-starts',
+        type: 'symbol',
+        source: 'day-starts',
+        layout: {
+          'icon-image': ['get', 'iconImage'],
+          'icon-anchor': 'center',
+          'icon-allow-overlap': true,
+          visibility: overviewRef.current ? 'visible' : 'none',
+        },
+      });
+
       loadedRef.current = true;
       setMapReady(true);
       maybeFit(map);
@@ -505,6 +551,10 @@ export function MapPane({
       map.on('styleimagemissing', (e) => {
         if (map.hasImage(e.id)) return;
         try {
+          if (e.id.startsWith('d:')) {
+            compositeDayBadge(map, e.id);
+            return;
+          }
           if (e.id.startsWith('n:')) {
             compositeNumberBadge(map, e.id);
             return;
@@ -558,6 +608,12 @@ export function MapPane({
       return (hits[0]?.properties?.poiId as string | undefined) ?? null;
     };
 
+    const dayStartUnder = (point: maplibregl.Point): string | null => {
+      if (!map.getLayer('day-starts')) return null;
+      const hits = map.queryRenderedFeatures(point, { layers: ['day-starts'] });
+      return (hits[0]?.properties?.dayId as string | undefined) ?? null;
+    };
+
     // Click a wishlist or ghost pin to act on it (place / capture); click a
     // marker to select its stop; click empty map to drop a stop.
     map.on('click', (ev) => {
@@ -566,6 +622,13 @@ export function MapPane({
       // reaches here.
       if (pickingRef.current || placingRef.current) {
         clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
+        return;
+      }
+      // Trip overview (WORK 17.6): the day pins are the only actionable
+      // thing on the map; a click anywhere else is inert (no capture card).
+      if (overviewRef.current) {
+        const dayId = dayStartUnder(ev.point);
+        if (dayId) selectDayRef.current?.(dayId);
         return;
       }
       const wishlistId = wishlistUnder(ev.point);
@@ -588,6 +651,10 @@ export function MapPane({
     map.on('mousemove', (ev) => {
       if (pickingRef.current || placingRef.current) {
         map.getCanvas().style.cursor = 'crosshair';
+        return;
+      }
+      if (overviewRef.current) {
+        map.getCanvas().style.cursor = dayStartUnder(ev.point) ? 'pointer' : '';
         return;
       }
       const id = stopsUnder(ev.point);
@@ -639,6 +706,34 @@ export function MapPane({
       maplibregl.GeoJSONSource | undefined;
     source?.setData(stopFc);
   }, [stopFc, mapReady]);
+
+  // Push the trip-overview day pins (WORK 17.6).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    const source = map.getSource('day-starts') as
+      maplibregl.GeoJSONSource | undefined;
+    source?.setData(dayStartFc);
+  }, [dayStartFc, mapReady]);
+
+  // Enter/leave the trip overview: the day pins take the map and everything
+  // else (stop pins, day routes, the hover halo) hides.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    if (map.getLayer('day-starts')) {
+      map.setLayoutProperty(
+        'day-starts',
+        'visibility',
+        overview ? 'visible' : 'none',
+      );
+    }
+    for (const id of OVERVIEW_HIDDEN_LAYERS) {
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(id, 'visibility', overview ? 'none' : 'visible');
+      }
+    }
+  }, [overview, mapReady]);
 
   // Push new ghost pins.
   useEffect(() => {
@@ -1064,7 +1159,11 @@ export function MapPane({
     mapReady,
   ]);
 
-  const activeDayId = focusDayId ?? records.days[0]?.id ?? null;
+  // In the trip overview no pill is active (WORK 17.6); otherwise fall back
+  // to day 1 when nothing is explicitly focused.
+  const activeDayId = overview
+    ? null
+    : (focusDayId ?? records.days[0]?.id ?? null);
 
   return (
     <div className="relative h-full w-full">

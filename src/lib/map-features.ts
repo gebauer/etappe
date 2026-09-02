@@ -249,6 +249,91 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
   return { type: 'FeatureCollection', features };
 }
 
+// --- trip-overview day pins (design_handoff (9), WORK 17.6) --------------
+
+export interface DayStartFeature {
+  type: 'Feature';
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: {
+    dayId: string;
+    /** 1-indexed day number — the digit painted on the badge and shown in
+     * the itinerary column's day list. */
+    number: number;
+    iconImage: string;
+    /** The stop the day starts at, for the pin's `title`
+     * (`Day 4 · starts at Seljalandsfoss`). Empty when the day has no
+     * anchor at all. */
+    startLabel: string;
+    /** The day has no stops of its own — the badge renders on `control`
+     * rather than accent so it still reads as present. */
+    unplanned: boolean;
+  };
+}
+
+export interface DayStartFeatureCollection {
+  type: 'FeatureCollection';
+  features: DayStartFeature[];
+}
+
+/**
+ * One Point per day at that day's starting point, for the trip overview
+ * (Fit trip / no day selected). A day with stops anchors on its first one;
+ * a day with none falls back to where it would leave from — the nearest
+ * earlier non-empty day's last accommodation stop, else that day's last
+ * stop (the same rule the itinerary column's "start point" uses) — and is
+ * flagged `unplanned`. A day with no anchor anywhere gets no pin (its row
+ * still shows in the list).
+ */
+export function buildDayStartFeatures(
+  records: TripRecords,
+): DayStartFeatureCollection {
+  const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
+  const stopsOf = (dayId: string) =>
+    records.stops
+      .filter((s) => s.day === dayId && s.lat && s.lon)
+      .sort((a, b) => a.order_index - b.order_index);
+
+  const features: DayStartFeature[] = [];
+  days.forEach((day, i) => {
+    const number = i + 1;
+    const own = stopsOf(day.id);
+    let coord: [number, number] | null = null;
+    let label = '';
+    let unplanned = false;
+
+    if (own.length > 0) {
+      coord = [own[0]!.lon, own[0]!.lat];
+      label = own[0]!.title;
+    } else {
+      unplanned = true;
+      for (let di = i - 1; di >= 0 && !coord; di--) {
+        const earlier = stopsOf(days[di]!.id);
+        if (earlier.length === 0) continue;
+        const anchor =
+          [...earlier].reverse().find((s) => s.is_accommodation) ??
+          earlier[earlier.length - 1]!;
+        coord = [anchor.lon, anchor.lat];
+        label = anchor.title;
+      }
+    }
+    if (!coord) return;
+
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: coord },
+      properties: {
+        dayId: day.id,
+        number,
+        iconImage: unplanned ? `d:${number}:empty` : `d:${number}`,
+        startLabel: label,
+        unplanned,
+      },
+    });
+  });
+
+  return { type: 'FeatureCollection', features };
+}
+
 // --- wishlist pins (design_handoff_map_first_planner, WORK 12.4) ----------
 
 export interface WishlistFeature {
