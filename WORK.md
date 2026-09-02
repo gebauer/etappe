@@ -1699,14 +1699,21 @@ gone; this is the only day switcher now.
   end (seeded 13-day trip, real browser, no mocks).
 - Commit message will read `phase 17.1: day dock — single row, never wraps`.
 
-**17.2 Phone: day detail collapse** · Standard · ⬜
-Not started. Handoff: the day header on phone gets a chevron toggle
-(~30px) that collapses the day detail region, giving the map the freed
-height. Needs a phone-only `dayCollapsed` UI state (component-local, not
-persisted); collapsing/expanding must not disturb the map's current
-view, and picking a different day pill or an action that needs the day
-detail (e.g. adding a stop) should re-expand it. Depends on nothing else
-in this phase; can be built independently of 17.3–17.5.
+**17.2 Phone: day detail collapse** · Standard · ✅
+A phone-only `dayCollapsed` state in `TripEditor` (component-local, never
+persisted). `Timeline` gained `collapsed`/`onToggleCollapse` props: the
+30px `▼`/`▲` chevron sits in the day header's top line, right of the time
+span, and is rendered only when `onToggleCollapse` is passed — i.e. phone
+only; desktop passes `undefined` and the column is always open. Collapsed,
+the `Timeline` body (everything below the header line) is not rendered,
+the `<aside>` drops to `flex-none`, and the map pane switches from
+`[flex:0_0_58%]` to `flex-1` so it claims the freed height. MapPane's
+existing `ResizeObserver` → `map.resize()` keeps the view centred, so the
+collapse doesn't disturb the map. Reset paths: picking any day pill
+(`onSelectDay` also clears it), `doAddStopToFocus`, and `commitPlacement`.
+Fit trip collapses it on phone — a new `onFitTrip` callback prop on
+MapPane fires alongside the internal re-fit; desktop Fit trip ignores it.
+Commit: `phase 17.2: phone — collapse the day detail`.
 
 **17.3 Phone: wishlist carousel reachability** · Standard · ⬜
 Not started. **This is the reversal of 12.7** ("wishlist panel and

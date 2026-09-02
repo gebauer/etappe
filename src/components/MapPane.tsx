@@ -131,6 +131,7 @@ export function MapPane({
   selectedWishlistId,
   hoveredWishlistId,
   onSelectDay,
+  onFitTrip,
   onAddDay,
   onInsertDay,
   picking,
@@ -164,6 +165,9 @@ export function MapPane({
   /** Day pills (WORK 12.5) — the trip's only day switcher since WORK 12.6
    * retired the day rail. */
   onSelectDay?: (dayId: string) => void;
+  /** Fired alongside the internal map re-fit when "Fit trip" is pressed, so
+   * the shell can react (WORK 17.2: collapse the phone day detail). */
+  onFitTrip?: () => void;
   onAddDay?: () => void;
   /** Insert a day before the one at this index (WORK 16.2). */
   onInsertDay?: (atIndex: number) => void;
@@ -1076,7 +1080,10 @@ export function MapPane({
         onHoverDay={setHoveredDayId}
         onAddDay={() => onAddDay?.()}
         onInsertDay={(at) => onInsertDay?.(at)}
-        onFitTrip={fitTrip}
+        onFitTrip={() => {
+          fitTrip();
+          onFitTrip?.();
+        }}
       />
       {/* Dev-only capture aid, predates the redesign and unaddressed by it —
           pushed below the day pills row rather than colliding with it. */}

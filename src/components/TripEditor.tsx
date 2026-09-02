@@ -203,6 +203,10 @@ export function TripEditor({
   const [browsing, setBrowsing] = useState(false);
   const [hoveredWishId, setHoveredWishId] = useState<string | null>(null);
   const [starOnly, setStarOnly] = useState(false);
+  // Phone only (WORK 17.2): the day detail can be folded down to its header
+  // line so the map takes the freed height. Component-local, never
+  // persisted; picking a day pill, Fit trip or adding a stop all reset it.
+  const [dayCollapsed, setDayCollapsed] = useState(false);
 
   // Wishlist lives outside the cascade-oriented trip doc (it has no day/
   // order_index), so it gets its own small fetch rather than riding along
@@ -353,6 +357,7 @@ export function TripEditor({
   function doAddStopToFocus() {
     const dayId = focusDayId();
     if (!records || !dayId) return;
+    setDayCollapsed(false);
     void runStructural(() =>
       addStopAtEnd(
         pb,
@@ -424,6 +429,7 @@ export function TripEditor({
     const candidate = pendingPlacement;
     setPendingPlacement(null);
     if (!records || !candidate) return;
+    setDayCollapsed(false);
     const dayStops = records.stops
       .filter((s) => s.day === option.dayId)
       .sort((a, b) => a.order_index - b.order_index);
@@ -1301,7 +1307,11 @@ export function TripEditor({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col desktop:grid desktop:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="relative min-h-0 flex-none overflow-hidden border-b border-border [flex:0_0_58%] desktop:flex-1 desktop:border-b-0">
+        <div
+          className={`relative min-h-0 overflow-hidden border-b border-border desktop:flex-1 desktop:border-b-0 ${
+            phone && dayCollapsed ? 'flex-1' : 'flex-none [flex:0_0_58%]'
+          }`}
+        >
           <MapPane
             records={records}
             result={result}
@@ -1319,7 +1329,13 @@ export function TripEditor({
             flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
             hoveredWishlistId={hoveredWishId}
-            onSelectDay={(id) => setSelectedDayId(id)}
+            onSelectDay={(id) => {
+              setSelectedDayId(id);
+              setDayCollapsed(false);
+            }}
+            onFitTrip={() => {
+              if (phone) setDayCollapsed(true);
+            }}
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
             picking={mapPicking}
@@ -1587,11 +1603,19 @@ export function TripEditor({
           )}
         </div>
 
-        <aside className="min-h-0 flex-1 border-border desktop:border-l">
+        <aside
+          className={`min-h-0 border-border desktop:flex-1 desktop:border-l ${
+            phone && dayCollapsed ? 'flex-none' : 'flex-1'
+          }`}
+        >
           <Timeline
             trip={trip}
             day={activeDay}
             dayIndex={activeDayIndex}
+            collapsed={phone && dayCollapsed}
+            onToggleCollapse={
+              phone ? () => setDayCollapsed((v) => !v) : undefined
+            }
             stops={stops}
             legs={legs}
             blocks={records.blocks}
