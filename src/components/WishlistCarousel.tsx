@@ -22,6 +22,9 @@ interface Props {
    * opens. This is the only thing in here that selects or moves the map. */
   onPick: (item: PoisResponse) => void;
   onClose: () => void;
+  /** Phone metering (WORK 17.3): smaller cards, no `‹`/`›` arrows — the
+   * strip is touch-scrolled with scroll-snap doing the work. */
+  phone?: boolean;
 }
 
 const CARD_STEP = 178 + 12; // card width + strip gap; arrows move three at a time.
@@ -44,6 +47,7 @@ export function WishlistCarousel({
   onToggleStar,
   onPick,
   onClose,
+  phone = false,
 }: Props) {
   const stripRef = useRef<HTMLDivElement | null>(null);
 
@@ -69,7 +73,9 @@ export function WishlistCarousel({
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[22] bg-[linear-gradient(180deg,transparent,oklch(0.15_0.014_250/0.86)_42%)] pb-2 pt-10 font-sans">
-      <div className="pointer-events-auto flex items-center gap-3 px-4 pb-2">
+      <div
+        className={`pointer-events-auto flex items-center gap-3 pb-2 ${phone ? 'px-2.5' : 'px-4'}`}
+      >
         <button
           onClick={onToggleStarOnly}
           className={`flex h-[30px] items-center gap-1.5 rounded-[15px] px-3 text-[12.5px] ${
@@ -94,7 +100,7 @@ export function WishlistCarousel({
       </div>
 
       <div className="relative">
-        {ordered.length > 3 && (
+        {ordered.length > 3 && !phone && (
           <>
             <button
               onClick={() => scrollBy(-1)}
@@ -115,7 +121,9 @@ export function WishlistCarousel({
 
         <div
           ref={stripRef}
-          className="pointer-events-auto flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1.5 pt-1"
+          className={`pointer-events-auto flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-1.5 pt-1 ${
+            phone ? 'gap-[9px] px-2.5' : 'gap-3 px-4'
+          }`}
         >
           {ordered.length === 0 && (
             <p className="py-6 text-[12.5px] text-text-4">
@@ -136,7 +144,11 @@ export function WishlistCarousel({
                 onClick={() => onPick(item)}
                 onMouseEnter={() => onHover(item.id)}
                 onMouseLeave={() => onHover(null)}
-                className={`relative h-[136px] w-[178px] flex-none snap-start overflow-hidden rounded-[13px] text-left transition-transform ${
+                className={`relative flex-none snap-start overflow-hidden text-left transition-transform ${
+                  phone
+                    ? 'h-[92px] w-[124px] rounded-[11px]'
+                    : 'h-[136px] w-[178px] rounded-[13px]'
+                } ${
                   hovered
                     ? '-translate-y-1 shadow-[0_10px_24px_oklch(0.08_0.02_250/0.5)] ring-2 ring-wishlist'
                     : 'shadow-[0_6px_16px_oklch(0.10_0.02_250/0.4)]'
@@ -177,7 +189,9 @@ export function WishlistCarousel({
                       onToggleStar(item, !item.starred);
                     }
                   }}
-                  className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full text-[13px] ${
+                  className={`absolute right-1.5 top-1.5 flex items-center justify-center rounded-full text-[13px] ${
+                    phone ? 'h-6 w-6' : 'h-7 w-7'
+                  } ${
                     item.starred
                       ? 'bg-wishlist text-[oklch(0.20_0.04_80)]'
                       : 'bg-[oklch(0.16_0.014_250/0.6)] text-text backdrop-blur-[4px]'

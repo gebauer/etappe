@@ -357,7 +357,7 @@ export function TripEditor({
   function doAddStopToFocus() {
     const dayId = focusDayId();
     if (!records || !dayId) return;
-    setDayCollapsed(false);
+    setDayFolded(false);
     void runStructural(() =>
       addStopAtEnd(
         pb,
@@ -429,7 +429,7 @@ export function TripEditor({
     const candidate = pendingPlacement;
     setPendingPlacement(null);
     if (!records || !candidate) return;
-    setDayCollapsed(false);
+    setDayFolded(false);
     const dayStops = records.stops
       .filter((s) => s.day === option.dayId)
       .sort((a, b) => a.order_index - b.order_index);
@@ -543,6 +543,13 @@ export function TripEditor({
     closeCard();
     setHoveredWishId(null);
     setBrowsing(true);
+  }
+
+  /** Fold the phone day detail (WORK 17.2). Expanding it also dismisses the
+   * wishlist carousel — the two never share the phone screen (WORK 17.3). */
+  function setDayFolded(next: boolean) {
+    setDayCollapsed(next);
+    if (!next) setBrowsing(false);
   }
 
   // The card's `‹`/`›` order for wishlist entries: a nearest-neighbour chain
@@ -1331,10 +1338,10 @@ export function TripEditor({
             hoveredWishlistId={hoveredWishId}
             onSelectDay={(id) => {
               setSelectedDayId(id);
-              setDayCollapsed(false);
+              setDayFolded(false);
             }}
             onFitTrip={() => {
-              if (phone) setDayCollapsed(true);
+              if (phone) setDayFolded(true);
             }}
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
@@ -1431,11 +1438,36 @@ export function TripEditor({
             </div>
           )}
 
-          {browsing && !cardOpen && !picking && !phone && (
+          {/* Phone-only entry to the carousel (WORK 17.3): reachable only
+              once the day detail is folded away — browsing places is a map
+              activity, so it is offered exactly when the map has the
+              screen. Hidden the moment anything else claims the bottom
+              slot. */}
+          {phone &&
+            dayCollapsed &&
+            !cardOpen &&
+            !browsing &&
+            !picking &&
+            !placingWish &&
+            wishlist.length > 0 && (
+              <button
+                onClick={openBrowsing}
+                className="absolute bottom-2 left-2 z-20 flex h-[38px] items-center gap-1.5 rounded-[19px] border border-[oklch(0.34_0.012_250)] bg-[oklch(0.20_0.013_250/0.92)] px-3.5 text-[12.5px] text-text-2 backdrop-blur-[10px]"
+              >
+                <span className="text-wishlist">★</span>
+                <span className="whitespace-nowrap">
+                  Explore {wishlist.length}{' '}
+                  {wishlist.length === 1 ? 'place' : 'places'}
+                </span>
+              </button>
+            )}
+
+          {browsing && !cardOpen && !picking && (!phone || dayCollapsed) && (
             <WishlistCarousel
               items={wishlist}
               order={wishChain}
               blocks={records.blocks}
+              phone={phone}
               starOnly={starOnly}
               onToggleStarOnly={() => setStarOnly((v) => !v)}
               hoveredId={hoveredWishId}
@@ -1614,7 +1646,7 @@ export function TripEditor({
             dayIndex={activeDayIndex}
             collapsed={phone && dayCollapsed}
             onToggleCollapse={
-              phone ? () => setDayCollapsed((v) => !v) : undefined
+              phone ? () => setDayFolded(!dayCollapsed) : undefined
             }
             stops={stops}
             legs={legs}

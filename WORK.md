@@ -764,6 +764,12 @@ threshold, same step function as the desktop card's `‹`/`›`) and a looping
 chevron nudge as the discoverability cue; edit region uses 44px targets.
 Drag-to-expand and a rubber-band swipe transform are explicitly not built.
 
+**Superseded in part by 17.2 + 17.3:** the day detail now *collapses*
+rather than being fixed at 42%-of-nothing (17.2), and the wishlist
+carousel *does* exist on phone — reachable via an `★ Explore N places`
+pill while the day detail is folded (17.3). The wishlist *panel* is still
+phone-suppressed; only the carousel came back.
+
 **Built as:** verified directly against the live prototype
 (`Etappe Redesign.dc.html`, served locally and driven in a real browser at
 390px) rather than only the README prose, which turned out to have drifted
@@ -1715,19 +1721,20 @@ Fit trip collapses it on phone — a new `onFitTrip` callback prop on
 MapPane fires alongside the internal re-fit; desktop Fit trip ignores it.
 Commit: `phase 17.2: phone — collapse the day detail`.
 
-**17.3 Phone: wishlist carousel reachability** · Standard · ⬜
-Not started. **This is the reversal of 12.7** ("wishlist panel and
-carousel not existing at all below the breakpoint, not just being
-restyled" — see 12.7's own entry). The handoff now wants an
-"★ Explore N places" glass pill shown only when
-`phone && dayCollapsed && !selection && !browsing && !picking`, i.e. day
-detail is collapsed (17.2) and nothing else is already occupying the
-screen. Tapping it opens the same `WishlistCarousel` used on desktop,
-re-metered for phone (smaller cards — ~124px, ~92px photos — and touch
-scroll-snap instead of the desktop's `‹`/`›` arrow buttons). Depends on
-17.2 existing first (the pill's visibility condition needs
-`dayCollapsed`). When this lands, update 12.7's entry to point here
-rather than silently leaving 12.7's "not built on phone" claim standing.
+**17.3 Phone: wishlist carousel reachability** · Standard · ✅
+The reversal of 12.7's "no wishlist on phone". `WishlistCarousel` gained a
+`phone` prop that re-meters it: 124×92 cards (from 178×136), `rounded-11`,
+9px gaps, 10px side padding, 24px star buttons, and the desktop `‹`/`›`
+arrows dropped entirely — the existing `snap-x snap-mandatory` strip is
+touch-scrolled. `TripEditor` renders an `★ Explore N places` glass pill
+(`bottom-2 left-2`, 38px, `rounded-[19px]`, gold star) gated on
+`phone && dayCollapsed && !cardOpen && !browsing && !picking &&
+!placingWish && wishlist.length > 0`; it opens the carousel via the
+existing `openBrowsing`. The carousel's own render gate now allows phone
+when `dayCollapsed`. A `setDayFolded(next)` helper replaced the bare
+`setDayCollapsed` calls so expanding the day detail also clears
+`browsing` — the two never share the phone screen. 12.7's entry updated
+to point here. Commit: `phase 17.3: phone — reach the wishlist carousel`.
 
 **17.4 Daylight wording split by time of day** · Standard · ⬜
 Not started. Handoff: the existing daylight line (`PinCard`'s docked
