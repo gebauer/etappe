@@ -35,17 +35,12 @@ import { TILE_URL } from '../lib/map-config';
 
 const STOP_LAYERS = ['stops'];
 
-// Everything hidden while the trip overview (WORK 17.6) is up — its numbered
-// day pins are the only thing on the map in that state.
-const OVERVIEW_HIDDEN_LAYERS = [
-  'stops',
-  'stops-hover',
-  'legs-hover-halo',
-  'legs-flat',
-  'legs-shade',
-  'legs-dusk',
-  'legs-manual',
-];
+// Hidden while the trip overview (WORK 17.6) is up: the per-stop pins, which
+// belong to a single focused day. The day routes stay — at whole-trip zoom the
+// route shape is the point of the view (BUILD §5), and the numbered day pins
+// sit on top of it. `legs-hover-halo` stays too, so hovering a day pill still
+// lifts that day's route.
+const OVERVIEW_HIDDEN_LAYERS = ['stops', 'stops-hover'];
 
 // Line width grows with zoom; shared by every leg layer.
 const WIDTH = [
@@ -734,8 +729,8 @@ export function MapPane({
     source?.setData(dayStartFc);
   }, [dayStartFc, mapReady]);
 
-  // Enter/leave the trip overview: the day pins take the map and everything
-  // else (stop pins, day routes, the hover halo) hides.
+  // Enter/leave the trip overview: the numbered day pins come up and the
+  // per-stop pins hide. The day routes stay drawn (see OVERVIEW_HIDDEN_LAYERS).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;

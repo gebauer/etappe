@@ -1997,9 +1997,11 @@ re-framing the map.
   0.05 235)` ring, or `control` + dim ring when unplanned — on demand via
   `styleimagemissing` (`d:<n>` / `d:<n>:empty` keys). A `day-starts`
   source + symbol layer; entering the overview flips it visible and hides
-  `stops`, `stops-hover` and all five `legs-*` layers via
-  `setLayoutProperty`. Clicking a day pin calls `onSelectDay`; a bare map
-  click in the overview is inert.
+  `stops` / `stops-hover` via `setLayoutProperty`. Clicking a day pin calls
+  `onSelectDay`; a bare map click in the overview is inert.
+  (Amended 2026-09-03: the overview originally hid the `legs-*` layers too,
+  so Fit trip blanked the whole route. It doesn't now — the day routes stay
+  drawn under the numbered pins, which is the point of a whole-trip view.)
 - **Column:** new `TripOverview.tsx` — header `Whole trip` / `N days ·
   <range>`, one 26px-numbered row per day (date, first stop or `no stops
   yet`, span, stop count); a row click selects that day. `Timeline`
