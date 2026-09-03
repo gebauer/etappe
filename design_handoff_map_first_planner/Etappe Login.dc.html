@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="./image-slot.js"></script>
+<style>
+  html, body { margin: 0; background: oklch(0.17 0.012 250); }
+  body { font-family: "Space Grotesk", system-ui, sans-serif; color: oklch(0.95 0.005 250); -webkit-font-smoothing: antialiased; }
+  a { color: oklch(0.72 0.13 215); text-decoration: none; }
+  a:hover { color: oklch(0.84 0.11 215); }
+  input::placeholder { color: oklch(0.62 0.01 250); }
+  input:focus { outline: none; border-color: oklch(0.56 0.09 215); }
+</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:18px;padding:34px">
+  <div style="display:flex;align-items:baseline;gap:12px">
+    <span style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Turn 1 · Sign-in</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.50 0.01 250)">photos and their captions come from a supplied folder</span>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="display:flex;align-items:center;justify-content:center;height:22px;padding:0 9px;border-radius:6px;background:oklch(0.24 0.013 250);font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.88 0.006 250)">1b · chosen</span>
+        <span style="font-size:13.5px;color:oklch(0.68 0.01 250)">Full-bleed photo, card floats over it</span>
+      </div>
+
+      <div style="position:relative;width:1180px;height:740px;border-radius:18px;overflow:hidden;border:1px solid oklch(0.27 0.012 250);background:oklch(0.17 0.012 250)">
+        <image-slot id="login-bleed-hero" shape="rect" fit="cover" src="./photos/yosemite-tunnel-view.jpg" placeholder="Drop a wide vacation photo — 2400×1400 or larger"></image-slot>
+        <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 78% 20%,oklch(0.12 0.02 250 / 0) 30%,oklch(0.11 0.02 250 / 0.62)),linear-gradient(to right,oklch(0.11 0.02 250 / 0.82),oklch(0.11 0.02 250 / 0.15) 62%)"></div>
+
+        <div style="position:absolute;top:28px;left:34px;pointer-events:none;display:flex;align-items:center;gap:9px">
+          <span style="width:9px;height:9px;border-radius:50%;background:oklch(0.72 0.13 215);box-shadow:0 0 0 4px oklch(0.72 0.13 215 / 0.18)"></span>
+          <span style="font-size:19px;font-weight:700;letter-spacing:-0.01em">Etappe</span>
+        </div>
+
+        <div style="position:absolute;top:0;bottom:0;left:34px;display:flex;flex-direction:column;justify-content:center;width:406px">
+          <div style="padding:20px 22px;border-radius:14px;background:oklch(0.16 0.012 250 / 0.62);backdrop-filter:blur(14px);border:1px solid oklch(0.32 0.012 250 / 0.5)">
+            <h1 style="margin:0;font-size:38px;font-weight:600;line-height:1.1;letter-spacing:-0.025em;text-wrap:pretty">Where are you going next?</h1>
+            <p style="margin:12px 0 0;font-size:14.5px;line-height:1.55;color:oklch(0.80 0.008 250);text-wrap:pretty">Sign in to pick up the itinerary you left open.</p>
+          </div>
+
+          <div style="margin-top:22px;padding:26px;border-radius:16px;border:1px solid oklch(0.32 0.012 250 / 0.85);background:oklch(0.20 0.013 250 / 0.78);backdrop-filter:blur(18px);box-shadow:0 24px 60px oklch(0.08 0.02 250 / 0.55)">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <input value="{{ email }}" onChange="{{ onEmail }}" placeholder="Email" style="width:100%;box-sizing:border-box;height:46px;padding:0 14px;border-radius:10px;border:1px solid oklch(0.32 0.012 250 / 0.9);background:oklch(0.175 0.012 250 / 0.8);color:oklch(0.96 0.005 250);font:inherit;font-size:14.5px" />
+              <input type="password" value="{{ pw }}" onChange="{{ onPw }}" placeholder="Password" style="width:100%;box-sizing:border-box;height:46px;padding:0 14px;border-radius:10px;border:1px solid oklch(0.32 0.012 250 / 0.9);background:oklch(0.175 0.012 250 / 0.8);color:oklch(0.96 0.005 250);font:inherit;font-size:14.5px" />
+              <button onClick="{{ noop }}" style="margin-top:4px;height:48px;border:0;border-radius:10px;background:oklch(0.72 0.13 215);color:oklch(0.16 0.02 240);font:inherit;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:oklch(0.80 0.12 215)">Sign in</button>
+            </div>
+            <div style="margin-top:14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:12.5px;color:oklch(0.74 0.01 250)">
+              <span>Need an account? <a href="#1b">Register</a></span>
+              <a href="#1b">Forgot password?</a>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;right:30px;bottom:26px;pointer-events:none;text-align:right">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.80 0.06 215)">Day 4 · 37°43′N</div>
+          <div style="margin-top:4px;font-size:17px;font-weight:600;text-shadow:0 2px 14px oklch(0.11 0.02 250 / 0.75)">Tunnel View, Yosemite</div>
+          <div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end">
+            <span style="width:22px;height:3px;border-radius:2px;background:oklch(0.94 0.01 250)"></span>
+            <span style="width:22px;height:3px;border-radius:2px;background:oklch(0.94 0.01 250 / 0.34)"></span>
+            <span style="width:22px;height:3px;border-radius:2px;background:oklch(0.94 0.01 250 / 0.34)"></span>
+            <span style="width:22px;height:3px;border-radius:2px;background:oklch(0.94 0.01 250 / 0.34)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="max-width:1180px;padding:16px 18px;border-radius:12px;border:1px solid oklch(0.27 0.012 250);background:oklch(0.20 0.013 250);font-size:13px;line-height:1.6;color:oklch(0.68 0.01 250);text-wrap:pretty">
+    <strong style="color:oklch(0.92 0.006 250);font-weight:600">Where the photos and their captions come from.</strong> A folder on the server holds the images plus one <code style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.80 0.008 250)">photos.json</code> manifest: per entry a file name, place, region, optional coordinates and a month. The overlay renders only the fields present — no placeholder text, no <em>Unknown location</em>. One photo per sign-in visit, crossfading every 7&nbsp;s while the page stays open, caption swapping with it; the four ticks are the position in that rotation. Sourcing these from the user's own finished trips is a separate feature request, not this design.
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { email: "", pw: "" };
+  renderVals() {
+    return {
+      noop: () => {},
+      email: this.state.email,
+      pw: this.state.pw,
+      onEmail: (e) => this.setState({ email: e.target.value }),
+      onPw: (e) => this.setState({ pw: e.target.value })
+    };
+  }
+}
+</script>
+</body>
+</html>

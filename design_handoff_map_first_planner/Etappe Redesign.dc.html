@@ -31,7 +31,7 @@
     <div style="width:1px;height:20px;background:oklch(0.30 0.012 250)"></div>
     <div style="min-width:0;display:flex;align-items:baseline;gap:10px;flex:1">
       <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Iceland Ring Road</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.62 0.01 250);white-space:nowrap">10 days · 48 stops</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.62 0.01 250);white-space:nowrap">10 days · 8 stops</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <div style="position:relative;flex:0 0 auto">
@@ -71,7 +71,7 @@
       <div onClick="{{ onMapClick }}" style="{{ mapSurfaceStyle }}">
         <div style="position:absolute;inset:0;opacity:0.5;background-image:linear-gradient(oklch(0.30 0.012 250) 1px, transparent 1px), linear-gradient(90deg, oklch(0.30 0.012 250) 1px, transparent 1px);background-size:96px 96px"></div>
         <div style="position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(180deg, transparent, oklch(0.24 0.035 245) 90%)"></div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="{{ routeStyle }}">
           <polyline points="30,34 41,26 44,40 47,45 52,58 58,64 65,72 67,74" fill="none" stroke="{{ accent }}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.85"></polyline>
         </svg>
       </div>
@@ -87,7 +87,7 @@
       </sc-if>
 
       <sc-for list="{{ pins }}" as="p" hint-placeholder-count="8">
-        <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.num }}</button>
+        <button onClick="{{ p.onClick }}" title="{{ p.title }}" style="{{ p.style }}">{{ p.num }}</button>
       </sc-for>
 
       <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none">
@@ -109,6 +109,7 @@
             <div class="day-rail" ref="{{ dayRailRef }}" onScroll="{{ onDayScroll }}" onPointerDown="{{ onDayPointerDown }}" onPointerMove="{{ onDayPointerMove }}" onPointerUp="{{ onDayPointerUp }}" onPointerCancel="{{ onDayPointerUp }}" style="display:flex;align-items:center;gap:6px;overflow-x:auto;scroll-behavior:smooth;scrollbar-width:none;cursor:grab;touch-action:pan-x">
               <sc-for list="{{ dayPills }}" as="d" hint-placeholder-count="4">
                 <button onClick="{{ d.onClick }}" style="{{ d.style }}">
+                  <span style="{{ d.dotStyle }}"></span>
                   <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px">{{ d.label }}</span>
                   <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;opacity:0.7;margin-left:7px">{{ d.meta }}</span>
                 </button>
@@ -580,6 +581,24 @@
       </div>
 
       <sc-if value="{{ dayListOpen }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ overview }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 90px">
+          <sc-for list="{{ dayRows }}" as="d" hint-placeholder-count="10">
+            <button onClick="{{ d.onClick }}" style="{{ d.style }}" style-hover="background:oklch(0.23 0.013 250);border-color:oklch(0.31 0.012 250)">
+              <span style="{{ d.numStyle }}">{{ d.num }}</span>
+              <span style="min-width:0;flex:1;text-align:left">
+                <span style="display:block;font-size:13.5px;font-weight:500">{{ d.date }}</span>
+                <span style="display:block;margin-top:2px;{{ d.startStyle }}">{{ d.start }}</span>
+              </span>
+              <span style="flex:0 0 auto;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.80 0.008 250)">
+                <span style="display:block">{{ d.span }}</span>
+                <span style="display:block;color:oklch(0.58 0.01 250);font-size:11px">{{ d.meta }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ dayStopsShown }}" hint-placeholder-val="{{ true }}">
       <div style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 90px">
         <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
           <div style="display:flex;flex-direction:column">
@@ -622,6 +641,7 @@
 
         <button onClick="{{ noop }}" style="margin:12px 2px 0;width:calc(100% - 4px);height:36px;border-radius:9px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">+ Stop</button>
       </div>
+      </sc-if>
       </sc-if>
     </aside>
   </div>
@@ -706,10 +726,16 @@ const USERS = {
 };
 
 const DAYS = [
-  { n: 1, meta: "8 stops" }, { n: 2, meta: "6 stops" }, { n: 3, meta: "5 stops" },
-  { n: 4, meta: "7 stops" }, { n: 5, meta: "4 stops" }, { n: 6, meta: "6 stops" },
-  { n: 7, meta: "3 stops" }, { n: 8, meta: "5 stops" }, { n: 9, meta: "4 stops" },
-  { n: 10, meta: "empty" }
+  { n: 1,  meta: "8 stops", date: "Thu 10 Jun", span: "09:00 – 16:05", start: "Þingvellir",      pos: [30, 34] },
+  { n: 2,  meta: "empty", date: "Fri 11 Jun", span: "—", start: "", pos: [42, 28] },
+  { n: 3,  meta: "empty", date: "Sat 12 Jun", span: "—", start: "", pos: [46, 42] },
+  { n: 4,  meta: "empty", date: "Sun 13 Jun", span: "—", start: "", pos: [54, 56] },
+  { n: 5,  meta: "empty", date: "Mon 14 Jun", span: "—", start: "", pos: [58, 63] },
+  { n: 6,  meta: "empty", date: "Tue 15 Jun", span: "—", start: "", pos: [64, 74] },
+  { n: 7,  meta: "empty", date: "Wed 16 Jun", span: "—", start: "", pos: [72, 70] },
+  { n: 8,  meta: "empty", date: "Thu 17 Jun", span: "—", start: "", pos: [79, 62] },
+  { n: 9,  meta: "empty", date: "Fri 18 Jun", span: "—", start: "", pos: [86, 55] },
+  { n: 10, meta: "empty", date: "Sat 19 Jun", span: "—", start: "", pos: [90, 46] }
 ];
 
 class Component extends DCLogic {
@@ -765,7 +791,7 @@ class Component extends DCLogic {
     setTimeout(() => { this._moved = false; }, 0);
   };
 
-  state = { sel: null, editing: false, day: 1, wishOpen: true, w: 1440, expanded: false, accom: false, browsing: false, hover: null, stars: { gullfoss: true, solheimajokull: true }, starOnly: false, picking: false, access: null };
+  state = { sel: null, editing: false, day: 1, overview: false, wishOpen: true, w: 1440, expanded: false, accom: false, browsing: false, hover: null, stars: { gullfoss: true, solheimajokull: true }, starOnly: false, picking: false, access: null };
   strip = React.createRef();
 
   componentDidMount() {
@@ -869,7 +895,8 @@ class Component extends DCLogic {
       label: String(d.n),
       meta: d.meta,
       onClick: () => { if (this._moved) return; this.setState({ day: d.n, dayCollapsed: false }); this.revealNeighbours(d.n - 1); },
-      style: `${pillBase};background:${this.state.day === d.n ? acc : "transparent"};color:${this.state.day === d.n ? "oklch(0.16 0.02 240)" : "oklch(0.78 0.008 250)"}`
+      style: `${pillBase};background:${this.state.day === d.n ? acc : "transparent"};color:${this.state.day === d.n ? "oklch(0.16 0.02 240)" : "oklch(0.78 0.008 250)"}`,
+      dotStyle: `width:5px;height:5px;border-radius:50%;margin-right:7px;flex:0 0 auto;background:${this.state.day === d.n ? "oklch(0.16 0.02 240 / 0.55)" : "oklch(0.46 0.01 250)"}`
     }));
     const atStart = !this.state.dayScroll;
     const atEnd = !!this.state.dayAtEnd;
@@ -877,7 +904,27 @@ class Component extends DCLogic {
     const fade = (side, show) => `position:absolute;top:0;bottom:0;${side}:0;width:26px;pointer-events:none;opacity:${show ? 1 : 0};transition:opacity 140ms ease;background:linear-gradient(to ${side === "left" ? "right" : "left"},oklch(0.20 0.013 250) 12%,oklch(0.20 0.013 250 / 0))`;
 
     const dayCollapsed = phone && !!this.state.dayCollapsed;
+    const overview = this.state.day === null;
     const dayStops = this.state.day === 1 ? STOPS : [];
+    const dayRows = DAYS.map((d) => ({
+      num: String(d.n),
+      date: d.date,
+      span: d.span,
+      meta: d.meta,
+      start: d.start || "no stops yet",
+      onClick: () => this.setState({ day: d.n, dayCollapsed: false }),
+      numStyle: `width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:oklch(0.26 0.013 250);color:oklch(0.84 0.008 250)`,
+      startStyle: `font-size:11.5px;color:${d.start ? "oklch(0.63 0.01 250)" : "oklch(0.48 0.01 250)"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`,
+      style: "width:100%;display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:10px;border:1px solid transparent;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:left"
+    }));
+    const startPins = DAYS.map((d) => ({
+      num: String(d.n),
+      title: "Day " + d.n + (d.start ? " · starts at " + d.start : " · no stops yet"),
+      onClick: () => this.setState({ day: d.n, dayCollapsed: false }),
+      style: `${pinBase};left:${d.pos[0]}%;top:${d.pos[1]}%;width:30px;height:30px;font-size:13px;font-weight:600;z-index:5;` +
+        `background:${d.start ? acc : "oklch(0.26 0.013 250)"};color:${d.start ? "oklch(0.16 0.02 240)" : "oklch(0.70 0.01 250)"};` +
+        `border:2px solid ${d.start ? "oklch(0.90 0.05 235)" : "oklch(0.40 0.012 250)"};box-shadow:0 3px 12px oklch(0.12 0.02 250 / 0.6)`
+    }));
 
     const rows = dayStops.map((s, i) => {
       const on = isStop && sel.i === i;
@@ -996,7 +1043,8 @@ class Component extends DCLogic {
         ? "display:none"
         : "position:absolute;left:14px;bottom:14px;width:236px;border-radius:12px;background:oklch(0.20 0.013 250 / 0.9);backdrop-filter:blur(10px);border:1px solid oklch(0.30 0.012 250);overflow:hidden;z-index:8",
       showWish,
-      pins, wishPins, dayPills, rows,
+      pins: overview ? startPins : pins,
+      wishPins, dayPills, rows,
       dayRailRef: this.rail,
       onDayScroll: () => this.railMetrics(),
       onDayPointerDown: this.dragStart,
@@ -1108,18 +1156,22 @@ class Component extends DCLogic {
       accessPinStyle: this.state.access
         ? `position:absolute;left:${px(this.state.access)}%;top:${py(this.state.access)}%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;z-index:7;background:oklch(0.22 0.013 250);border:2px dashed ${acc};display:flex;align-items:center;justify-content:center;font-size:10px;color:${acc};pointer-events:none`
         : "display:none",
-      fitTrip: () => { if (phone) this.setState({ dayCollapsed: true }); },
+      fitTrip: () => this.setState({ day: null, sel: null, editing: false, browsing: false, dayCollapsed: phone }),
       isPhone: phone,
       dayCollapsed,
       dayListOpen: !dayCollapsed,
       toggleDayList: () => this.setState({ dayCollapsed: !dayCollapsed }),
       dayToggleGlyph: dayCollapsed ? "▲" : "▼",
       dayToggleLabel: dayCollapsed ? "Show the day's stops" : "Hide the day's stops",
-      dayTitle: "Day " + this.state.day,
-      dayMeta: this.state.day === 1 ? "Thu 10 Jun · travel" : "Fri 11 Jun · travel",
-      daySpan: this.state.day === 1 ? "09:00 – 16:05" : "—",
-      dayWarning: this.state.day === 1 ? "NO_ACCOMMODATION — day ends without a place to stay" : "",
-      dayEmpty: this.state.day !== 1,
+      overview,
+      routeStyle: `position:absolute;inset:0;width:100%;height:100%;pointer-events:none;${overview ? "display:none" : ""}`,
+      dayStopsShown: !overview,
+      dayRows,
+      dayTitle: overview ? "Whole trip" : "Day " + this.state.day,
+      dayMeta: overview ? DAYS.length + " days · " + DAYS[0].date + " – " + DAYS[DAYS.length - 1].date : (DAYS[this.state.day - 1] || {}).date + " · travel",
+      daySpan: overview ? DAYS.length + " days" : (DAYS[this.state.day - 1] || {}).span,
+      dayWarning: !overview && this.state.day === 1 ? "NO_ACCOMMODATION — day ends without a place to stay" : "",
+      dayEmpty: !overview && this.state.day !== 1,
       cardOpen: !!sel,
       phoneCard: !!sel && phone && !this.state.picking,
       desktopCard: !!sel && !phone && !this.state.picking,

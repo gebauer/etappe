@@ -49,6 +49,12 @@ Two things are deliberately unresolved and marked as such below: the photo-wheel
 
 **Day dock**, top-left at `top:12px; left:12px; right:12px`. A **single row that never wraps** — a 14-day trip wrapped onto two lines and pushed the dock over the map. The row scrolls instead.
 
+- **Fit trip clears the day selection.** On a multi-day trip, framing the whole trip and leaving one day highlighted contradict each other — the map shows nine days of route while the pills and the column insist you are looking at day 3. So Fit trip sets `day: null` and drops any selection: no pill is active, and both panes enter the **trip overview** described below. On phone it also collapses the day detail. Picking any day pill or any day-start pin leaves the overview.
+- **Trip overview** — the state where no day is selected:
+  - **The map shows one pin per day at that day's starting point, numbered 1–X.** 30px, accent fill with an `oklch(0.90 0.05 235)` ring, mono 13px/600 — deliberately a size up from the 26px stop pins, because at trip scale these are the only pins and they are the day's handle. A day with no stops yet renders its number on `control` with a `oklch(0.40 0.012 250)` ring instead of the accent, so an unplanned day is visible rather than missing. `title` reads `Day 4 · starts at Seljalandsfoss`. Clicking one selects that day.
+  - The numbered **stop** pins and the day's route line are not drawn in this state. Ten days of numbered stops is the pin soup the redesign exists to avoid; the day numbers are the index into it.
+  - **The itinerary column becomes a day list** — header `Whole trip` / `10 days · Thu 10 Jun – Sat 19 Jun`, then one 26px-numbered row per day carrying the date, that day's starting point (or `no stops yet` in `oklch(0.48 0.01 250)`), the day's span and its stop count. Clicking a row selects the day. The `+ Stop` footer and the accommodation warning belong to a single day and are not shown here.
+  - Day pills gain a small leading dot (`oklch(0.46 0.01 250)`, or `oklch(0.16 0.02 240 / 0.55)` when active) so a bare number still reads as a day token once the word `Day` has moved to the container label.
 - **Fit trip comes first**, as a 38×38 icon button rather than a text button: glass treatment, `radius:10px`, and a 15px **corner-brackets glyph** (four 5×5 L-corners, 2px `oklch(0.84 0.008 250)`) — the standard "frame the content" mark. `title` and `aria-label` both read *Fit trip*. It leaves the pill rail the full remaining width, and it stops moving as days are added. Still the answer to the known "map doesn't grow with the trip" friction: an explicit re-fit, never automatic re-framing.
 - **Pill container**: `min-width:0`, `display:flex; align-items:stretch; padding:5px; radius:11px`, background `oklch(0.20 0.013 250 / 0.88)`, `blur(10px)`, border `1px solid oklch(0.30 0.012 250)`.
 - **One vertical `DAYS` label** at the front of the container replaces the repeated word: 16px wide, `writing-mode:vertical-rl` + `rotate(180deg)`, 9px, `letter-spacing:0.16em`, uppercase, `oklch(0.58 0.01 250)`, then a 1px divider. The label is set once; **the pills carry only the number**. That is what makes the rail compact enough to be worth scrolling — `Day 11 · 6 stops` is 96px, `11 · 6 stops` is 62px.
@@ -256,6 +262,29 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 
 **Not covered** (unchanged from today): loading states, form validation, error states.
 
+## Sign-in
+
+The old sign-in was a dark card centred on an empty dark field — correct and completely inert. This is the one screen seen before any trip exists, so it is the one place the product can do the thing it is for: make the user want to go somewhere.
+
+**Layout** — full-bleed photograph, form floating over its left third.
+- The photo fills the viewport (`object-fit:cover`). Over it, two gradients: `linear-gradient(to right, oklch(0.17 0.012 250 / 0.82), oklch(0.17 0.012 250 / 0.15) 62%)` carrying the text column, and `radial-gradient(120% 90% at 78% 20%, transparent 30%, oklch(0.17 0.012 250 / 0.62))` settling the far corner. Both `pointer-events:none`.
+- **Brand** top-left at `28px/34px`: a 9px accent dot with a `0 0 0 4px accent/0.18` halo, then `Etappe` at 19px/700.
+- **Text column**, 406px wide, vertically centred at `left:34px`. Copy is `Where are you going next?` over `Sign in to pick up the itinerary you left open.` — a question about their trip, then what the button does. Headline 38px/600, `line-height:1.1`, `letter-spacing:-0.025em`. Subhead 14.5px/1.55 `text-2`. Both sit directly on the gradient — **one glass surface per column**, and it belongs to the form. Two stacked translucent plates over a photograph is soup.
+- **Form card** below the copy: `padding:26px`, `radius:16px`, `oklch(0.20 0.013 250 / 0.78)` + `backdrop-filter:blur(18px)`, border `oklch(0.32 0.012 250 / 0.85)`, shadow `0 24px 60px oklch(0.08 0.02 250 / 0.55)`. Two 46px fields (`oklch(0.17 0.012 250 / 0.8)`, border `oklch(0.32 0.012 250 / 0.9)`) — placeholder-labelled, since two fields need no legend — then the 48px accent Sign in button. Footer row, 12.5px: `Need an account? Register` left, `Forgot password?` right.
+- **Photo caption**, bottom-right, `pointer-events:none`: a mono 11px accent-tinted line (`Day 4 · 37°43′N`), the place at 17px/600, and a row of four 22×3px ticks marking the position in the rotation.
+- Phone: the column goes full width with `padding:24px`, the headline drops to 28px, and the caption moves under the form. The photo stays.
+
+**Photo source** — a **supplied folder**, not user data. Alongside the images sits one `photos.json`:
+
+```json
+[{ "file": "yosemite-tunnel-view.jpg", "place": "Tunnel View, Yosemite",
+   "region": "California", "coords": "37°43′N", "month": "July" }]
+```
+
+`place` is the only required field. **The overlay renders only the fields present** — a missing `coords` drops that half of the mono line, a missing `month` drops the sub-line. Never a placeholder, never `Unknown location`: an unlabelled photograph is fine, a photograph labelled `Unknown` is not. Ship 8–12 images, wide-format, and pick ones whose left third is quiet — the text column sits there. One is chosen per visit; while the page stays open they crossfade every 7 s (900 ms fade), caption swapping with the image. Preload the next one only. Respect `prefers-reduced-motion` by holding the first photo.
+
+Sourcing these from the user's own completed trips is the obvious next step and a **separate feature request** (`FEATURE_REQUEST_trip-photos.md`) — it needs an upload path, a per-photo "usable on my sign-in" flag, and a moderation story the folder approach does not.
+
 ## Budget
 
 Costs are a background fact, not a planning surface — so the budget lives as **one glyph in the header**, between the trip meta and Search.
@@ -411,7 +440,10 @@ None shipped. Everything in the prototype is CSS.
 ## Files
 
 - `Etappe Redesign.dc.html` — the full prototype: desktop shell, all card modes, the expanded card, phone layout. Open it directly in a browser. Reach the expanded card via `All details` on any stop card.
-- `support.js` — prototype runtime only. Not for the target app.
+- `Etappe Login.dc.html` — the sign-in prototype (see the "Sign-in" section).
+- `support.js`, `image-slot.js` — prototype runtime only. Not for the target app; ignore both.
+- `photos/` + (expected) `photos.json` — the sample sign-in photo and the manifest shape the "Sign-in" section describes. Ship 8–12 of your own.
+- `FEATURE_REQUEST_trip-photos.md` — the follow-up that swaps the supplied folder for the user's own trip photos. Not part of the sign-in redesign.
 
 Inside the prototype: the markup section is the template, the `class Component` block below it holds the logic. `STOPS` and `WISH` at the top are seeded demo data mirroring the Iceland Ring Road trip from the screenshots. Four tweakable props sit at the bottom of the file — demo state (`rest` / `stop` / `stop-edit` / `wishlist` / `empty`), force-phone, wishlist pins on/off, and accent color — useful for stepping through every state without clicking.
 

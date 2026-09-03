@@ -111,8 +111,19 @@ below.**
 **Phase 15 (wishlist contributor attribution) also done 2026-09-02 —
 15.1 (schema + per-user colour, snapshotted onto each poi) and 15.2 (the
 chip + two pills on the panel, carousel and docked card).**
-**→ Next: nothing queued. `design_handoff_map_first_planner(9)/` is fully
-absorbed; `ToDo.md` may have loose ends worth a pass.**
+**→ Next: the sign-in redesign (Phase 20), from handoff revision 10.**
+`ToDo.md` may have loose ends worth a pass.
+
+**Handoff folders consolidated 2026-09-03.** The numbered download copies
+`design_handoff_map_first_planner(9)/` and `(10)/` have been merged into
+the single in-repo `design_handoff_map_first_planner/` and deleted. `(9)`
+was fully absorbed — its only delta over the base folder was the trip
+overview (17.6), and Phase 18 took its two carried-over items (overlay
+contrast, block-editor redesign) from `(9)/CLAUDE_CODE_PROMPT.md`. `(10)`
+added exactly one thing over `(9)`: the **`## Sign-in`** section plus its
+assets (`Etappe Login.dc.html`, `photos/`, a `photos.json` manifest
+concept, `FEATURE_REQUEST_trip-photos.md`, and the prototype-only
+`image-slot.js`). That section is **not built** — see Phase 20.
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -1981,8 +1992,9 @@ a `costs` prop (passed `records.costs`) and hands each row
 itinerary rows`.
 
 **17.6 Fit trip → trip overview** · Standard · ✅
-From `design_handoff_map_first_planner(9)/` — the only change in that
-revision (diffed against the in-repo `design_handoff_map_first_planner/`).
+From handoff revision 9 (was `design_handoff_map_first_planner(9)/`, since
+merged into the base folder) — the only change in that revision, diffed
+against the in-repo `design_handoff_map_first_planner/`.
 Fit trip now enters a real no-day-selected state instead of just
 re-framing the map.
 - **State:** a `tripOverview` boolean in `TripEditor` (not a nullable
@@ -2026,7 +2038,8 @@ re-framing the map.
 
 ## Phase 18 — Dark-theme debt the handoff mandated
 
-Source: `design_handoff_map_first_planner(9)/CLAUDE_CODE_PROMPT.md` lists
+Source: handoff revision 9's `CLAUDE_CODE_PROMPT.md` (now
+`design_handoff_map_first_planner/CLAUDE_CODE_PROMPT.md`) lists
 two changes that never got a task — "Two carried-over overlays fail
 contrast and must be retrofitted" and "The block editor inside the
 expanded card is redesigned". Both were left behind when Phase 12 shipped
@@ -2519,6 +2532,47 @@ same checkout. Not a conflict, history is linear.)*
   key-needing engine until a validated key is on file — so "showing HERE,
   actually on ORS" can't recur. **`pb_hooks/` change → the deployed
   instance must be redeployed for this to take effect.**
+
+---
+
+## Phase 20 — Sign-in redesign
+
+Source: `design_handoff_map_first_planner/README.md` **"Sign-in"** section
++ `Etappe Login.dc.html`. The one net-new item in handoff revision 10;
+everything else in that revision was already built (see the handoff-folder
+note in the Status section). **Not started.**
+
+The current sign-in is `LoginForm.tsx` — a dark card centred on an empty
+field, correct and inert. The redesign turns the one pre-trip screen into
+the place the product sells the idea of going somewhere.
+
+**20.1 Sign-in screen** · Standard
+- Full-bleed travel photograph, two `pointer-events:none` gradients over
+  it, form + copy floating over the left third as **one** glass surface
+  (not two stacked plates). Brand top-left, 406px text column vertically
+  centred (`Where are you going next?` / `Sign in to pick up the
+  itinerary you left open.`), the form card below it (two 46px
+  placeholder-labelled fields, 48px accent button, Register / Forgot
+  links). Mono photo caption bottom-right with four rotation ticks.
+- Phone: text column full-width, headline 28px, caption under the form,
+  photo stays.
+- All exact oklch values, sizes and gradients are in the README section —
+  translate to Tailwind, keep the oklch values.
+
+**20.2 Photo rotation** · Standard
+- A **supplied** `public/` folder of 8–12 wide images + `photos.json`
+  (`file`, `place` [required], `region`, `coords`, `month`). Render only
+  the fields a manifest entry has — never a placeholder, never
+  `Unknown location`.
+- One photo per visit, 7 s crossfade (900 ms fade) while the page stays
+  open, caption swaps with the image, preload only the next one,
+  `prefers-reduced-motion` holds the first.
+- `image-slot.js` in the handoff is prototype-only — do not port it.
+
+**Deferred (own feature request, do not build here):**
+`FEATURE_REQUEST_trip-photos.md` — sourcing the rotation from the user's
+own finished trips. Needs an upload opt-in flag, a pre-auth public bucket
+or a post-email load sequence, and a moderation path. Separate task.
 
 ---
 
