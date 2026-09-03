@@ -10,7 +10,12 @@ import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import { SharePanel } from './SharePanel';
 import { BudgetPopover } from './BudgetPopover';
 import { TripDatePopover } from './TripDatePopover';
-import { listMembers, setTripStartDate } from '../lib/pb-trips';
+import { SettingsPanel } from './SettingsPanel';
+import {
+  listMembers,
+  setTripStartDate,
+  updateTripSettings,
+} from '../lib/pb-trips';
 import {
   addStopAtEnd,
   addStopAt,
@@ -187,6 +192,7 @@ export function TripEditor({
   const [notice, setNotice] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
@@ -1299,6 +1305,14 @@ export function TripEditor({
               friction with the trip title/email. */}
           <div className="hidden items-center gap-2 desktop:flex">
             <button
+              onClick={() => setSettingsOpen(true)}
+              title="Trip settings — buffer, surfaces, dwells, timezone, currency"
+              aria-label="Trip settings"
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-control text-[14px] text-text-2 hover:bg-control-hover"
+            >
+              ⚙
+            </button>
+            <button
               onClick={() => setSearchMode('placement')}
               title="Search places (⌘K)"
               className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
@@ -1884,6 +1898,13 @@ export function TripEditor({
           }
           onClose={() => setShareOpen(false)}
           onChanged={() => void reload()}
+        />
+      )}
+      {settingsOpen && (
+        <SettingsPanel
+          trip={trip}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(patch) => run(() => updateTripSettings(tripId, patch))}
         />
       )}
       {timingConflict && (

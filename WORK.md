@@ -528,9 +528,31 @@ IndexedDB. Verify a full day renders with the network disabled.
 Cost entry on stops and days, totals per day and per trip, estimate flag,
 category breakdown.
 
-**11.2 Trip settings** · Cheap
+**11.2 Trip settings** · Cheap · ✅ (2026-09-03)
 Buffer percentage, surface multipliers, default dwells per kind, timezone,
-currency, members, share token.
+currency. (Members and the share token were already the `SharePanel` from
+WORK 16.6 — not rebuilt here.) Every one of these was frozen at trip
+creation with no route to change it short of the PocketBase admin UI, and
+all of them feed the cascade: the buffer and multipliers scale every car
+leg, the default dwells time every stop with no override, the timezone
+drives the daylight maths.
+- `updateTripSettings(tripId, patch)` in `pb-trips.ts` — one `trips`
+  update, editor+ by the same rule as everything else on the doc.
+- `SettingsPanel.tsx`, opened from a new `⚙` button in the header's
+  desktop action group. A **local draft with one Save**, not a write per
+  keystroke — several numeric fields, and a half-typed multiplier
+  shouldn't re-run the cascade. `run()` reloads the trip on save, so the
+  cascade recomputes.
+- Validation gates Save: buffer 0–200 finite, each multiplier > 0,
+  each dwell ≥ 0, and the timezone must pass `new Intl.DateTimeFormat`.
+  Timezone is a free text field with a `<datalist>` of ~12 common zones.
+- The 26 per-kind dwells sit in a collapsed `▸ Default dwell per kind`
+  section with a Reset (to `defaultDwellSeed()`), so they don't dominate
+  the panel.
+- Verified: `.claude/skills/run-etappe/settings-check.mjs` — currency,
+  buffer, a multiplier and the timezone all round-trip through
+  save/reopen; Save is blocked on an invalid timezone. No console errors.
+- Commit: `phase 11.2: trip settings panel`.
 
 **11.3 Deploy** · Standard · ✅
 Coolify config, volume, backup note, committed migrations, smoke test against

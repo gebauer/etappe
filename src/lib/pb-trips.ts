@@ -123,6 +123,32 @@ export async function setTripStartDate(
     .update(tripId, { start_date: `${date} 00:00:00.000Z` });
 }
 
+/**
+ * The trip's cascade assumptions and locale (WORK 11.2) — car buffer,
+ * surface multipliers, per-kind default dwells, timezone and currency.
+ * These were fixed at creation with no way to change them short of the
+ * PocketBase admin UI, yet every one of them feeds the cascade: the buffer
+ * and multipliers scale every car leg, the default dwells time every stop
+ * with no override, and the timezone drives the daylight maths.
+ *
+ * Editor+ by the same `trips` update rule everything else uses — they are
+ * trip-wide planning inputs, not a sharing decision.
+ */
+export interface TripSettingsPatch {
+  car_buffer_pct?: number;
+  surface_multipliers?: Record<string, number>;
+  default_dwell?: Record<string, number>;
+  timezone?: string;
+  currency?: string;
+}
+
+export async function updateTripSettings(
+  tripId: string,
+  patch: TripSettingsPatch,
+): Promise<void> {
+  await pb.collection('trips').update(tripId, patch);
+}
+
 /** Turn the public link on or off (WORK 16.6). Owner-only by rule. */
 export async function setShareEnabled(
   tripId: string,
