@@ -19,36 +19,39 @@ export function MergePrompt({
 }: Props) {
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start justify-center bg-black/30 pt-24"
+      className="fixed inset-0 z-30 flex items-start justify-center bg-scrim pt-24 font-sans"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-border-strong bg-surface-2 p-4 text-text shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm font-medium text-slate-900">
+        <p className="text-[13px] font-medium text-text">
           Already on the itinerary?
         </p>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-[13px] text-text-2">
           &ldquo;{candidateName}&rdquo; is within 100m of{' '}
-          <strong>{existingStop.title}</strong>, already a stop.
+          <strong className="font-semibold text-text">
+            {existingStop.title}
+          </strong>
+          , already a stop.
         </p>
         <div className="mt-4 flex flex-col gap-2">
           <button
             onClick={onUseExisting}
-            className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-on-accent hover:brightness-110"
           >
             Use {existingStop.title}
           </button>
           <button
             onClick={onCreateNew}
-            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-border-strong px-3 py-2 text-[13px] text-text-2 hover:bg-control hover:text-text"
           >
             Create a separate stop anyway
           </button>
           <button
             onClick={onCancel}
-            className="text-xs text-slate-500 hover:underline"
+            className="text-[11px] text-text-4 hover:text-text-2 hover:underline"
           >
             Cancel
           </button>

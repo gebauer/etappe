@@ -2033,8 +2033,32 @@ scrolling the panel, never by name.
   places. No console errors.
 - Commit: `phase 18.9: search the wishlist alongside the geocoder`.
 
-**18.6 The rest of the light-theme debt** · Standard · ⬜
-Not started. Auditing for 18.3 showed the "Noticed" note's "three
+**18.6 The rest of the light-theme debt** · Standard · ✅ (2026-09-03)
+Every remaining light surface moved onto the dark tokens — mechanical
+class swaps, no layout or behaviour change:
+- `HighlightsImportDialog` (was 45 hits): panel on `surface-2` +
+  `border-strong` over the `scrim`; textarea/error/progress/buttons and
+  the per-row dedup decision chips all retinted (active → `accent`,
+  warnings → `warn-*`, errors → `danger-*`).
+- `ShareView` (22) — the public read-only page: `bg` ground, `surface-2`
+  header and day cards, links → `accent`, warnings → `warn-*`. The
+  handoff says dark only, no light variant, so the share page follows.
+- `TripList` (18) + `App`'s own shell/header: `surface-2` panels, `field`
+  inputs, `accent` primary buttons, `bg` ground.
+- `PlacementPicker` (14): `surface-2` sheet, rows get the `focus-visible`
+  accent left-edge the search overlay uses, the added-time chip →
+  `accent-surface`/`accent`.
+- `MergePrompt` (9), `LoginForm` (8): same treatment.
+- `MapPane`'s dev-only Nearby control (7) — the white box top-left in
+  every screenshot — now a glass chip on the dark tokens.
+The only `slate`/`bg-white` grep hit left is `DayPills`'
+`hover:bg-white/5`, a deliberate white-alpha hover over the glass pill.
+- Verified: `.claude/skills/run-etappe/dark-sweep-check.mjs` screenshots
+  the login screen, trip list and Highlights dialog; computed
+  backgrounds all read `oklch(0.2 0.013 250)`, none near-white.
+- Commit: `phase 18.6: dark-theme the last light surfaces`.
+
+**18.6 (original note)** Auditing for 18.3 showed the "Noticed" note's "three
 surfaces" was an undercount — these are still fully light, by hit count
 of `slate-*` / `bg-white` / `text-red-*` / `sky-*` / `amber-*`:
 `HighlightsImportDialog` 45 · `ShareView` 22 · `TripList` 18 ·

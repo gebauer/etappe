@@ -50,8 +50,8 @@ export function ShareView({ token }: { token: string }) {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 px-4 text-center">
-        <p className="text-slate-500">
+      <div className="flex h-screen items-center justify-center bg-bg px-4 text-center font-sans">
+        <p className="text-text-3">
           This link isn&rsquo;t shared, or the trip owner turned sharing off.
         </p>
       </div>
@@ -59,8 +59,8 @@ export function ShareView({ token }: { token: string }) {
   }
   if (!doc) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-400">Loading…</p>
+      <div className="flex h-screen items-center justify-center bg-bg font-sans">
+        <p className="text-text-4">Loading…</p>
       </div>
     );
   }
@@ -71,10 +71,10 @@ export function ShareView({ token }: { token: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white px-5 py-4">
+    <div className="min-h-screen bg-bg font-sans text-text">
+      <header className="border-b border-border bg-surface-2 px-5 py-4">
         <h1 className="text-xl font-semibold">{doc.trip.title}</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-[13px] text-text-4">
           Shared read-only from Etappe — nothing here can be edited.
         </p>
       </header>
@@ -92,7 +92,7 @@ export function ShareView({ token }: { token: string }) {
                   Day {i + 1}
                   {day.title ? ` · ${day.title}` : ''}
                 </h2>
-                <span className="font-mono text-xs text-slate-400">
+                <span className="font-mono text-xs text-text-4">
                   {formatDayDate(doc.trip.start_date, day.order_index)}
                 </span>
               </div>
@@ -100,20 +100,20 @@ export function ShareView({ token }: { token: string }) {
               {dayWarnings.map((w, wi) => (
                 <p
                   key={wi}
-                  className="mb-2 rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700"
+                  className="mb-2 rounded-lg border border-warn-border bg-warn-bg px-3 py-1.5 text-xs text-warn-text"
                 >
                   {warningText(w)}
                 </p>
               ))}
 
-              <ol className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+              <ol className="divide-y divide-border rounded-xl border border-border-strong bg-surface-2">
                 {day.stops.map((stop, si) => {
                   const timing = dayResult?.stops.find(
                     (t) => t.stopId === stop.id,
                   );
                   return (
                     <li key={stop.id} className="flex gap-3 px-4 py-3">
-                      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-slate-900 text-xs font-medium text-white">
+                      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-control text-xs font-medium text-text-2">
                         {si + 1}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -122,13 +122,13 @@ export function ShareView({ token }: { token: string }) {
                             {stop.title}
                           </span>
                           {timing && (
-                            <span className="flex-none font-mono text-xs text-slate-500">
+                            <span className="flex-none font-mono text-xs text-text-4">
                               {formatClock(timing.arrival)}–
                               {formatClock(timing.departure)}
                             </span>
                           )}
                         </div>
-                        <div className="mt-0.5 text-xs text-slate-400">
+                        <div className="mt-0.5 text-xs text-text-4">
                           {stop.kind}
                           {timing ? ` · ${formatDuration(timing.dwell)}` : ''}
                           {stop.is_accommodation ? ' · overnight' : ''}
@@ -145,7 +145,7 @@ export function ShareView({ token }: { token: string }) {
           );
         })}
 
-        <footer className="mt-10 text-center text-xs text-slate-400">
+        <footer className="mt-10 text-center text-xs text-text-4">
           Made with Etappe.
         </footer>
       </main>
@@ -165,7 +165,7 @@ function publicBlocksOf(blocks: ShareBlock[]) {
               href={b.url}
               target="_blank"
               rel="noreferrer"
-              className="block text-xs text-sky-700 underline"
+              className="block text-xs text-accent underline"
             >
               {b.title?.trim() || b.url}
             </a>
@@ -177,13 +177,13 @@ function publicBlocksOf(blocks: ShareBlock[]) {
               key={b.id}
               src={b.file}
               alt={b.title ?? ''}
-              className="mt-1 max-h-40 rounded"
+              className="mt-1 max-h-40 rounded-lg"
             />
           );
         }
         if (b.kind === 'note' && b.body) {
           return (
-            <p key={b.id} className="text-xs text-slate-600">
+            <p key={b.id} className="text-xs text-text-2">
               {b.body}
             </p>
           );

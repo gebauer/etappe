@@ -42,47 +42,47 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
   }
 
   return (
-    <section className="mx-auto mt-10 flex w-full max-w-2xl flex-col gap-6">
+    <section className="mx-auto mt-10 flex w-full max-w-2xl flex-col gap-6 font-sans text-text">
       <form
         onSubmit={submit}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
+        className="flex flex-wrap items-end gap-3 rounded-xl border border-border-strong bg-surface-2 p-4"
       >
-        <label className="flex flex-col text-sm text-slate-600">
+        <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.08em] text-text-4">
           Title
           <input
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="rounded border border-slate-300 px-3 py-2"
+            className="h-[38px] rounded-lg border border-border-strong bg-field px-3 text-[13px] text-text outline-none [color-scheme:dark] focus:border-accent"
           />
         </label>
-        <label className="flex flex-col text-sm text-slate-600">
+        <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.08em] text-text-4">
           Start date
           <input
             type="date"
             required
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="rounded border border-slate-300 px-3 py-2"
+            className="h-[38px] rounded-lg border border-border-strong bg-field px-3 text-[13px] text-text outline-none [color-scheme:dark] focus:border-accent"
           />
         </label>
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-slate-900 px-3 py-2 font-medium text-white disabled:opacity-50"
+          className="h-[38px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent disabled:opacity-50"
         >
           New trip
         </button>
         <button
           type="button"
           onClick={() => setShowImport(true)}
-          className="rounded border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"
+          className="h-[38px] rounded-lg border border-border-strong px-3 text-[13px] font-medium text-text-2 hover:bg-control hover:text-text"
         >
           Import a trip
         </button>
       </form>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-[13px] text-danger-text">{error}</p>}
 
       {showImport && (
         <ImportTripDialog
@@ -94,9 +94,9 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
         />
       )}
 
-      <ul className="flex flex-col divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="flex flex-col divide-y divide-border rounded-xl border border-border-strong bg-surface-2">
         {trips.length === 0 && (
-          <li className="px-4 py-6 text-center text-slate-400">
+          <li className="px-4 py-6 text-center text-[13px] text-text-4">
             No trips yet.
           </li>
         )}
@@ -104,10 +104,10 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
           <li key={trip.id}>
             <button
               onClick={() => onOpen(trip.id)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
+              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-control"
             >
-              <span className="font-medium text-slate-900">{trip.title}</span>
-              <span className="text-sm text-slate-500">
+              <span className="font-medium text-text">{trip.title}</span>
+              <span className="font-mono text-[12px] text-text-4">
                 {trip.start_date.slice(0, 10)}
               </span>
             </button>

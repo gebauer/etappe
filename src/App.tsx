@@ -47,19 +47,19 @@ function AppShell() {
   const inEditor = isLoggedIn && !!tripId;
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex h-screen flex-col bg-bg font-sans text-text">
       {!inEditor && (
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
+        <header className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
           <span className="text-lg font-semibold">Etappe</span>
           {isLoggedIn && (
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-slate-500">{user?.email}</span>
+            <div className="flex items-center gap-3 text-[13px]">
+              <span className="text-text-4">{user?.email}</span>
               <button
                 onClick={() => {
                   setTripId(null);
                   logout();
                 }}
-                className="text-slate-500 underline"
+                className="text-text-3 underline hover:text-text"
               >
                 Sign out
               </button>
@@ -81,7 +81,7 @@ function AppShell() {
         ) : (
           <div className="flex h-full flex-col">
             {sharedCapture && (
-              <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-800">
+              <p className="border-b border-warn-border bg-warn-bg px-4 py-2 text-center text-[13px] text-warn-text">
                 Pick a trip to save your share to.
               </p>
             )}

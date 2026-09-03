@@ -142,21 +142,21 @@ export function HighlightsImportDialog({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start justify-center bg-black/30 pt-16"
+      className="fixed inset-0 z-30 flex items-start justify-center bg-scrim pt-16 font-sans"
       onClick={step.kind === 'importing' ? undefined : onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 text-slate-900 shadow-xl"
+        className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-border-strong bg-surface-2 p-5 text-text shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">
+          <h2 className="text-[13px] font-semibold text-text">
             Import highlights
           </h2>
           {step.kind !== 'importing' && (
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600"
+              className="text-text-4 hover:text-text"
               aria-label="Close"
             >
               ✕
@@ -166,13 +166,13 @@ export function HighlightsImportDialog({
 
         {step.kind === 'paste' && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-[13px] text-text-2">
               Ask an LLM (in your own chat window) for a shortlist of places,
               using the prompt below, then paste its JSON reply here.
             </p>
             <button
               onClick={copyPrompt}
-              className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              className="h-[30px] rounded-lg border border-border-strong px-2.5 text-[12px] text-text-2 hover:bg-control hover:text-text"
             >
               {copied ? 'Copied ✓' : '📋 Copy prompt'}
             </button>
@@ -181,10 +181,10 @@ export function HighlightsImportDialog({
               onChange={(e) => setText(e.target.value)}
               rows={10}
               placeholder='{"version": 1, "highlights": [...]}'
-              className="w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs placeholder:text-slate-400"
+              className="w-full rounded-lg border border-border-strong bg-field px-2.5 py-2 font-mono text-[12px] text-text outline-none placeholder:text-text-4 focus:border-accent"
             />
             {'errors' in step && step.errors.length > 0 && (
-              <ul className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+              <ul className="rounded-lg border border-danger-border bg-[oklch(0.26_0.03_25)] p-2.5 text-[12px] text-danger-text">
                 {step.errors.map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
@@ -193,14 +193,14 @@ export function HighlightsImportDialog({
             <div className="flex justify-end gap-2">
               <button
                 onClick={onClose}
-                className="rounded px-3 py-1.5 text-sm text-slate-500"
+                className="h-[34px] rounded-lg px-3 text-[13px] text-text-3 hover:text-text"
               >
                 Cancel
               </button>
               <button
                 onClick={parse}
                 disabled={!text.trim()}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent disabled:opacity-40"
               >
                 Validate
               </button>
@@ -210,13 +210,13 @@ export function HighlightsImportDialog({
 
         {step.kind === 'preview' && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-[13px] text-text-2">
               {step.doc.highlights.length} highlight
               {step.doc.highlights.length === 1 ? '' : 's'} ready to import as
               wishlist ideas.
             </p>
             {step.matches.size > 0 && (
-              <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+              <div className="rounded-lg border border-warn-border bg-warn-bg p-2.5 text-[12px] text-warn-text">
                 <strong>
                   {step.matches.size} of {step.doc.highlights.length} are
                   already in this trip.
@@ -237,7 +237,7 @@ export function HighlightsImportDialog({
                           new Map([...step.matches.keys()].map((i) => [i, d])),
                         )
                       }
-                      className="rounded border border-amber-300 bg-white px-1.5 py-0.5 capitalize hover:bg-amber-100"
+                      className="rounded-md border border-warn-border bg-surface-3 px-1.5 py-0.5 capitalize text-warn-text hover:bg-control"
                     >
                       {d === 'add' ? 'add anyway' : d}
                     </button>
@@ -245,21 +245,21 @@ export function HighlightsImportDialog({
                 </span>
               </div>
             )}
-            <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200">
+            <ul className="max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border-strong">
               {step.doc.highlights.map((h, i) => (
                 <li
                   key={i}
                   className="flex items-center gap-2 px-3 py-2 text-sm"
                 >
-                  <span className="min-w-0 flex-1 truncate text-slate-900">
+                  <span className="min-w-0 flex-1 truncate text-text">
                     {h.title}
                   </span>
-                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                  <span className="shrink-0 rounded-md bg-field px-1.5 py-0.5 text-xs text-text-4">
                     {TAXONOMY[h.kind as Kind]?.label ?? h.kind}
                   </span>
                   {h.lat === undefined && (
                     <span
-                      className="shrink-0 text-xs text-amber-600"
+                      className="shrink-0 text-xs text-warn-text"
                       title={
                         h.place_hint
                           ? 'Will be geocoded on import'
@@ -270,14 +270,14 @@ export function HighlightsImportDialog({
                     </span>
                   )}
                   {h.photos.length > 0 && (
-                    <span className="shrink-0 text-xs text-slate-400">
+                    <span className="shrink-0 text-xs text-text-4">
                       🖼 {h.photos.length}
                     </span>
                   )}
                   {step.matches.get(i) && (
                     <span className="flex shrink-0 items-center gap-1">
                       <span
-                        className="text-xs text-amber-700"
+                        className="text-xs text-warn-text"
                         title={
                           step.matches.get(i)!.reason === 'distance'
                             ? `${Math.round(step.matches.get(i)!.distanceM ?? 0)} m from "${step.matches.get(i)!.existing.title}" ${step.matches.get(i)!.existing.where}`
@@ -301,8 +301,8 @@ export function HighlightsImportDialog({
                           }
                           className={`rounded px-1.5 py-0.5 text-[11px] capitalize ${
                             (decisions.get(i) ?? 'merge') === d
-                              ? 'bg-slate-900 text-white'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              ? 'bg-accent text-on-accent'
+                              : 'bg-field text-text-3 hover:bg-control'
                           }`}
                         >
                           {d}
@@ -316,13 +316,13 @@ export function HighlightsImportDialog({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setStep({ kind: 'paste' })}
-                className="rounded px-3 py-1.5 text-sm text-slate-500"
+                className="h-[34px] rounded-lg px-3 text-[13px] text-text-3 hover:text-text"
               >
                 Back
               </button>
               <button
                 onClick={() => commit(step.doc, step.matches)}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent"
               >
                 Import{' '}
                 {step.doc.highlights.length -
@@ -335,14 +335,14 @@ export function HighlightsImportDialog({
         )}
 
         {step.kind === 'importing' && (
-          <div className="space-y-2 py-6 text-center text-sm text-slate-600">
+          <div className="space-y-2 py-6 text-center text-[13px] text-text-2">
             <p>
               Importing {step.done}/{step.total}
               {step.current ? ` — ${step.current}` : ''}…
             </p>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-control">
               <div
-                className="h-full bg-slate-900 transition-all"
+                className="h-full bg-accent transition-all"
                 style={{
                   width: `${step.total ? (step.done / step.total) * 100 : 0}%`,
                 }}
@@ -353,17 +353,17 @@ export function HighlightsImportDialog({
 
         {step.kind === 'done' && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-700">
+            <p className="text-[13px] text-text-2">
               Imported {step.results.length} highlight
               {step.results.length === 1 ? '' : 's'} to the wishlist.
               {step.skipped > 0 && (
-                <span className="text-slate-500">
+                <span className="text-text-4">
                   {' '}
                   {step.skipped} skipped, left as they were.
                 </span>
               )}
               {step.results.some((r) => r.photosFailed > 0) && (
-                <span className="mt-1 block text-amber-700">
+                <span className="mt-1 block text-warn-text">
                   {step.results.reduce((n, r) => n + r.photosFailed, 0)} photo
                   {step.results.reduce((n, r) => n + r.photosFailed, 0) === 1
                     ? ''
@@ -373,7 +373,7 @@ export function HighlightsImportDialog({
                 </span>
               )}
               {step.results.some((r) => !r.located) && (
-                <span className="mt-2 block rounded border border-amber-300 bg-amber-50 p-2 text-amber-800">
+                <span className="mt-2 block rounded-lg border border-warn-border bg-warn-bg p-2.5 text-warn-text">
                   <strong>
                     {step.results.filter((r) => !r.located).length} of{' '}
                     {step.results.length} have no location.
@@ -396,7 +396,7 @@ export function HighlightsImportDialog({
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                className="h-[34px] rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent"
               >
                 Done
               </button>

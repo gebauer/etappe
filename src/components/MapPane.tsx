@@ -1235,12 +1235,10 @@ export function MapPane({
       />
       {/* Dev-only capture aid, predates the redesign and unaddressed by it —
           pushed below the day pills row rather than colliding with it. */}
-      <div className="absolute left-2 top-14 flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs shadow">
+      <div className="absolute left-2 top-14 flex items-center gap-2 rounded-lg border border-border-strong bg-[oklch(0.20_0.013_250/0.9)] px-2 py-1 text-xs text-text-2 backdrop-blur-[6px]">
         <button
           onClick={() => setNearbyEnabled((v) => !v)}
-          className={
-            nearbyEnabled ? 'font-semibold text-slate-900' : 'text-slate-500'
-          }
+          className={nearbyEnabled ? 'font-semibold text-text' : 'text-text-4'}
         >
           Nearby
         </button>
@@ -1252,14 +1250,14 @@ export function MapPane({
               max={20}
               value={nearbyRadiusKm}
               onChange={(e) => setNearbyRadiusKm(Number(e.target.value))}
-              className="w-16"
+              className="w-16 [color-scheme:dark]"
             />
-            <span className="text-slate-400">{nearbyRadiusKm}km</span>
+            <span className="text-text-4">{nearbyRadiusKm}km</span>
           </>
         )}
       </div>
       {nearbyEnabled && !focusDayId && (
-        <div className="absolute left-2 top-[6.75rem] rounded bg-white px-2 py-1 text-xs text-slate-500 shadow">
+        <div className="absolute left-2 top-[6.75rem] rounded-lg border border-border-strong bg-[oklch(0.20_0.013_250/0.9)] px-2 py-1 text-xs text-text-4 backdrop-blur-[6px]">
           Select a day to see nearby POIs
         </div>
       )}
