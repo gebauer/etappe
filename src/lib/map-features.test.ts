@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLegFeatures } from './map-features';
+import { buildLegFeatures, boundsForDay } from './map-features';
 import { dayHue, flatColor, legColor } from './map-colors';
 import type { TripRecords } from './pb-trip-doc';
 import type { CascadeResult } from './cascade';
@@ -145,6 +145,48 @@ describe('buildLegFeatures', () => {
       [-19, 65],
       [-22, 64],
     ]);
+  });
+});
+
+describe('boundsForDay', () => {
+  // Day d1's only stop is its accommodation (H2); it leaves from S, the
+  // previous day's stay, via an as-yet-unrouted leading leg.
+  const stayOnly = {
+    trip: { id: 't', start_date: '2026-09-12' },
+    days: [
+      { id: 'd0', order_index: 0, kind: 'travel' },
+      { id: 'd1', order_index: 1, kind: 'travel', start_stop: 'S' },
+    ],
+    stops: [
+      { id: 'S', day: 'd0', order_index: 0, lat: 60, lon: 10 },
+      {
+        id: 'H2',
+        day: 'd1',
+        order_index: 0,
+        lat: 61,
+        lon: 12,
+        is_accommodation: true,
+      },
+    ],
+    legs: [],
+    activities: [],
+  } as unknown as TripRecords;
+
+  it('frames the leading leg, not just the lone stop', () => {
+    const legs = buildLegFeatures(stayOnly, null);
+    const bbox = boundsForDay(stayOnly, legs, 'd1');
+    // Without the leg pass this collapses to [12, 61, 12, 61] on H2 alone;
+    // the leading leg pulls the west/south edge back to the start point S.
+    expect(bbox).toEqual([10, 60, 12, 61]);
+  });
+
+  it('returns null for a day with no coordinates anywhere', () => {
+    const empty = {
+      ...stayOnly,
+      stops: [{ id: 'X', day: 'd1', order_index: 0 }],
+      days: [{ id: 'd1', order_index: 0, kind: 'travel' }],
+    } as unknown as TripRecords;
+    expect(boundsForDay(empty, buildLegFeatures(empty, null), 'd1')).toBeNull();
   });
 });
 

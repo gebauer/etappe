@@ -170,6 +170,38 @@ export function buildLegFeatures(
   return { type: 'FeatureCollection', features };
 }
 
+/** Bounding box `[west, south, east, north]` that frames one day: its own
+ * stops plus every leg tagged to it. The leg pass is what pulls in the
+ * leading leg from the previous day's stay — so a day whose only stop is the
+ * accommodation still frames the whole drive into it, routed geometry or the
+ * straight fallback alike. Null when nothing on the day has coordinates. */
+export function boundsForDay(
+  records: TripRecords,
+  legFeatures: LegFeatureCollection,
+  dayId: string,
+): [number, number, number, number] | null {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  const add = (lon: number | undefined, lat: number | undefined) => {
+    if (typeof lon !== 'number' || !Number.isFinite(lon)) return;
+    if (typeof lat !== 'number' || !Number.isFinite(lat)) return;
+    if (lon < west) west = lon;
+    if (lon > east) east = lon;
+    if (lat < south) south = lat;
+    if (lat > north) north = lat;
+  };
+  for (const stop of records.stops) {
+    if (stop.day === dayId && stop.lat && stop.lon) add(stop.lon, stop.lat);
+  }
+  for (const f of legFeatures.features) {
+    if (f.properties.dayId !== dayId) continue;
+    for (const [lon, lat] of f.geometry.coordinates) add(lon, lat);
+  }
+  return east === -Infinity ? null : [west, south, east, north];
+}
+
 // --- stop markers (design_handoff_map_first_planner, WORK 12.4) -----------
 
 export interface StopFeature {

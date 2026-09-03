@@ -6,6 +6,7 @@ import {
   buildStopFeatures,
   buildDayStartFeatures,
   buildWishlistFeatures,
+  boundsForDay,
   type StopFeatureCollection,
 } from '../lib/map-features';
 import type { TripRecords } from '../lib/pb-trip-doc';
@@ -1070,27 +1071,22 @@ export function MapPane({
     };
   }, [picking, parkingLots, mapReady]);
 
-  // Fit the map to a day when it's selected ("move on select"). Includes the
+  // Fit the map to a day when it's selected ("move on select"). Frames the
   // day's leg geometry, not just its stops — a day whose only stop is the
   // accommodation still has a leading leg from the previous day's stay, and
   // fitting to the lone stop would leave that whole drive off-screen.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !focusDayId) return;
-    const bounds = new maplibregl.LngLatBounds();
-    for (const s of recordsRef.current.stops) {
-      if (s.day === focusDayId && s.lat && s.lon) bounds.extend([s.lon, s.lat]);
-    }
-    for (const f of fcRef.current.features) {
-      if (f.properties.dayId !== focusDayId) continue;
-      for (const [lon, lat] of f.geometry.coordinates) {
-        if (typeof lon === 'number' && typeof lat === 'number') {
-          bounds.extend([lon, lat]);
-        }
-      }
-    }
-    if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, { padding: 80, maxZoom: 12, duration: 500 });
+    const bbox = boundsForDay(recordsRef.current, fcRef.current, focusDayId);
+    if (bbox) {
+      map.fitBounds(
+        [
+          [bbox[0], bbox[1]],
+          [bbox[2], bbox[3]],
+        ],
+        { padding: 80, maxZoom: 12, duration: 500 },
+      );
     }
   }, [focusDayId, mapReady]);
 
