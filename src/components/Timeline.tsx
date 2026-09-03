@@ -312,6 +312,8 @@ export function Timeline({
               </div>
               <LegRow
                 leg={startPointLeg}
+                from={startPointStop}
+                to={dayStops[0]}
                 effectiveDuration={dayResult?.leadingLeg?.effectiveDuration}
                 onUpdate={(patch) =>
                   startPointLeg && onUpdateLeg(startPointLeg.id, patch)
@@ -401,6 +403,8 @@ export function Timeline({
                   {next && (
                     <LegRow
                       leg={leg}
+                      from={stop}
+                      to={next}
                       effectiveDuration={dayResult?.legs[i]?.effectiveDuration}
                       onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
                       onReroute={() => leg && onRerouteLeg(leg.id)}

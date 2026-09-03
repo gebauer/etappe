@@ -632,6 +632,28 @@ present" (author). **No new dependency** — hand-rolled, since the specced
   everything the navigation needs.)
 - Commit: `phase 10.3: offline read-only + shell service worker`.
 
+**10.4 Open a leg in a routing app** · Cheap · ✅ (2026-09-03)
+Author: a per-leg link that opens the leg in the routing app, **with
+start and end**, not just a destination.
+- **The Android question, answered:** there is no cross-app way. The
+  intents that dispatch to whatever routing app the user set as default
+  (`geo:`, `google.navigation:`) are **destination-only** by design —
+  they assume you are at the origin. Passing both points needs an
+  app-specific URL. Google Maps' `?api=1` directions URL is the one that
+  degrades everywhere — desktop opens maps.google.com with the route,
+  Android opens the Google Maps app (or a browser) with both points,
+  iOS/macOS the same. So: one link, no platform sniffing.
+- `legDirectionsUrl(from, to, mode)` in `lib/geo-links.ts` builds
+  `.../maps/dir/?api=1&origin=…&destination=…&travelmode=…`, mapping the
+  leg's `mode` (car→driving, walk→walking, bike→bicycling,
+  ferry/flight→transit). Origin/destination follow the **access point**
+  when a stop has one — that is what the cascade routes through.
+- `LegRow` renders a `↗` link next to the `18 min · 21 km` text
+  (collapsed row, doesn't toggle the settings), on the inter-stop legs
+  and the leading leg alike. Only shown when both endpoints have coords.
+- 3 unit tests (`geo-links.test.ts`), browser-verified the link + href.
+- Commit: `phase 10.4: open a leg in Google Maps directions`.
+
 ---
 
 ## Phase 11 — Remaining surfaces

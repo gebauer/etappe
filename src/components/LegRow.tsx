@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { formatDuration } from '../lib/format';
-import type { LegsResponse } from '../types/pb';
+import { legDirectionsUrl } from '../lib/geo-links';
+import type { LegsResponse, StopsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
 
 interface Props {
@@ -9,6 +10,24 @@ interface Props {
   onUpdate: (patch: LegPatch) => void;
   onReroute: () => void;
   onSetManual: (durationMin: number) => void;
+  /** The stops this leg connects — for the "open in a routing app" link
+   * (WORK 10.4). Routing follows the access point when one is set, since
+   * that is what the cascade routes through. */
+  from?: StopsResponse | null;
+  to?: StopsResponse | null;
+}
+
+/** The point routing actually leaves from / arrives at: the access point
+ * when set, otherwise the stop itself. */
+function routingPoint(
+  s: StopsResponse | null | undefined,
+): { lat: number; lon: number } | null {
+  if (!s) return null;
+  if (s.access_lat && s.access_lon) {
+    return { lat: s.access_lat, lon: s.access_lon };
+  }
+  if (s.lat && s.lon) return { lat: s.lat, lon: s.lon };
+  return null;
 }
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
@@ -34,27 +53,48 @@ export function LegRow({
   onUpdate,
   onReroute,
   onSetManual,
+  from,
+  to,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isCar = leg?.mode === 'car';
   const isManual = leg?.routing_source === 'manual';
   const km = leg?.distance_m ? Math.round(leg.distance_m / 1000) : null;
 
+  const a = routingPoint(from);
+  const b = routingPoint(to);
+  const routeUrl = a && b ? legDirectionsUrl(a, b, leg?.mode) : null;
+
   return (
     <div className="py-[3px] pl-[22px] pr-3">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title={leg ? 'Leg settings' : undefined}
-        disabled={!leg}
-        className="flex items-center gap-2 text-left"
-      >
-        <span className="h-4 w-px flex-none bg-[oklch(0.34_0.012_250)]" />
-        <span className="font-mono text-[11px] text-text-5">
-          {effectiveDuration != null ? formatDuration(effectiveDuration) : '—'}
-          {km != null ? ` · ${km} km` : ''}
-          {isManual ? ' · manual' : ''}
-        </span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          title={leg ? 'Leg settings' : undefined}
+          disabled={!leg}
+          className="flex items-center gap-2 text-left"
+        >
+          <span className="h-4 w-px flex-none bg-[oklch(0.34_0.012_250)]" />
+          <span className="font-mono text-[11px] text-text-5">
+            {effectiveDuration != null
+              ? formatDuration(effectiveDuration)
+              : '—'}
+            {km != null ? ` · ${km} km` : ''}
+            {isManual ? ' · manual' : ''}
+          </span>
+        </button>
+        {routeUrl && (
+          <a
+            href={routeUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Open this leg in Google Maps"
+            className="flex-none px-1 text-[11px] text-text-5 hover:text-accent"
+          >
+            ↗
+          </a>
+        )}
+      </div>
 
       {open && leg && (
         <div className="ml-[9px] mt-1.5 flex flex-wrap items-center gap-2 border-l border-[oklch(0.34_0.012_250)] py-1 pl-3">
