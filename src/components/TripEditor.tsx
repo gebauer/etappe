@@ -41,7 +41,7 @@ import {
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
 import { addDays } from '../lib/cascade';
-import { shiftClock } from '../lib/format';
+import { shiftClock, relativeTime } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
@@ -117,7 +117,8 @@ export function TripEditor({
   sharedCapture?: string | null;
   onSharedCaptureConsumed?: () => void;
 }) {
-  const { records, result, error, reload } = useTripEditor(tripId);
+  const { records, result, error, offline, stale, savedAt, reload } =
+    useTripEditor(tripId);
   const { user } = useAuth();
   const phone = useIsPhone();
   const routing = useMemo(() => createPocketBaseRouting(pb), []);
@@ -325,7 +326,18 @@ export function TripEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedCapture]);
 
+  /** True while offline — every write funnel below short-circuits through
+   * this, so a lost signal pauses editing rather than throwing failed
+   * requests at the user (WORK 10.3). Read-only navigation is unaffected. */
+  function blockedOffline(): boolean {
+    if (!offline) return false;
+    setNotice('Offline — showing the last synced version. Editing is paused.');
+    window.setTimeout(() => setNotice(null), 5000);
+    return true;
+  }
+
   async function run(fn: () => Promise<unknown>) {
+    if (blockedOffline()) return;
     try {
       await fn();
       await reload();
@@ -344,6 +356,7 @@ export function TripEditor({
     fn: () => Promise<unknown>,
     rerouteStopIds?: Iterable<string>,
   ) {
+    if (blockedOffline()) return;
     try {
       await fn();
       if (records?.days.some((d) => d.start_stop)) {
@@ -580,6 +593,7 @@ export function TripEditor({
   }
 
   function deleteWishlist(id: string) {
+    if (blockedOffline()) return;
     void deleteWishlistItem(pb, id).then(reloadWishlist);
   }
 
@@ -588,6 +602,7 @@ export function TripEditor({
   // appears/clears. Not routed through `run()` — that reloads the cascade
   // trip doc, and starring touches neither stops nor legs.
   function toggleWishStar(item: PoisResponse, next: boolean) {
+    if (blockedOffline()) return;
     void setPoiStarred(pb, item.id, next)
       .then(reloadWishlist)
       .catch((err) =>
@@ -965,6 +980,7 @@ export function TripEditor({
   // through `runStructural` — that skips the reconcile until some day
   // already has a start point, which is exactly the case this creates.
   function setStartPoint(dayId: string, stopId: string | null) {
+    if (blockedOffline()) return;
     void (async () => {
       try {
         await setDayStartStop(pb, dayId, stopId);
@@ -1414,6 +1430,16 @@ export function TripEditor({
         </div>
       </header>
 
+      {offline && (
+        <p className="flex flex-none items-center gap-2 bg-warn-bg px-4 py-1 text-xs text-warn-text">
+          <span className="h-[6px] w-[6px] flex-none rounded-full bg-warn-text" />
+          Offline — read-only.{' '}
+          {stale && savedAt
+            ? `Showing the version synced ${relativeTime(savedAt)}.`
+            : 'Showing the last synced version.'}{' '}
+          Edits resume when you reconnect.
+        </p>
+      )}
       {actionError && (
         <p className="flex-none bg-warn-bg px-4 py-1 text-xs text-warn-text">
           {actionError}

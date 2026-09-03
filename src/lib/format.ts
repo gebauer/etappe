@@ -40,3 +40,18 @@ export function formatDayDate(startDate: string, orderIndex: number): string {
     timeZone: 'UTC',
   }).format(d);
 }
+
+/** "just now" / "12 min ago" / "3 h ago" / "on 2 Sep" — a coarse "how old
+ * is this" for the offline banner's last-synced time (WORK 10.3). */
+export function relativeTime(epochMs: number): string {
+  const secs = Math.max(0, Math.round((Date.now() - epochMs) / 1000));
+  if (secs < 45) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return `on ${new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(epochMs))}`;
+}

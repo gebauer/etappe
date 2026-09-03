@@ -33,9 +33,30 @@ export default function App() {
   return token ? <ShareView token={token} /> : <AppShell />;
 }
 
+const OPEN_TRIP_KEY = 'etappe.openTrip';
+
 function AppShell() {
   const { isLoggedIn, user } = useAuth();
-  const [tripId, setTripId] = useState<string | null>(null);
+  // Remember which trip was open across a reload (WORK 10.3): a PWA that
+  // reloads offline should come back to the trip you were reading, not the
+  // trip list it can't fetch. Client-only state otherwise — there is no
+  // per-trip URL.
+  const [tripId, setTripIdState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(OPEN_TRIP_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const setTripId = (id: string | null) => {
+    setTripIdState(id);
+    try {
+      if (id) localStorage.setItem(OPEN_TRIP_KEY, id);
+      else localStorage.removeItem(OPEN_TRIP_KEY);
+    } catch {
+      /* private mode — the session still works, just no resume */
+    }
+  };
   const [sharedCapture, setSharedCapture] = useState<string | null>(null);
 
   useEffect(() => {

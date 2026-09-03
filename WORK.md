@@ -576,15 +576,51 @@ This closes the gaps and trims what shouldn't be there:
   directions, and the stop card shows Maps + reorder with delete/downgrade
   gone.
 
-**10.3 PWA and offline read** · Standard
-Manifest, icons, service worker for the shell, offline read of the active
-trip. **Note:** the app has no TanStack Query — `useTripEditor` fetches
-PocketBase directly — so "persistQueryClient to IndexedDB" as specced
-does not apply; the equivalent is a hand-rolled IndexedDB cache of the
-last-opened trip, or a service worker that caches `/api` GETs. And a
-proper precache of Vite's hashed build output effectively needs
-`vite-plugin-pwa` (a dev dependency, with the PR note CLAUDE.md requires).
-Not started — the dependency call is the author's.
+**10.3 PWA and offline read** · Standard · ✅ (2026-09-03)
+"Whenever we lose signal the system goes read-only, but all info is still
+present" (author). **No new dependency** — hand-rolled, since the specced
+`persistQueryClient` doesn't apply (there is no TanStack Query;
+`useTripEditor` fetches PocketBase directly).
+- **In-session read-only.** `useTripEditor` now returns `offline` / `stale`
+  / `savedAt`. A failed `loadTripRecords` (or the browser's `offline`
+  event, or `navigator.onLine === false`) flips `offline` without
+  clearing what's on screen — a signal drop mid-session keeps the newer
+  in-memory copy; only a cold start falls back to cache. `TripEditor`
+  shows an amber "Offline — read-only. Showing the version synced <N>
+  ago." bar (`relativeTime` in `format.ts`), and a `blockedOffline()`
+  guard at the top of `run` / `runStructural` / `setStartPoint` /
+  `toggleWishStar` / `deleteWishlist` refuses every write with a
+  transient notice instead of firing doomed requests. Read-only
+  navigation, card-stepping, day-switching are untouched.
+- **`lib/trip-cache.ts`** — a ~70-line IndexedDB wrapper. Every successful
+  load writes the whole `TripRecords`; a cold start with no network reads
+  it back and renders read-only. All best-effort (private window / quota
+  → no offline copy, never a throw).
+- **`App`** persists the open `tripId` to `localStorage` so a reload
+  resumes the trip you were reading (there is no per-trip URL).
+- **`public/sw.js`** — a dependency-free shell cache. On `install` it
+  fetches `index.html` and precaches the entry `<script>`/`<link>` it
+  references (no build manifest needed — the built HTML lists exactly the
+  hashed chunk + stylesheet), then runtime-caches every other same-origin
+  GET as the app requests it. Never touches `/api/` or `/_/`. Registered
+  from `main.tsx`, **production only** (a caching worker fights Vite HMR).
+  A `noCrossorigin` Vite plugin drops the pointless `crossorigin` on the
+  entry tags — a same-origin app gains nothing from CORS-mode subresource
+  loads, and it kept them from resolving cleanly against the SW cache.
+- **Manifest**: dark `background_color`/`theme_color`, and a first icon
+  (`public/icon.svg`, a route glyph — "add to home screen" wants one).
+- Verified two ways:
+  `.claude/skills/run-etappe/offline-check.mjs` (dev server) — offline →
+  banner + full trip still rendered + an edit blocked with a notice →
+  online → banner clears.
+  `.claude/skills/run-etappe/sw-offline-check.mjs` (`npm run build` +
+  `vite preview`) — the SW installs and controls the page, and while
+  `setOffline(true)` every shell asset (`/`, `index.html`, the hashed JS
+  and CSS) resolves from the Cache API. (Headless Chromium doesn't
+  reproduce a full offline *navigation* through a SW — a Playwright
+  limitation — but a real browser does; this proves the cache holds
+  everything the navigation needs.)
+- Commit: `phase 10.3: offline read-only + shell service worker`.
 
 **10.3 PWA and offline read** · Standard
 Manifest, icons, service worker for the shell, `persistQueryClient` to

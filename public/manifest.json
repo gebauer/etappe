@@ -3,8 +3,16 @@
   "short_name": "Etappe",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#0f172a",
+  "background_color": "#17181c",
+  "theme_color": "#17181c",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
   "share_target": {
     "action": "/share-target",
     "method": "GET",

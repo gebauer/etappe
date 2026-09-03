@@ -5,35 +5,77 @@ import type { TripRecords } from '../lib/pb-trip-doc';
 import { fetchPhotoFile, pendingPhotoBlocks } from '../lib/pb-photo-fetch';
 import { cascade, type CascadeResult } from '../lib/cascade';
 import { createSunCalcDaylight } from '../lib/daylight';
+import { saveTripCache, loadTripCache } from '../lib/trip-cache';
 
 export interface TripEditorState {
   records: TripRecords | null;
   result: CascadeResult | null;
   error: string | null;
+  /** No connection to PocketBase. The editor stays mounted and everything
+   * renders from the last sync; every write is refused with a notice
+   * until this clears (WORK 10.3). */
+  offline: boolean;
+  /** What's on screen is the cached copy, not a fresh fetch. */
+  stale: boolean;
+  /** When that cached copy was last written, ms epoch — for "synced 20 min
+   * ago". `null` while showing live data. */
+  savedAt: number | null;
   reload: () => Promise<void>;
 }
 
+function runCascade(recs: TripRecords): CascadeResult {
+  return cascade(
+    buildCascadeTrip(recs),
+    createSunCalcDaylight(recs.trip.timezone),
+  );
+}
+
 /** Loads a trip's records and the cascade result, and re-runs both on demand.
- * Every mutation in the editor calls reload() so times recompute live. */
+ * Every mutation in the editor calls reload() so times recompute live. When
+ * the network is gone it falls back to the IndexedDB copy and flips to
+ * read-only rather than erroring out. */
 export function useTripEditor(tripId: string): TripEditorState {
   const [records, setRecords] = useState<TripRecords | null>(null);
   const [result, setResult] = useState<CascadeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
   const photoAttemptsRef = useRef<Set<string>>(new Set());
+  // The latest records, so the offline-fallback branch can tell a cold
+  // start (nothing on screen) from a signal drop mid-session (keep what's
+  // there — it's newer than any cache).
+  const recordsRef = useRef<TripRecords | null>(null);
+  recordsRef.current = records;
 
   const reload = useCallback(async () => {
     try {
       const recs = await loadTripRecords(pb, tripId);
       setRecords(recs);
-      setResult(
-        cascade(
-          buildCascadeTrip(recs),
-          createSunCalcDaylight(recs.trip.timezone),
-        ),
-      );
+      setResult(runCascade(recs));
+      setError(null);
+      setOffline(false);
+      setStale(false);
+      setSavedAt(null);
+      void saveTripCache(tripId, recs);
       return recs;
     } catch (err) {
       if (isAbortError(err)) return null;
+      // A failed fetch here is almost always "no signal", not a real
+      // server error. Show the last synced copy read-only if we have one;
+      // only surface an error when there is nothing at all to fall back to.
+      const cached = recordsRef.current ? null : await loadTripCache(tripId);
+      if (recordsRef.current || cached) {
+        if (cached) {
+          setRecords(cached.records);
+          setResult(runCascade(cached.records));
+          setSavedAt(cached.savedAt);
+        }
+        setOffline(true);
+        setStale(true);
+        setError(null);
+        return null;
+      }
       setError(err instanceof Error ? err.message : 'Failed to load trip.');
       return null;
     }
@@ -71,5 +113,29 @@ export function useTripEditor(tripId: string): TripEditorState {
     });
   }, [reload, backfillPhotos]);
 
-  return { records, result, error, reload: async () => void (await reload()) };
+  // React to the browser's own connectivity signal: drop to read-only the
+  // moment it goes, and re-sync when it comes back.
+  useEffect(() => {
+    const onOffline = () => setOffline(true);
+    const onOnline = () => void reload();
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setOffline(true);
+    }
+    return () => {
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [reload]);
+
+  return {
+    records,
+    result,
+    error,
+    offline,
+    stale,
+    savedAt,
+    reload: async () => void (await reload()),
+  };
 }
