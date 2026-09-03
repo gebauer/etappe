@@ -2441,6 +2441,21 @@ dropped per-leg buffers on the floor.
 
 BUILD §3.4, §4, §8 and the §12 worked example were rewritten to match.
 
+**19.6 Which engine answered, on every leg** · ✅
+Debug aid, author request: each routed leg row now ends with
+`HERE API: 1h 52m` — the engine that produced the number and its raw
+answer, before buffer and before any override. Under an override it is the
+only place the engine's own figure survives, which is the case that
+matters when checking a route against Google Maps.
+
+Fixing a real bug on the way: `buildLegRecord` wrote the literal
+`routing_source: 'ors'` for every routed leg, so once HERE existed
+(WORK 19.2) every HERE route was filed under the wrong engine. Nothing read
+the value beyond `!== 'manual'`, so it stayed invisible. `/api/route` now
+returns which backend answered — a cache hit included, since the backend is
+part of the cache key — and the select takes `ors | here | osrm | manual`.
+Rows written before HERE existed stay `ors`, which is what they are.
+
 ---
 
 ## Noticed
