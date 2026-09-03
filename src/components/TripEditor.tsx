@@ -169,7 +169,11 @@ export function TripEditor({
   // set, the docked card, the expanded modal and the wishlist panel all hide
   // and the map is handed back — see the render gates below.
   const [picking, setPicking] = useState<{
+    /** The record whose access point is being set. */
     stopId: string;
+    /** A wishlist idea has an access point too (routes through it on
+     * promotion) — `updatePoi` instead of a stop re-route. */
+    kind: 'stop' | 'poi';
     title: string;
     lat: number;
     lon: number;
@@ -822,22 +826,49 @@ export function TripEditor({
     });
   }
 
-  function startPlacingAccessPoint(stopId: string) {
-    const stop = records?.stops.find((s) => s.id === stopId);
-    if (!stop || !stop.lat || !stop.lon) return;
+  function startPlacingAccessPoint(id: string, kind: 'stop' | 'poi' = 'stop') {
+    if (blockedByRole(kind === 'poi' ? 'wishlist' : 'itinerary')) return;
+    const rec =
+      kind === 'poi'
+        ? wishlist.find((w) => w.id === id)
+        : records?.stops.find((s) => s.id === id);
+    if (!rec || !rec.lat || !rec.lon) return;
     setPicking({
-      stopId,
-      title: stop.title,
-      lat: stop.lat,
-      lon: stop.lon,
+      stopId: id,
+      kind,
+      title: rec.title,
+      lat: rec.lat,
+      lon: rec.lon,
       returnToExpanded: expanded,
     });
     setExpanded(false);
     setParkingLots([]);
     // Zero chips in range is a valid state — freehand clicking is the fallback.
-    void queryParking({ lat: stop.lat, lon: stop.lon }, PARKING_RADIUS_M)
+    void queryParking({ lat: rec.lat, lon: rec.lon }, PARKING_RADIUS_M)
       .then(setParkingLots)
       .catch(() => setParkingLots([]));
+  }
+
+  /** Persist an access point (or a `0,0` clear) on whichever record is being
+   * picked — a stop re-routes its legs, an idea is a plain field write. */
+  function writeAccessPoint(
+    id: string,
+    kind: 'stop' | 'poi',
+    patch: { access_lat: number; access_lon: number },
+  ) {
+    if (kind === 'poi') {
+      if (blockedByRole('wishlist')) return;
+      void run(async () => {
+        await updatePoi(pb, id, patch);
+        await reloadWishlist();
+      });
+      return;
+    }
+    if (!records) return;
+    void runStructural(
+      () => updateStopAndReroute(pb, routing, records, id, patch),
+      [id],
+    );
   }
 
   /** Leave picking. `patch` writes an access point (a freehand click or a
@@ -852,23 +883,22 @@ export function TripEditor({
     setPicking(null);
     setParkingLots([]);
     if (p.returnToExpanded) setExpanded(true);
-    if (patch && records) {
-      void runStructural(
-        () => updateStopAndReroute(pb, routing, records, p.stopId, patch),
-        [p.stopId],
-      );
-    }
+    if (patch) writeAccessPoint(p.stopId, p.kind, patch);
   }
 
-  function clearAccessPoint(stopId: string) {
+  function clearAccessPoint(id: string, kind: 'stop' | 'poi' = 'stop') {
+    if (kind === 'poi') {
+      writeAccessPoint(id, 'poi', { access_lat: 0, access_lon: 0 });
+      return;
+    }
     if (!records) return;
     void runStructural(
       () =>
-        updateStopAndReroute(pb, routing, records, stopId, {
+        updateStopAndReroute(pb, routing, records, id, {
           access_lat: 0,
           access_lon: 0,
         }),
-      [stopId],
+      [id],
     );
   }
 
@@ -1388,7 +1418,9 @@ export function TripEditor({
 
   const cardOpen = !!cardTarget;
   const pickingStop = picking
-    ? (stops.find((s) => s.id === picking.stopId) ?? null)
+    ? ((picking.kind === 'poi'
+        ? wishlist.find((w) => w.id === picking.stopId)
+        : stops.find((s) => s.id === picking.stopId)) ?? null)
     : null;
   const pickingHasAccess =
     !!pickingStop?.access_lat && !!pickingStop?.access_lon;
@@ -1834,10 +1866,14 @@ export function TripEditor({
               onPlaceAccessPoint={() => {
                 if (cardTarget.type === 'stop')
                   startPlacingAccessPoint(cardTarget.stop.id);
+                else if (cardTarget.type === 'wish')
+                  startPlacingAccessPoint(cardTarget.item.id, 'poi');
               }}
               onClearAccessPoint={() => {
                 if (cardTarget.type === 'stop')
                   clearAccessPoint(cardTarget.stop.id);
+                else if (cardTarget.type === 'wish')
+                  clearAccessPoint(cardTarget.item.id, 'poi');
               }}
               onAddBlock={(kind) => {
                 if (cardTarget.type === 'stop')
@@ -2205,8 +2241,14 @@ export function TripEditor({
               await reloadWishlist();
             });
           }}
-          onPlaceAccessPoint={() => {}}
-          onClearAccessPoint={() => {}}
+          onPlaceAccessPoint={() =>
+            cardTarget.type === 'wish' &&
+            startPlacingAccessPoint(cardTarget.item.id, 'poi')
+          }
+          onClearAccessPoint={() =>
+            cardTarget.type === 'wish' &&
+            clearAccessPoint(cardTarget.item.id, 'poi')
+          }
           onMoveToDay={() => {}}
           onRemove={() => {
             deleteWishlist(cardTarget.item.id);
