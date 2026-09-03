@@ -32,12 +32,24 @@ export function isRoutable(mode: string): boolean {
   return (ROUTABLE_MODES as readonly string[]).includes(mode);
 }
 
-export function createPocketBaseRouting(pb: TypedPocketBase): RoutingProvider {
+/**
+ * `tripId` tells the hook whose routing engine and key to use: the **trip
+ * owner's**, so every member of a shared trip sees the same durations and
+ * the owner pays the quota (WORK 19.1). Omit it and the hook falls back to
+ * the server's own env configuration — that is the import path, which
+ * creates the trip as it goes and has no id to name yet.
+ */
+export function createPocketBaseRouting(
+  pb: TypedPocketBase,
+  tripId?: string,
+): RoutingProvider {
   return {
     route(from, to, profile = 'driving-car') {
       return pb.send<RouteResult>('/api/route', {
         method: 'POST',
-        body: { from, to, profile },
+        body: tripId
+          ? { from, to, profile, trip: tripId }
+          : { from, to, profile },
       });
     },
   };

@@ -6,11 +6,15 @@
 // miss. The backend is chosen by env so a self-hosted OSRM can replace ORS
 // without touching client code:
 //
-//   ROUTING_BACKEND = "ors" (default) | "osrm"
+//   ROUTING_BACKEND = "ors" (default) | "here" | "osrm"
 //   ORS_URL   base, default https://api.heigit.org/openrouteservice/v2
 //             (api.openrouteservice.org is deprecated; shut off 2026-08-24)
 //   ORS_API_KEY   required for the ors backend; never sent to the browser
+//   HERE_API_KEY  required for the here backend; never sent to the browser
 //   OSRM_URL  base of a self-hosted OSRM (e.g. https://osrm.example.com)
+//
+// These are the *fallback*. When the request names a `trip`, the engine and
+// key come from that trip's owner (WORK 19.1) — see below.
 //
 // Handler-local helpers (not top-level) because each hook runs in its own VM.
 
@@ -31,7 +35,44 @@ routerAdd(
       });
     }
 
-    const backend = ($os.getenv('ROUTING_BACKEND') || 'ors').toLowerCase();
+    // Which engine, and whose key (WORK 19.1). Resolved from the **trip
+    // owner**, never the caller: every member of a shared trip has to see
+    // the same durations, and the owner pays the quota. The caller must be
+    // a member of the trip they name, or anyone could spend a stranger's
+    // credits. Falls back to the server env when the owner set nothing.
+    let backend = ($os.getenv('ROUTING_BACKEND') || 'ors').toLowerCase();
+    let ownerKeys = null;
+    if (body.trip) {
+      const caller = e.auth;
+      let member = null;
+      try {
+        member = caller
+          ? e.app.findFirstRecordByFilter(
+              'trip_members',
+              'trip = {:t} && user = {:u}',
+              { t: String(body.trip), u: caller.id },
+            )
+          : null;
+      } catch (_) {
+        member = null;
+      }
+      if (!member) return e.json(403, { message: 'Not a trip member.' });
+      try {
+        const trip = e.app.findRecordById('trips', String(body.trip));
+        const owner = e.app.findRecordById('users', trip.get('owner'));
+        const chosen = String(owner.get('routing_backend') || '').toLowerCase();
+        const raw = owner.get('routing_keys');
+        const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw;
+        if (chosen && parsed && parsed[chosen]) {
+          backend = chosen;
+          ownerKeys = parsed;
+        }
+      } catch (_) {
+        // Owner record gone, or no settings — the env default stands.
+      }
+    }
+    const keyFor = (provider, envName) =>
+      (ownerKeys && ownerKeys[provider]) || $os.getenv(envName);
 
     // Cache key: coordinates (fixed to 6 decimals), profile and backend, so
     // switching backends never returns another engine's geometry.
@@ -66,7 +107,7 @@ routerAdd(
 
     // --- backend request (local helpers; returns {durationSec, distanceM, geometry}) ---
     const routeORS = () => {
-      const apiKey = $os.getenv('ORS_API_KEY');
+      const apiKey = keyFor('ors', 'ORS_API_KEY');
       if (!apiKey) throw new Error('ORS_API_KEY is not set');
       const base =
         $os.getenv('ORS_URL') || 'https://api.heigit.org/openrouteservice/v2';
@@ -99,6 +140,61 @@ routerAdd(
       };
     };
 
+    // HERE Routing v8 (WORK 19.2). Chosen over Google/Mapbox because its
+    // terms permit caching results, which `route_cache` depends on. Its
+    // speed model is markedly closer to real driving times than ORS's
+    // default car profile, which is what prompted the whole backend
+    // (author, 2026-09-03: ORS put 195 km of paved Ring Road at 3 h 06
+    // against Google's 2 h 19).
+    const routeHERE = () => {
+      const apiKey = keyFor('here', 'HERE_API_KEY');
+      if (!apiKey) throw new Error('HERE_API_KEY is not set');
+      const { decodeFlexPolyline } = require(`${__hooks}/flexpolyline_lib.js`);
+      const url =
+        'https://router.hereapi.com/v8/routes' +
+        '?transportMode=car' +
+        '&origin=' +
+        from.lat +
+        ',' +
+        from.lon +
+        '&destination=' +
+        to.lat +
+        ',' +
+        to.lon +
+        '&return=summary,polyline' +
+        '&apikey=' +
+        encodeURIComponent(apiKey);
+      const res = $http.send({ url: url, method: 'GET', timeout: 20 });
+      // No route between these points — same expected outcome as ORS's 404.
+      if (res.statusCode === 404) return null;
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw new Error('HERE error ' + res.statusCode);
+      }
+      const route = res.json && res.json.routes && res.json.routes[0];
+      if (!route || !route.sections || route.sections.length === 0) return null;
+      // A car route is normally one section, but sum defensively.
+      let durationSec = 0;
+      let distanceM = 0;
+      let coords = [];
+      for (let i = 0; i < route.sections.length; i++) {
+        const s = route.sections[i];
+        if (s.summary) {
+          durationSec += s.summary.duration || 0;
+          distanceM += s.summary.length || 0;
+        }
+        if (s.polyline) coords = coords.concat(decodeFlexPolyline(s.polyline));
+      }
+      if (!durationSec && !distanceM) return null;
+      return {
+        durationSec: durationSec,
+        distanceM: distanceM,
+        geometry:
+          coords.length >= 2
+            ? { type: 'LineString', coordinates: coords }
+            : null,
+      };
+    };
+
     const routeOSRM = () => {
       const base = $os.getenv('OSRM_URL');
       if (!base) throw new Error('OSRM_URL is not set');
@@ -127,7 +223,12 @@ routerAdd(
 
     let out;
     try {
-      out = backend === 'osrm' ? routeOSRM() : routeORS();
+      out =
+        backend === 'osrm'
+          ? routeOSRM()
+          : backend === 'here'
+            ? routeHERE()
+            : routeORS();
     } catch (err) {
       return e.json(502, { message: 'Routing unavailable: ' + String(err) });
     }

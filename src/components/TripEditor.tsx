@@ -12,6 +12,8 @@ import { BudgetPopover } from './BudgetPopover';
 import { TripDatePopover } from './TripDatePopover';
 import { SettingsPanel } from './SettingsPanel';
 import { PrintView } from './PrintView';
+import { AccountPanel } from './AccountPanel';
+import { logout } from '../lib/auth';
 import {
   listMembers,
   setTripStartDate,
@@ -25,6 +27,7 @@ import {
   moveStop,
   updateStop,
   updateStopAndReroute,
+  rerouteAllLegs,
   updateLeg,
   rerouteLeg,
   setLegManual,
@@ -121,7 +124,7 @@ export function TripEditor({
     useTripEditor(tripId);
   const { user } = useAuth();
   const phone = useIsPhone();
-  const routing = useMemo(() => createPocketBaseRouting(pb), []);
+  const routing = useMemo(() => createPocketBaseRouting(pb, tripId), [tripId]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(
     new Set(),
@@ -197,6 +200,7 @@ export function TripEditor({
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
@@ -1421,12 +1425,14 @@ export function TripEditor({
           </div>
           {/* The email never renders as text at any width — the fix for the
               known "phone width breaks the header first" friction. */}
-          <span
-            title={user?.email ?? ''}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[oklch(0.32_0.03_250)] text-[13px] uppercase text-text"
+          <button
+            onClick={() => setAccountOpen(true)}
+            title={`${user?.email ?? ''} — account settings`}
+            aria-label="Account settings"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[oklch(0.32_0.03_250)] text-[13px] uppercase text-text hover:brightness-125"
           >
             {(user?.email ?? '?').slice(0, 1)}
-          </span>
+          </button>
         </div>
       </header>
 
@@ -1983,6 +1989,36 @@ export function TripEditor({
           trip={trip}
           onClose={() => setSettingsOpen(false)}
           onSave={(patch) => run(() => updateTripSettings(tripId, patch))}
+        />
+      )}
+      {accountOpen && (
+        <AccountPanel
+          email={user?.email ?? ''}
+          onClose={() => setAccountOpen(false)}
+          onSignOut={() => {
+            onBack();
+            logout();
+          }}
+          // Switching engines invalidates every stored leg: the durations
+          // on record are the old engine's, and route_cache keys on the
+          // backend so nothing stale is reused (WORK 19.3).
+          onEngineChanged={async () => {
+            if (!records) return;
+            setNotice('Re-routing this trip with the new engine…');
+            const { rerouted, failed } = await rerouteAllLegs(
+              pb,
+              createPocketBaseRouting(pb, tripId),
+              records,
+              (done, total) => setNotice(`Re-routing legs — ${done}/${total}…`),
+            );
+            await reload();
+            setNotice(
+              `Re-routed ${rerouted} leg${rerouted === 1 ? '' : 's'}` +
+                (failed ? `, ${failed} could not be routed` : '') +
+                '.',
+            );
+            window.setTimeout(() => setNotice(null), 6000);
+          }}
         />
       )}
       {printOpen && (

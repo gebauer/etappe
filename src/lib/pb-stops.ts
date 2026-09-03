@@ -13,7 +13,7 @@ import {
   type LegMode,
   type Surface,
 } from './pb-legs';
-import type { LatLon, RoutingProvider } from './routing';
+import { isRoutable, type LatLon, type RoutingProvider } from './routing';
 import { planStopMove } from './stop-move';
 import type { TripRecords } from './pb-trip-doc';
 import { reparentBlocks } from './pb-blocks';
@@ -391,4 +391,40 @@ export async function rerouteLeg(
   );
   await pb.collection('legs').update(legId, record);
   return record.routing_source !== 'manual';
+}
+
+/**
+ * Re-route every automatically-routed leg in the trip (WORK 19.3).
+ *
+ * Switching the routing engine changes what every leg *should* say, but the
+ * stored `duration_min`/`distance_m`/`geometry` are the old engine's — and
+ * `route_cache` keys on the backend, so the new engine's answers are a
+ * clean miss rather than a stale hit. This walks them.
+ *
+ * Legs the planner deliberately set to `manual` are left alone: a typed
+ * duration is a correction of the engine, not something to overwrite when
+ * the engine changes.
+ */
+export async function rerouteAllLegs(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  records: TripRecords,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ rerouted: number; failed: number }> {
+  const targets = records.legs.filter(
+    (l) => isRoutable(l.mode) && l.routing_source !== 'manual',
+  );
+  let rerouted = 0;
+  let failed = 0;
+  for (const [i, leg] of targets.entries()) {
+    onProgress?.(i, targets.length);
+    try {
+      if (await rerouteLeg(pb, provider, records, leg.id)) rerouted += 1;
+      else failed += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  onProgress?.(targets.length, targets.length);
+  return { rerouted, failed };
 }

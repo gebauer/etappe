@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { logout } from './lib/auth';
 import { LoginForm } from './components/LoginForm';
+import { AccountPanel } from './components/AccountPanel';
 import { TripList } from './components/TripList';
 import { TripEditor } from './components/TripEditor';
 import { ShareView } from './components/ShareView';
@@ -58,6 +59,7 @@ function AppShell() {
     }
   };
   const [sharedCapture, setSharedCapture] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     setSharedCapture(readSharedCapture());
@@ -75,6 +77,12 @@ function AppShell() {
           {isLoggedIn && (
             <div className="flex items-center gap-3 text-[13px]">
               <span className="text-text-4">{user?.email}</span>
+              <button
+                onClick={() => setAccountOpen(true)}
+                className="text-text-3 underline hover:text-text"
+              >
+                Account
+              </button>
               <button
                 onClick={() => {
                   setTripId(null);
@@ -110,6 +118,17 @@ function AppShell() {
           </div>
         )}
       </main>
+
+      {accountOpen && (
+        <AccountPanel
+          email={user?.email ?? ''}
+          onClose={() => setAccountOpen(false)}
+          onSignOut={() => {
+            setTripId(null);
+            logout();
+          }}
+        />
+      )}
     </div>
   );
 }

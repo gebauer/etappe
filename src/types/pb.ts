@@ -421,15 +421,19 @@ export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown
 	updated: IsoAutoDateString
 }
 
-export type UsersRecord = {
+export type UsersRecord<Trouting_keys = unknown, Trouting_providers = unknown> = {
 	avatar?: FileNameString
 	color?: string
 	created: IsoAutoDateString
 	email: string
 	emailVisibility?: boolean
 	id: string
+	link_out?: string
 	name?: string
 	password: string
+	routing_backend?: string
+	routing_keys?: null | Trouting_keys
+	routing_providers?: null | Trouting_providers
 	tokenKey: string
 	updated: IsoAutoDateString
 	verified?: boolean
@@ -452,7 +456,7 @@ export type RouteCacheResponse<Tgeometry = unknown, Texpand = unknown> = Require
 export type StopsResponse<Texpand = unknown> = Required<StopsRecord> & BaseSystemFields<Texpand>
 export type TripMembersResponse<Texpand = unknown> = Required<TripMembersRecord> & BaseSystemFields<Texpand>
 export type TripsResponse<Tdefault_dwell = unknown, Tsurface_multipliers = unknown, Texpand = unknown> = Required<TripsRecord<Tdefault_dwell, Tsurface_multipliers>> & BaseSystemFields<Texpand>
-export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
+export type UsersResponse<Trouting_keys = unknown, Trouting_providers = unknown, Texpand = unknown> = Required<UsersRecord<Trouting_keys, Trouting_providers>> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
 

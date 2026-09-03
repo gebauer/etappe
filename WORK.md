@@ -2323,6 +2323,96 @@ app pages through them.
 
 ---
 
+## Phase 19 — Routing engines and link-outs
+
+Source: the author compared Etappe's leg times to Google's, 2026-09-03.
+ORS put 195 km of **paved** Ring Road at 3 h 06 against Google's 2 h 19,
+and 81 km of Kjölur gravel at 2 h 53 against Google's 1 h 20 — "pretty
+unusable if the prediction varies so much."
+
+**Diagnosis.** Two separate causes, both real:
+- ORS's `driving-car` profile is conservative — ~17 % over Google on
+  paved, ~90 % over on gravel/highland (it treats graded gravel like a
+  rough track).
+- Etappe's own `car_buffer_pct` (default **15 %**) is applied on top,
+  turning a 17 % gap into 34 %.
+
+**Why not Google.** Its Directions ToS forbids caching or storing results
+and requires display on a Google map. `route_cache` is the core of this
+app's routing design (CLAUDE.md rule 4), so Google is a legal
+non-starter, not merely a technical one. Mapbox has the same problem.
+**HERE** permits caching, has a free tier with no card, and a speed model
+close to Google's — so HERE it is.
+
+**19.1 Per-owner routing credentials + account settings** · ✅
+Migration `1788000016` adds four `users` fields. Two settings, different
+scope on purpose:
+- `routing_backend` + `routing_keys` — **read from the trip owner**, never
+  the caller. Every member of a shared trip has to see the same durations,
+  and the owner pays the quota ("that's the price for sharing" — author).
+- `link_out` — per user, no key, no cost, so members can differ freely.
+- `routing_keys` is a **hidden** field: excluded from every API response,
+  so a key never reaches the browser's persisted authStore. It is written
+  only through `POST /api/routing-credentials` (`routing.pb.js`), which
+  merges server-side — a hidden JSON field can't be merged by a client
+  that can't read it. `routing_providers` is the readable companion so the
+  panel can show "key stored" and an ✕ to forget one. **Switching engines
+  keeps the other keys**, per the author's request.
+- `route.pb.js` resolves engine + key from `trips.owner` when the request
+  names a `trip`, after checking the caller is a **member** — otherwise
+  anyone could spend a stranger's credits. Falls back to the server env.
+  `createPocketBaseRouting(pb, tripId)` passes the id; the import path
+  omits it (it has no trip id yet).
+- **Bug found while wiring the endpoint:** a PocketBase JSON field comes
+  back as a Go-backed value, not a plain JS object — assigning a property
+  straight onto it throws, which surfaced only as a generic 400. Fixed by
+  round-tripping through text and copying key by key.
+- New `AccountPanel`, reachable from the header avatar in the editor and
+  from an Account link on the trip list.
+- Verified: `.claude/skills/run-etappe/routing-settings-check.mjs` — key
+  stored, **never present in the persisted auth store**, `routing_providers`
+  tracks it, engine + link-out persist, ✕ forgets only that provider.
+
+**19.2 HERE routing backend** · ✅
+`routeHERE()` in `route.pb.js` (Routing v8, `transportMode=car`,
+`return=summary,polyline`), selected by `ROUTING_BACKEND=here` or an
+owner who picked it. HERE returns its geometry as a **flexible polyline**,
+not GeoJSON, so `pb_hooks/flexpolyline_lib.js` decodes it to the
+`[[lon, lat], …]` LineString every other backend already produces — its
+decoding table is *built from* the encoding table rather than transcribed,
+because the published tables are easy to copy wrong. 4 unit tests against
+HERE's own published fixture (`src/lib/flex-polyline.test.ts`, which
+evaluates the CJS hook file directly — the repo is `"type": "module"`).
+`route_cache` already keys on the backend, so switching engines is a clean
+miss rather than a stale hit.
+
+**19.3 Re-route on engine change** · ✅
+`rerouteAllLegs(pb, provider, records, onProgress)` in `pb-stops.ts`.
+Changing the engine in Account settings re-routes the open trip
+immediately with a progress notice, because every stored leg still holds
+the previous engine's numbers. Legs the planner set to **manual** are left
+alone — a typed duration is a correction *of* the engine, not something to
+overwrite when the engine changes.
+
+**19.4 Link-out provider + full-day export** · ⬜
+Not started. `geo-links.ts` gains a provider dimension (Google Maps /
+Apple Maps / HERE WeGo / OpenStreetMap — all handle multi-point); the leg
+`↗`, the stop card and a new day-header `↗` all read the user's
+`link_out`. The day export builds origin + waypoints + destination (Google
+caps at 9 waypoints — truncate and say so rather than silently drop
+stops). On the **first** link-out click, a one-time notice that the
+provider is changeable in Account settings.
+
+**19.5 Buffer and surface-multiplier tuning** · ⬜
+Not started, and a spec decision. With a good engine the default
+`car_buffer_pct` of 15 % is too much (~5 % would do), and
+`surface_multipliers` **double-count**: ORS and HERE both already slow
+down for gravel, then Etappe multiplies again. Proposal: apply the
+multipliers only to `manual` legs, where the planner typed a paved-ish
+estimate and wants it scaled.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the
