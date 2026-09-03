@@ -132,12 +132,23 @@ export function PinCardExpanded({
 
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
   const coordPaste = makeCoordPaste(onUpdate);
-  const cover = blocks.find((b) => b.kind === 'photo');
+
+  // Every photo block, in cover order (blocks arrive pre-sorted). Until
+  // WORK 18.15 this pane showed only [0] with a dead "1 / N" badge — the
+  // other photos on a stop or an imported idea had nowhere to be seen.
+  const photos = blocks.filter((b) => b.kind === 'photo');
+  const [photoIdx, setPhotoIdx] = useState(0);
+  useEffect(() => {
+    setPhotoIdx((i) => (i >= photos.length ? 0 : i));
+  }, [photos.length]);
+  const shown = photos[Math.min(photoIdx, Math.max(0, photos.length - 1))];
   // '640x0' is the largest thumb size configured on the blocks collection
   // (see pb-blocks.ts) — reused rather than adding a new PocketBase thumb
   // preset just for this one, slightly larger pane.
-  const coverSrc = cover ? blockFileUrl(pb, cover, '640x0') : null;
-  const photoCount = blocks.filter((b) => b.kind === 'photo').length;
+  const shownSrc = shown ? blockFileUrl(pb, shown, '640x0') : null;
+  const photoCount = photos.length;
+  const stepPhoto = (d: -1 | 1) =>
+    setPhotoIdx((i) => (i + d + photoCount) % photoCount);
 
   return (
     <div
@@ -154,30 +165,85 @@ export function PinCardExpanded({
             handoff called this "not built" and left it a modal, but
             stacking it costs one class change and turns "All details"
             from broken into merely tall. */}
-        <div className="relative h-48 min-w-0 flex-none border-b border-[oklch(0.28_0.012_250)] bg-control desktop:h-auto desktop:flex-[0_0_46%] desktop:border-b-0 desktop:border-r">
-          {coverSrc ? (
-            <img
-              src={coverSrc}
-              alt={cover?.title || stop.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center font-mono text-[11px] text-text-4">
-              no photo yet
+        <div className="relative flex h-48 min-w-0 flex-none flex-col border-b border-[oklch(0.28_0.012_250)] bg-control desktop:h-auto desktop:flex-[0_0_46%] desktop:border-b-0 desktop:border-r">
+          <div className="relative min-h-0 flex-1">
+            {shownSrc ? (
+              <img
+                key={shown!.id}
+                src={shownSrc}
+                alt={shown!.title || stop.title}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center font-mono text-[11px] text-text-4">
+                no photo yet
+              </div>
+            )}
+
+            {photoCount > 1 && (
+              <>
+                <button
+                  onClick={() => stepPhoto(-1)}
+                  aria-label="Previous photo"
+                  className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-glass text-[15px] text-text-2 backdrop-blur-[6px] hover:text-text"
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={() => stepPhoto(1)}
+                  aria-label="Next photo"
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-glass text-[15px] text-text-2 backdrop-blur-[6px] hover:text-text"
+                >
+                  ›
+                </button>
+              </>
+            )}
+
+            <div className="absolute bottom-3.5 left-4 flex gap-1.5">
+              {photoCount > 0 && (
+                <span className="rounded-[7px] bg-glass px-2.5 py-1.5 font-mono text-[10.5px] text-text-2 backdrop-blur-[6px]">
+                  {photoIdx + 1} / {photoCount}
+                </span>
+              )}
+              {shown?.attribution_author && (
+                <span className="max-w-[220px] truncate rounded-[7px] bg-glass px-2.5 py-1.5 font-mono text-[10.5px] text-text-4 backdrop-blur-[6px]">
+                  © {shown.attribution_author}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* A thumbnail strip on desktop — the clearest "there are more"
+              signal, and it lets you jump straight to one. The phone pane
+              is only 192px tall, so there it stays arrows + counter. */}
+          {photoCount > 1 && (
+            <div className="hidden flex-none gap-1.5 overflow-x-auto border-t border-[oklch(0.28_0.012_250)] bg-surface-3 p-2 desktop:flex">
+              {photos.map((p, i) => {
+                const t = blockFileUrl(pb, p, '80x80');
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setPhotoIdx(i)}
+                    aria-label={`Photo ${i + 1}`}
+                    className={`h-11 w-11 flex-none overflow-hidden rounded-md border ${
+                      i === photoIdx
+                        ? 'border-accent'
+                        : 'border-border-strong opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    {t && (
+                      <img
+                        src={t}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
-          <div className="absolute bottom-3.5 left-4 flex gap-1.5">
-            {photoCount > 0 && (
-              <span className="rounded-[7px] bg-glass px-2.5 py-1.5 font-mono text-[10.5px] text-text-2 backdrop-blur-[6px]">
-                1 / {photoCount}
-              </span>
-            )}
-            {cover?.attribution_author && (
-              <span className="rounded-[7px] bg-glass px-2.5 py-1.5 font-mono text-[10.5px] text-text-4 backdrop-blur-[6px]">
-                © {cover.attribution_author}
-              </span>
-            )}
-          </div>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">

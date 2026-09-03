@@ -2120,6 +2120,24 @@ types normally. The fields re-key on `stop.lat`/`stop.lon` so the pasted
 values show without a card reopen.
 - Verified in batch-18-check: pasting the pair into Latitude fills both.
 
+**18.15 Browse a stop's other photos in All details** · Standard · ✅
+Author: *"when there are multiple photos, there is no way in the detail
+view (or anywhere) to check the other photos."* Right — `PinCardExpanded`
+showed `photos[0]` behind a dead `1 / N` badge, and nothing else in the
+app pages through them.
+- The left photo pane became a small gallery: `‹`/`›` buttons over the
+  image (only with >1 photo), a live `<idx> / <count>` counter, the
+  attribution line follows the shown photo, and — desktop only, where the
+  pane is full-height — a scrollable thumbnail strip along the bottom
+  with the active thumb ringed in `accent`. Phone (192px pane) keeps just
+  the arrows and counter.
+- Local `photoIdx` state, clamped when the block list changes; `‹`/`›`
+  wrap. Photo order is `blocksFor`'s cover order (18.13), so thumb 1 is
+  the pin/row cover.
+- Verified: `.claude/skills/run-etappe/photo-gallery-check.mjs` — a
+  2-photo idea shows the strip and both nav arrows, the counter advances
+  and wraps.
+
 ---
 
 ## Noticed
