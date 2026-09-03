@@ -233,10 +233,13 @@ export function TripEditor({
   const [isOwner, setIsOwner] = useState(false);
   // Membership role (WORK 22). `editor`+ may change the itinerary;
   // `contributor` may add/edit wishlist places but nothing on the plan;
-  // `viewer` is read-only. Defaults to the most restrictive until the
-  // members list resolves.
-  const [myRole, setMyRole] = useState<TripMembersRoleOptions>('viewer');
-  const canEditItinerary = myRole === 'owner' || myRole === 'editor';
+  // `viewer` is read-only. The gate **fails open**: until the members list
+  // has actually resolved with our own row, the full editor is shown — the
+  // server is the real enforcement, so a lookup that is slow or fails must
+  // not lock the owner out of their own trip.
+  const [myRole, setMyRole] = useState<TripMembersRoleOptions | null>(null);
+  const canEditItinerary =
+    myRole === null || myRole === 'owner' || myRole === 'editor';
   const canEditWishlist = canEditItinerary || myRole === 'contributor';
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
@@ -303,9 +306,15 @@ export function TripEditor({
         if (cancelled) return;
         const mine = members.find((m) => m.user === user.id);
         setIsOwner(mine?.role === 'owner');
-        setMyRole(mine?.role ?? 'viewer');
+        // Only clamp down when we positively found our own row. No row and
+        // no error is odd (a race, or a just-materialised invite) — leave
+        // the gate open rather than guessing `viewer`.
+        if (mine?.role) setMyRole(mine.role);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Network / rule failure — keep the editor open; the server still
+        // refuses anything the caller isn't allowed to do.
+      });
     return () => {
       cancelled = true;
     };
