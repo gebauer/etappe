@@ -25,7 +25,10 @@ export const ROUTING_ENGINES: RoutingEngine[] = [
     id: 'here',
     label: 'HERE',
     needsKey: true,
-    hint: 'Closest to real driving times. Free tier, no card. Recommended.',
+    // Said "no card" until the author hit the signup form and found
+    // otherwise (2026-09-03). No figure quoted here: HERE's allowance has
+    // moved before and a stale number is worse than none.
+    hint: 'Closest to real driving times. Recommended. Signup asks for a card — set a spending limit in your HERE dashboard.',
   },
   {
     id: 'ors',
