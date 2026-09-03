@@ -8,17 +8,36 @@ import { z } from 'zod';
 const MANIFEST_URL = '/login-photos/photos.json';
 const photoBase = '/login-photos/';
 
-const loginPhotoSchema = z.object({
-  file: z.string().min(1),
-  place: z.string().min(1),
-  region: z.string().min(1).optional(),
-  coords: z.string().min(1).optional(),
-  month: z.string().min(1).optional(),
-});
+// An optional caption field: a non-empty string, or absent. `null` is
+// accepted and treated as absent — it's the shape an LLM asked to fill this
+// in will reach for, and the manifest is hand-maintained. Blank strings are
+// dropped the same way, so a stray "" never renders as an empty line.
+const optionalText = z
+  .string()
+  .nullish()
+  .transform((v) => (v && v.trim() ? v.trim() : undefined));
+
+const loginPhotoSchema = z
+  .object({
+    file: z.string().min(1),
+    place: z.string().min(1),
+    region: optionalText,
+    coords: optionalText,
+    month: optionalText,
+  })
+  // Extra keys (e.g. a `photographer` credit) are tolerated, just unused.
+  .passthrough();
 
 const manifestSchema = z.array(loginPhotoSchema);
 
-export type LoginPhoto = z.infer<typeof loginPhotoSchema> & { url: string };
+export type LoginPhoto = {
+  file: string;
+  place: string;
+  region?: string;
+  coords?: string;
+  month?: string;
+  url: string;
+};
 
 /** Load and validate the manifest. Any failure — no file, bad JSON, a shape
  * that doesn't match — resolves to `[]`, and the sign-in renders on a plain

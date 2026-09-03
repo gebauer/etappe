@@ -12,14 +12,18 @@ full-bleed background of the sign-in screen, one per visit, crossfading every
 - **A quiet left third.** The headline and form card sit over the left ~440 px;
   a busy subject there fights the text. Landscapes, horizons and open water work;
   a centred building does not.
-- JPEG, reasonably compressed (aim < 500 KB each — this screen loads before auth).
+- **JPEG or WebP — not HEIC** (browsers can't show it in an `<img>`). At least
+  2400×1400; wider is fine, past ~2560 is wasted.
+- Compressed: aim 200–500 KB each, this screen loads before auth. `npm`-installed
+  `sharp` can batch it — resize to fit 2560×1600, JPEG quality ~78.
 
 ## photos.json
 
 A flat array. `place` is the only required field; everything else is optional
 and the caption **only renders the fields that are present** — a missing
-`coords` drops that half of the mono line, a missing `month` drops the sub-line.
-Never write `"Unknown"` — leave the key out instead.
+`coords`/`month` just drops that piece of the mono line. An optional field may
+be left out, set to `null`, or `""` — all three read as "absent". Never write
+`"Unknown"`. Extra keys (e.g. `photographer`) are ignored, not an error.
 
 ```json
 [
