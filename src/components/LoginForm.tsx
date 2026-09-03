@@ -9,7 +9,9 @@ import {
 
 type Mode = 'login' | 'register';
 
-const ROTATE_MS = 7000;
+// Advance to the next photo only after this long with no typing — the
+// rotation is ambient, it shouldn't move while someone is filling the form.
+const IDLE_ADVANCE_MS = 120_000;
 const FADE_MS = 900;
 
 /** The one screen before any trip exists. Full-bleed travel photograph, the
@@ -28,6 +30,8 @@ export function LoginForm() {
   const [idx, setIdx] = useState(0);
   const [prevIdx, setPrevIdx] = useState<number | null>(null);
   const idxRef = useRef(0);
+  // Bumped on any keystroke in the form; re-arms the idle timer below.
+  const [activity, setActivity] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -46,18 +50,19 @@ export function LoginForm() {
     idxRef.current = idx;
   }, [idx]);
 
-  // One photo per visit; while the page stays open they crossfade every 7 s.
-  // `prefers-reduced-motion` holds the first — the interval simply never runs.
+  // A random photo per visit, then the next one after 2 minutes of no
+  // typing — re-armed on every keystroke (`activity`) and after each
+  // advance (`idx`). `prefers-reduced-motion` holds the first, no timer.
   useEffect(() => {
     if (photos.length < 2) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const t = setInterval(() => {
+    const t = setTimeout(() => {
       const from = idxRef.current;
       setPrevIdx(from);
       setIdx((from + 1) % photos.length);
-    }, ROTATE_MS);
-    return () => clearInterval(t);
-  }, [photos.length]);
+    }, IDLE_ADVANCE_MS);
+    return () => clearTimeout(t);
+  }, [photos.length, idx, activity]);
 
   useEffect(() => {
     if (prevIdx === null) return;
@@ -200,6 +205,7 @@ export function LoginForm() {
 
         <form
           onSubmit={submit}
+          onInput={() => setActivity((n) => n + 1)}
           className="mt-[22px] rounded-2xl border border-[oklch(0.32_0.012_250/0.85)] bg-[oklch(0.20_0.013_250/0.78)] p-[26px] shadow-[0_24px_60px_oklch(0.08_0.02_250/0.55)] backdrop-blur-[18px]"
         >
           <div className="flex flex-col gap-2.5">

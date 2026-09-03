@@ -2578,12 +2578,15 @@ note in the Status section).
   on the plain `bg` with the gradient still on. `captionPlace` /
   `captionMeta` render only the fields an entry carries — never a
   placeholder.
-- One photo per visit; while the page stays open the rotation crossfades
-  every 7 s (900 ms) — the outgoing photo fades out over the incoming one
-  (`login-photo-out` keyframe in `tailwind.config.js`), caption swaps with
-  it. Only the current, the outgoing and a hidden preload `<img>` for the
-  next are in the DOM. `prefers-reduced-motion` → the interval never
-  starts, first photo holds.
+- A **random** photo per visit, then the next one after **2 minutes with
+  no typing** in the form — the idle timer re-arms on every keystroke
+  (`onInput`) and after each advance, so the rotation never moves while
+  someone is filling it in (author request, 2026-09-03; started life as a
+  7 s carousel). The change itself is a 900 ms crossfade — the outgoing
+  photo fades out over the incoming one (`login-photo-out` keyframe in
+  `tailwind.config.js`), caption swaps with it. Only the current, the
+  outgoing and a hidden preload `<img>` for the next are in the DOM.
+  `prefers-reduced-motion` → no timer, first photo holds.
 - Verified at 1440px and 390px: `.claude/skills/run-etappe/login-shot.mjs`
   — both layouts render, the `Register` toggle swaps the copy and button,
   no console errors. Screenshots in `screenshots/login-*.png`.
