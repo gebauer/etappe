@@ -58,9 +58,16 @@ export default {
           '35%': { transform: 'translateX(-6px)', opacity: '1' },
           '55%': { transform: 'translateX(-2px)', opacity: '0.9' },
         },
+        // Sign-in photo rotation: the outgoing photo fades out over the
+        // incoming one (which is already at full opacity beneath it).
+        'login-photo-out': {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
       },
       animation: {
         'om-nudge': 'om-nudge 2.4s ease-in-out infinite',
+        'login-photo-out': 'login-photo-out 900ms ease-in-out forwards',
       },
     },
   },

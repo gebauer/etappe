@@ -33,6 +33,14 @@ export function logout(): void {
   pb.authStore.clear();
 }
 
+/** Ask PocketBase to email a reset link. No-op UI beyond a confirmation —
+ * the reset itself happens through the emailed link, on PocketBase's own
+ * page. Requires SMTP configured on the server; without it this throws and
+ * the caller surfaces the error. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await pb.collection('users').requestPasswordReset(email);
+}
+
 /** Subscribe to auth state changes; returns an unsubscribe function. */
 export function onAuthChange(cb: () => void): () => void {
   return pb.authStore.onChange(() => cb());

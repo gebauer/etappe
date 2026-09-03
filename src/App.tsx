@@ -71,7 +71,7 @@ function AppShell() {
 
   return (
     <div className="flex h-screen flex-col bg-bg font-sans text-text">
-      {!inEditor && (
+      {!inEditor && isLoggedIn && (
         <header className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
           <span className="text-lg font-semibold">Etappe</span>
           {isLoggedIn && (

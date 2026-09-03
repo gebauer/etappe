@@ -111,7 +111,9 @@ below.**
 **Phase 15 (wishlist contributor attribution) also done 2026-09-02 —
 15.1 (schema + per-user colour, snapshotted onto each poi) and 15.2 (the
 chip + two pills on the panel, carousel and docked card).**
-**→ Next: the sign-in redesign (Phase 20), from handoff revision 10.**
+**→ Next: nothing queued.** Phase 20 (sign-in redesign, handoff revision
+10) shipped 2026-09-03; the author still needs to drop 8–12 photos into
+`public/login-photos/` and update `photos.json` (one sample photo ships).
 `ToDo.md` may have loose ends worth a pass.
 
 **Handoff folders consolidated 2026-09-03.** The numbered download copies
@@ -2540,34 +2542,52 @@ same checkout. Not a conflict, history is linear.)*
 Source: `design_handoff_map_first_planner/README.md` **"Sign-in"** section
 + `Etappe Login.dc.html`. The one net-new item in handoff revision 10;
 everything else in that revision was already built (see the handoff-folder
-note in the Status section). **Not started.**
+note in the Status section).
 
-The current sign-in is `LoginForm.tsx` — a dark card centred on an empty
-field, correct and inert. The redesign turns the one pre-trip screen into
-the place the product sells the idea of going somewhere.
+**20.1 Sign-in screen** · Standard · ✅ (2026-09-03)
+- `LoginForm.tsx` rebuilt: full-bleed photo, two `pointer-events:none`
+  gradients (README's exact oklch), brand top-left, a 406px left column —
+  headline + subhead **directly on the gradient** (with a text-shadow),
+  then the form card as the column's single glass surface. Two 46px
+  placeholder-labelled fields, a 48px accent button, and a footer row
+  (`Register` toggle · `Forgot password?`). Mono caption bottom-right with
+  one rotation tick per photo.
+- Phone (`<860px`, the `desktop:` breakpoint): column full-width, headline
+  28px, caption moved under the form, photo stays. `App.tsx` drops its own
+  header on the login screen so the screen is full-bleed.
+- **Deviations from the prototype, on purpose:**
+  - The prototype wraps the headline in its own glass plate; the README
+    prose is explicit ("one glass surface per column, and it belongs to
+    the form … two stacked translucent plates over a photograph is soup"),
+    and the README is authoritative — so the plate is dropped.
+  - Brand/headline weight is `font-semibold` (600), not the prototype's
+    700 — the app only self-hosts Instrument Sans 400/500/600 (WORK 12.1),
+    same as every other bold text in the app.
+  - `Forgot password?` calls PocketBase's built-in
+    `requestPasswordReset` (`auth.ts`); it needs SMTP configured on the
+    server, and without it the error surfaces on the form. No custom
+    reset page — the emailed link uses PocketBase's own.
 
-**20.1 Sign-in screen** · Standard
-- Full-bleed travel photograph, two `pointer-events:none` gradients over
-  it, form + copy floating over the left third as **one** glass surface
-  (not two stacked plates). Brand top-left, 406px text column vertically
-  centred (`Where are you going next?` / `Sign in to pick up the
-  itinerary you left open.`), the form card below it (two 46px
-  placeholder-labelled fields, 48px accent button, Register / Forgot
-  links). Mono photo caption bottom-right with four rotation ticks.
-- Phone: text column full-width, headline 28px, caption under the form,
-  photo stays.
-- All exact oklch values, sizes and gradients are in the README section —
-  translate to Tailwind, keep the oklch values.
-
-**20.2 Photo rotation** · Standard
-- A **supplied** `public/` folder of 8–12 wide images + `photos.json`
-  (`file`, `place` [required], `region`, `coords`, `month`). Render only
-  the fields a manifest entry has — never a placeholder, never
-  `Unknown location`.
-- One photo per visit, 7 s crossfade (900 ms fade) while the page stays
-  open, caption swaps with the image, preload only the next one,
-  `prefers-reduced-motion` holds the first.
-- `image-slot.js` in the handoff is prototype-only — do not port it.
+**20.2 Photo rotation** · Standard · ✅ (2026-09-03)
+- Supplied folder `public/login-photos/` — `photos.json` (`file`,
+  `place` [required], `region`, `coords`, `month`) + the images, with its
+  own `README.md` (format + a prompt for generating the manifest). Ships
+  with the one sample photo from the handoff; the author adds 8–12.
+- `lib/login-photos.ts` — Zod-validated manifest load; **any** failure
+  (missing, bad JSON, wrong shape) resolves to `[]` and the screen renders
+  on the plain `bg` with the gradient still on. `captionPlace` /
+  `captionMeta` render only the fields an entry carries — never a
+  placeholder.
+- One photo per visit; while the page stays open the rotation crossfades
+  every 7 s (900 ms) — the outgoing photo fades out over the incoming one
+  (`login-photo-out` keyframe in `tailwind.config.js`), caption swaps with
+  it. Only the current, the outgoing and a hidden preload `<img>` for the
+  next are in the DOM. `prefers-reduced-motion` → the interval never
+  starts, first photo holds.
+- Verified at 1440px and 390px: `.claude/skills/run-etappe/login-shot.mjs`
+  — both layouts render, the `Register` toggle swaps the copy and button,
+  no console errors. Screenshots in `screenshots/login-*.png`.
+- Commit: `phase 20: sign-in redesign`.
 
 **Deferred (own feature request, do not build here):**
 `FEATURE_REQUEST_trip-photos.md` — sourcing the rotation from the user's
