@@ -3,14 +3,20 @@
   "short_name": "Etappe",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#17181c",
-  "theme_color": "#17181c",
+  "background_color": "#0F3A4B",
+  "theme_color": "#0F3A4B",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icons/etappe-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/etappe-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "share_target": {

@@ -14,7 +14,7 @@
  * offline basemap is explicitly out of scope for v1 (CLAUDE.md).
  */
 
-const CACHE = 'etappe-shell-v1';
+const CACHE = 'etappe-shell-v2';
 
 /** Precache the shell on install so the *first* offline reload works, not
  * only the second. There is no build-time manifest of the hashed asset
@@ -24,7 +24,12 @@ const CACHE = 'etappe-shell-v1';
  * stays correct across rebuilds without a plugin. */
 async function precacheShell() {
   const cache = await caches.open(CACHE);
-  const urls = new Set(['/', '/index.html', '/manifest.json', '/icon.svg']);
+  const urls = new Set([
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/icons/etappe-favicon.svg',
+  ]);
   try {
     const html = await (await fetch('/index.html', { cache: 'reload' })).text();
     for (const m of html.matchAll(/(?:src|href)="(\/[^"]+)"/g)) {

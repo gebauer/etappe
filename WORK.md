@@ -652,6 +652,10 @@ present" (author). **No new dependency** — hand-rolled, since the specced
   loads, and it kept them from resolving cleanly against the SW cache.
 - **Manifest**: dark `background_color`/`theme_color`, and a first icon
   (`public/icon.svg`, a route glyph — "add to home screen" wants one).
+  (Superseded 2026-09-03: `public/icon.svg` replaced by the real brand
+  asset set in `public/icons/` — favicon/apple-touch/mask-icon wired into
+  `index.html`, manifest icons split into `any` + `maskable`, all colours
+  now the icon's `#0F3A4B`. See `public/icons/README.md`.)
 - Verified two ways:
   `.claude/skills/run-etappe/offline-check.mjs` (dev server) — offline →
   banner + full trip still rendered + an edit blocked with a notice →
