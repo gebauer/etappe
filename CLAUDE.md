@@ -17,7 +17,9 @@ author, his family and friends.
 - React 18 + TypeScript + Vite
 - TanStack Query with `persistQueryClient` → IndexedDB
 - MapLibre GL JS + OpenFreeMap tiles
-- OpenRouteService for car routing, Photon for geocoding, SunCalc for daylight
+- Car routing is pluggable per trip-owner (Phase 19): OpenRouteService
+  (default), HERE, or a self-hosted OSRM. Photon for geocoding, SunCalc for
+  daylight.
 - Zod for all external data validation
 - Deployment: single container on Coolify, PocketBase serves the SPA from `pb_public`
 
@@ -39,8 +41,11 @@ management library, no ORM, no CSS-in-JS. Tailwind for styling.
    React, PocketBase or the network. It takes a trip document and returns
    computed times and warnings. Editor, share view, PDF and import preview all
    call the same function.
-4. **Every ORS response is cached** in the `route_cache` collection before use.
-   Never call ORS from the browser; the key stays in the PocketBase hook.
+4. **Every routing response is cached** in the `route_cache` collection before
+   use, keyed by coordinates + profile + backend. Never call a routing engine
+   from the browser; API keys stay in the PocketBase hook
+   (`pb_hooks/route.pb.js`), read per trip-owner from the hidden
+   `users.routing_keys` field (never echoed to a client) or the server env.
 5. **Visibility is enforced server-side.** The share endpoint assembles the
    public payload in a hook. Never filter private blocks in client code and
    call it done.

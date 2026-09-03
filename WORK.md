@@ -6,15 +6,41 @@ merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 
 ## Status — updated 2026-09-03
 
-**Every numbered phase task is done.** Phases 0–18 complete: 9.3 (print
-view), 10.1–10.3 (phone companion + offline read-only + shell service
-worker), 11.1 (budget, via 16.7/16.10) and 11.2 (trip settings), and the
-whole of Phase 18 (the handoff-(9) dark-theme debt, five author fixes,
-the photo gallery, wishlist search, and the last light surfaces) all
-landed 2026-09-02/03. What's left is the **Noticed** list below —
-judgement calls (the Delete/Backspace confirm) and non-blocking polish
-(code-split MapLibre, the `.env` `VITE_` prefix, leg-direction arrows,
-the stale `run-etappe` driver).
+### Handoff — read this first
+
+- **All numbered phases 0–19 are done and pushed to `origin/master`.** The
+  working tree is clean. `master` is the branch; the old `Redesign` branch
+  is abandoned (an ancestor of `master`) — do not use it.
+- **Nothing is queued.** Remaining work is the **Noticed** list below —
+  judgement calls (the Delete/Backspace confirm) and non-blocking polish
+  (code-split MapLibre, the `.env` `VITE_` prefix, leg-direction arrows,
+  the stale `run-etappe` driver). `ToDo.md` may hold loose ends too.
+- **Action item:** commit `7f2ab20` fixes a `pb_hooks/` bug (per-owner
+  routing engine was silently ignored — HERE never worked in production).
+  **The deployed instance must be redeployed** for it and the key-validation
+  change to take effect. See task **19.7**.
+- **Parallel sessions:** commits from ~2026-09-02 on were made by more than
+  one Claude Code session on this same checkout, all under the git identity
+  `Jan Gebauer`. History is linear and consistent; the only visible seam is
+  two `phase 19.6` commits (`c47d35e` code + `e53de2e` docs) — one
+  deliverable, not a conflict.
+- **Local dev:** `npm run pb` + `npm run dev` (see the `reload-dev` skill).
+  `npm run check` passes (3 pre-existing eslint warnings, no errors, ~318
+  tests). `npm run format:check` **fails** on a handful of already-committed
+  files from the parallel work (`TripEditor.tsx`, `cascade.ts`,
+  `geo-links*.ts`, `leg-buffer.ts`) — worth a `prettier --write` sweep.
+  No `.env` locally, so routing/geocoding return "no route" — expected.
+
+### History
+
+Phases 0–19 complete. 9.3 (print view), 10.1–10.4 (phone companion +
+offline read + shell SW + leg link-out), 11.1 (budget, via 16.7/16.10) and
+11.2 (trip settings), the whole of Phase 18 (handoff-(9) dark-theme debt,
+author fixes, photo gallery, wishlist search), and Phase 19 (routing
+engines: per-owner credentials, HERE backend, re-route on change,
+link-outs, buffer/surface/override, engine-answered line) all landed
+2026-09-02/03. Then **19.7** (2026-09-03): restored the per-leg re-route
+button and fixed HERE being a silent no-op in production.
 
 **Phase 6 complete; phase 7 complete (7.1, 7.2, 7.3); Highlights import
 (schema + importer) done; both Highlights follow-ups (wishlist-on-map,
@@ -159,6 +185,13 @@ Each done task is tagged ✅ below. All pushed to `origin/master`.
   `*_updated_*.js` migration files into pb_hooks — handy in real use, but
   experimenting through the API litters the tree. Prefer editing rules in a
   migration.
+- A `json` field read via `record.get()` in a hook is a **Go-backed value**,
+  not a plain JS object — indexing it (`v[key]`) reads `undefined`, and
+  assigning a property throws. Round-trip through `String(v)` + `JSON.parse`
+  before you touch it. `routing.pb.js` does this when it *writes*
+  `users.routing_keys`; `route.pb.js` didn't when it *read* it, so per-owner
+  engine selection silently no-op'd — every leg fell back to the ORS env
+  default with no error (fixed `7f2ab20`, 2026-09-03).
 
 **Spec deviations recorded** — §8 fixture bug fixed (Gullfoss activity 120 min,
 not 180); `blocks.creator` added (needed to enforce private-block visibility);
@@ -2455,6 +2488,31 @@ the value beyond `!== 'manual'`, so it stayed invisible. `/api/route` now
 returns which backend answered — a cache hit included, since the backend is
 part of the cache key — and the select takes `ors | here | osrm | manual`.
 Rows written before HERE existed stay `ors`, which is what they are.
+
+*(Two commits, one deliverable: `c47d35e` is the code — migration
+`1788000018`, the hook, `LegRow`, `routing.ts`, tests — and `e53de2e` is
+this WORK.md entry, committed 4 s apart by two Claude Code sessions on the
+same checkout. Not a conflict, history is linear.)*
+
+**19.7 Post-19.6 fixes** · ✅ (2026-09-03)
+- `a4464c7` — **restored the per-leg re-route button.** Since 19.5 the `⟳`
+  only rendered on unrouted (`manual`) legs, so a routed leg had no way to
+  re-run routing short of switching engines in Account settings (which
+  walks the whole trip). Now every car leg shows it in the expanded row:
+  `⟳ route` when unrouted, `⟳ re-route` when routed. It re-fetches from the
+  current engine — the cache is backend-keyed, so it's how you move one
+  leg onto HERE.
+- `7f2ab20` — **HERE never actually worked in production.** `route.pb.js`
+  read `owner.routing_keys` (a Goja Go-backed JSON value) and did
+  `parsed[chosen]` on it → `undefined` → the whole owner-engine block was
+  skipped and every leg used the ORS env fallback, tagged `ors`, silently.
+  Fixed to round-trip through `String()` + `JSON.parse` (see the new
+  PocketBase gotcha above). Also, per author request: `routing.pb.js` now
+  runs one live routing request to **validate a key before storing it**
+  (bad key → 400, not saved), and `AccountPanel` refuses to select a
+  key-needing engine until a validated key is on file — so "showing HERE,
+  actually on ORS" can't recur. **`pb_hooks/` change → the deployed
+  instance must be redeployed for this to take effect.**
 
 ---
 
