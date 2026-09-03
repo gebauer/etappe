@@ -27,6 +27,9 @@ interface Props {
   /** Which map app the ↗ opens, and a one-time-hint callback (WORK 19.4). */
   linkOut?: LinkOut;
   onLinkOut?: () => void;
+  /** A `contributor`/`viewer` sees the leg's numbers and the ↗ link, but
+   * not the duration/surface/buffer/re-route panel (WORK 22). */
+  readOnly?: boolean;
 }
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
@@ -65,6 +68,7 @@ export function LegRow({
   to,
   linkOut = 'google',
   onLinkOut,
+  readOnly = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [bufferText, setBufferText] = useState(leg?.buffer_override ?? '');
@@ -92,9 +96,9 @@ export function LegRow({
     <div className="py-[3px] pl-[22px] pr-3">
       <div className="flex items-center gap-1.5">
         <button
-          onClick={() => setOpen((v) => !v)}
-          title={leg ? 'Leg settings' : undefined}
-          disabled={!leg}
+          onClick={() => !readOnly && setOpen((v) => !v)}
+          title={leg && !readOnly ? 'Leg settings' : undefined}
+          disabled={!leg || readOnly}
           className="flex min-w-0 items-center gap-2 text-left"
         >
           <span className="h-4 w-px flex-none bg-[oklch(0.34_0.012_250)]" />
@@ -155,7 +159,7 @@ export function LegRow({
         )}
       </div>
 
-      {open && leg && (
+      {open && leg && !readOnly && (
         <div className="ml-[9px] mt-1.5 flex flex-wrap items-center gap-2 border-l border-[oklch(0.34_0.012_250)] py-1 pl-3">
           {isCar ? (
             <>

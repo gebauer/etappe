@@ -91,7 +91,8 @@ every wishlist entry (itinerary stops carry none).**
 author request, all seven original tasks (16.1–16.7) done. 16.6 subsumes
 9.1/9.2 and phase 11.2's "members", with one gap noted under 16.6 itself
 (no read-only editor mode for a `viewer` member — the server rule already
-protects them, the UI doesn't yet reflect it). 16.7 is the entry surface
+protects them, the UI doesn't yet reflect it) — **closed by Phase 22**.
+16.7 is the entry surface
 phase 11.1 needs. 16.8 (skip on wishlist-import dedup) and 16.9 (a routing
 kind that forces a leg through a stop with no dwell) added 2026-09-02 and
 done. 16.10 (2026-09-02) reworked the budget entirely per a new design
@@ -2649,6 +2650,66 @@ The redesign makes each trip a **horizontal photo card**.
   `blocks`/`pois` the map pins already read; no new fetch path.
 - Once `FEATURE_REQUEST_trip-photos.md` lands, a past trip's own photos
   take precedence over wishlist thumbnails — out of scope here.
+
+---
+
+## Phase 22 — Collaboration: emails, nickname, the `contributor` role
+
+Three author requests, one push (2026-09-03).
+
+**22.1 Sharing emails + SMTP** · ✅
+The "known email → instant `trip_members` row / unknown → pending `invites`
+row" split already existed in `pb_hooks/membership.pb.js` handler 2; this
+adds the email and the dialog feedback.
+- `pb_hooks/smtp_from_env.pb.js` (new) — `onBootstrap` applies
+  `SMTP_HOST/PORT/USERNAME/PASSWORD/TLS` and `SMTP_SENDER_ADDRESS/NAME`
+  from the container env on every start (env is the source of truth, like
+  `docker-entrypoint.sh` for the superuser). `SMTP_HOST` blank → mail off,
+  invites still work. Vars added to `.env.example` (`docker-compose.yml`
+  already forwards `.env` wholesale).
+- `membership.pb.js` handler 2 now sends — via `membership_lib.js`'s new
+  `sendInviteMail` / `displayName` helpers, best-effort, guarded on
+  `smtp.enabled` — an "added you to <trip>" mail to a known address and a
+  "register to accept" mail (with `APP_URL`) to an unknown one.
+- `SharePanel.tsx` — a transient line after Invite: "<addr> is on the trip
+  now — they've been emailed." vs "Invited <addr>. They'll get an email to
+  create an account.", decided by which list the address landed in.
+
+**22.2 Profile nickname** · ✅
+`AccountPanel.tsx` gains a **Nickname** field writing `users.name`
+(+`authRefresh`). `contributorName()` in `pb-pois.ts` already prefers
+`name` over the email local-part, so new wishlist items pick it up;
+existing rows keep their snapshot (no backfill).
+
+**22.3 `contributor` role + read-only editor** · ✅ — closes the WORK 16.6 gap.
+A fourth `trip_members`/`invites` role between `editor` and `viewer`:
+edits **every** wishlist `pois` row and its `blocks`, but nothing on the
+itinerary (no promote-to-stop, no stops/days/legs/costs/settings/members).
+`viewer` is now strictly read-only — no wishlist editing.
+- Migration `1788000020_contributor_role.js` — widens the two role enums;
+  `pois` create/update/delete → `poiWrite` (owner|editor|contributor);
+  `blocks` create/update/delete → `write || (poiWrite && parent_type =
+  'poi')`. `parent_type` is a real select field, so the "poi blocks only"
+  scoping is fully declarative — **no hook**. `npm run types:pb` re-run.
+- `TripEditor.tsx` — `myRole`, `canEditItinerary`, `canEditWishlist`; a
+  `blockedByRole('itinerary'|'wishlist')` guard mirroring `blockedOffline`
+  on `runStructural` and the wishlist/leg/stop/settings/block entry
+  points; itinerary keyboard shortcuts (`n`/`d`/`Delete`/`⌥↑↓`/`k`) gated.
+- Hidden for a non-editor, prop-driven (`canEditItinerary` /
+  `canEditWishlist` / `canAddDay` / `canStar` / `canAdd` / `readOnly`):
+  `Timeline` (+Stop, +Start point, day ✕, drag, empty-day copy),
+  `LegRow` (the settings panel), `DayPills` (`+` / insert-day),
+  `PinCard` (stop Edit/All details/Remove/♻/reorder; wish Add to
+  itinerary; empty +Day/+Wishlist), header `⚙`/`Import`,
+  `TripDatePopover` (picker → plain span), `WishlistPanel` footer,
+  `WishlistCarousel` ★. A role banner tops the itinerary column.
+- Verified: `.claude/skills/run-etappe/roles-22-check.mjs` — registers
+  owner + contributor + viewer, owner shares the trip with both (each
+  resolves to an instant membership + "is on the trip now" line),
+  contributor sees the wishlist banner and `+ Idea` but no `+ Stop` /
+  `+ Day` / `⚙`, viewer sees "View only" and no add affordances anywhere.
+  Screenshots `roles-{contributor,viewer}.png`.
+- `npm run check` green (320 tests). Commit: `phase 22: …`.
 
 ---
 

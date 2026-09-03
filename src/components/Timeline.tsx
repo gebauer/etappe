@@ -76,6 +76,12 @@ interface Props {
    * `truncated` says how many stops the app could not take. */
   linkOut?: LinkOut;
   onLinkOut?: (truncated: number) => void;
+  /** False for a `contributor` or `viewer` (WORK 22): the itinerary edit
+   * affordances — add/delete day, add stop, drag-reorder, start point,
+   * per-leg controls — are not rendered. Reading is unchanged. */
+  canEditItinerary?: boolean;
+  /** A one-line notice shown above the day (WORK 22) — the role banner. */
+  banner?: string;
 }
 
 /**
@@ -120,6 +126,8 @@ export function Timeline({
   onStepDay,
   linkOut = 'google',
   onLinkOut,
+  canEditItinerary = true,
+  banner,
 }: Props) {
   const swipe = useRef<number | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -151,8 +159,14 @@ export function Timeline({
   if (!day) {
     return (
       <div className="flex h-full items-center justify-center bg-surface-1 p-6 text-center text-[13px] text-text-4">
-        No days yet — add one with the <span className="mx-1 font-mono">+</span>{' '}
-        beside the day pills.
+        {canEditItinerary ? (
+          <>
+            No days yet — add one with the{' '}
+            <span className="mx-1 font-mono">+</span> beside the day pills.
+          </>
+        ) : (
+          'No days in this trip yet.'
+        )}
       </div>
     );
   }
@@ -209,6 +223,11 @@ export function Timeline({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1 font-sans text-text">
+      {banner && (
+        <div className="flex-none border-b border-border bg-surface-2 px-[15px] py-2 text-[11.5px] leading-snug text-text-3">
+          {banner}
+        </div>
+      )}
       <div
         onTouchStart={
           onStepDay
@@ -270,24 +289,28 @@ export function Timeline({
               {collapsed ? '▲' : '▼'}
             </button>
           )}
-          <button
-            onClick={() =>
-              confirmingDelete ? onDeleteDay(day.id) : setConfirmingDelete(true)
-            }
-            onBlur={() => setConfirmingDelete(false)}
-            title={
-              confirmingDelete
-                ? 'Click again to delete this day and its stops'
-                : 'Delete this day'
-            }
-            className={`h-[22px] whitespace-nowrap rounded-[7px] border px-2 text-[11px] ${
-              confirmingDelete
-                ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                : 'border-border-strong text-text-4 hover:text-text-2'
-            }`}
-          >
-            {confirmingDelete ? 'Delete day?' : '✕'}
-          </button>
+          {canEditItinerary && (
+            <button
+              onClick={() =>
+                confirmingDelete
+                  ? onDeleteDay(day.id)
+                  : setConfirmingDelete(true)
+              }
+              onBlur={() => setConfirmingDelete(false)}
+              title={
+                confirmingDelete
+                  ? 'Click again to delete this day and its stops'
+                  : 'Delete this day'
+              }
+              className={`h-[22px] whitespace-nowrap rounded-[7px] border px-2 text-[11px] ${
+                confirmingDelete
+                  ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                  : 'border-border-strong text-text-4 hover:text-text-2'
+              }`}
+            >
+              {confirmingDelete ? 'Delete day?' : '✕'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -338,13 +361,15 @@ export function Timeline({
                       : ''}
                   </span>
                 </span>
-                <button
-                  onClick={onClearStartPoint}
-                  title="Clear start point"
-                  className="flex-none px-1 text-text-5 hover:text-text"
-                >
-                  ✕
-                </button>
+                {canEditItinerary && (
+                  <button
+                    onClick={onClearStartPoint}
+                    title="Clear start point"
+                    className="flex-none px-1 text-text-5 hover:text-text"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
               <LegRow
                 leg={startPointLeg}
@@ -352,6 +377,7 @@ export function Timeline({
                 to={dayStops[0]}
                 timing={dayResult?.leadingLeg ?? undefined}
                 tripBufferPct={trip.car_buffer_pct ?? 0}
+                readOnly={!canEditItinerary}
                 onUpdate={(patch) =>
                   startPointLeg && onUpdateLeg(startPointLeg.id, patch)
                 }
@@ -366,20 +392,27 @@ export function Timeline({
               />
             </>
           )}
-          {dayStops.length > 0 && !startPointStop && startPointCandidate && (
-            <button
-              onClick={onSetStartPoint}
-              className="mb-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
-            >
-              ↑ Start from {startPointCandidate.title}
-            </button>
-          )}
+          {canEditItinerary &&
+            dayStops.length > 0 &&
+            !startPointStop &&
+            startPointCandidate && (
+              <button
+                onClick={onSetStartPoint}
+                className="mb-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+              >
+                ↑ Start from {startPointCandidate.title}
+              </button>
+            )}
 
           {dayStops.length === 0 ? (
             <div className="rounded-[10px] border border-dashed border-[oklch(0.32_0.012_250)] px-4 py-8 text-center text-[13px] text-text-4">
               No stops on this day yet.
-              <br />
-              Click the map or a wishlist pin to add one.
+              {canEditItinerary && (
+                <>
+                  <br />
+                  Click the map or a wishlist pin to add one.
+                </>
+              )}
             </div>
           ) : (
             dayStops.map((stop, i) => {
@@ -399,9 +432,13 @@ export function Timeline({
                 <Fragment key={`${stop.id}:${stop.updated}`}>
                   <div
                     data-stop={stop.id}
-                    draggable
-                    onDragStart={() => setDragId(stop.id)}
-                    onDragEnd={() => setDragId(null)}
+                    draggable={canEditItinerary}
+                    onDragStart={
+                      canEditItinerary ? () => setDragId(stop.id) : undefined
+                    }
+                    onDragEnd={
+                      canEditItinerary ? () => setDragId(null) : undefined
+                    }
                     onDragOver={(e) => dragId && e.preventDefault()}
                     onDrop={() => {
                       if (dragId && dragId !== stop.id) {
@@ -446,6 +483,7 @@ export function Timeline({
                       to={next}
                       timing={dayResult?.legs[i]}
                       tripBufferPct={trip.car_buffer_pct ?? 0}
+                      readOnly={!canEditItinerary}
                       onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
                       onReroute={() => leg && onRerouteLeg(leg.id)}
                       onSetDuration={(min) =>
@@ -460,17 +498,19 @@ export function Timeline({
             })
           )}
 
-          <button
-            onClick={() => onAddStop(day.id)}
-            onDragOver={(e) => dragId && e.preventDefault()}
-            onDrop={() => {
-              if (dragId) onMoveStop(dragId, day.id, indexInDay());
-              setDragId(null);
-            }}
-            className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
-          >
-            + Stop
-          </button>
+          {canEditItinerary && (
+            <button
+              onClick={() => onAddStop(day.id)}
+              onDragOver={(e) => dragId && e.preventDefault()}
+              onDrop={() => {
+                if (dragId) onMoveStop(dragId, day.id, indexInDay());
+                setDragId(null);
+              }}
+              className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+            >
+              + Stop
+            </button>
+          )}
         </div>
       )}
     </div>

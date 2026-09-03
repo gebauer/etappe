@@ -210,6 +210,7 @@ export const InvitesRoleOptions = {
 	"owner": "owner",
 	"editor": "editor",
 	"viewer": "viewer",
+	"contributor": "contributor",
 } as const
 export type InvitesRoleOptions = typeof InvitesRoleOptions[keyof typeof InvitesRoleOptions]
 
@@ -396,6 +397,7 @@ export const TripMembersRoleOptions = {
 	"owner": "owner",
 	"editor": "editor",
 	"viewer": "viewer",
+	"contributor": "contributor",
 } as const
 export type TripMembersRoleOptions = typeof TripMembersRoleOptions[keyof typeof TripMembersRoleOptions]
 export type TripMembersRecord = {

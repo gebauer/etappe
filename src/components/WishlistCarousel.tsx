@@ -26,6 +26,8 @@ interface Props {
   /** Phone metering (WORK 17.3): smaller cards, no `‹`/`›` arrows — the
    * strip is touch-scrolled with scroll-snap doing the work. */
   phone?: boolean;
+  /** False for a `viewer` (WORK 22): the per-card ★ is not shown. */
+  canStar?: boolean;
 }
 
 const CARD_STEP = 178 + 12; // card width + strip gap; arrows move three at a time.
@@ -49,6 +51,7 @@ export function WishlistCarousel({
   onPick,
   onClose,
   phone = false,
+  canStar = true,
 }: Props) {
   const stripRef = useRef<HTMLDivElement | null>(null);
 
@@ -181,31 +184,43 @@ export function WishlistCarousel({
                     variant={phone ? 'carousel-phone' : 'carousel'}
                   />
                 </span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label={item.starred ? 'Unstar' : 'Star'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleStar(item, !item.starred);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onToggleStar(item, !item.starred);
+                {(canStar || item.starred) && (
+                  <span
+                    role={canStar ? 'button' : undefined}
+                    tabIndex={canStar ? 0 : undefined}
+                    aria-label={
+                      !canStar ? 'Starred' : item.starred ? 'Unstar' : 'Star'
                     }
-                  }}
-                  className={`absolute right-1.5 top-1.5 flex items-center justify-center rounded-full text-[13px] ${
-                    phone ? 'h-6 w-6' : 'h-7 w-7'
-                  } ${
-                    item.starred
-                      ? 'bg-wishlist text-[oklch(0.20_0.04_80)]'
-                      : 'bg-[oklch(0.16_0.014_250/0.6)] text-text backdrop-blur-[4px]'
-                  }`}
-                >
-                  ★
-                </span>
+                    onClick={
+                      canStar
+                        ? (e) => {
+                            e.stopPropagation();
+                            onToggleStar(item, !item.starred);
+                          }
+                        : undefined
+                    }
+                    onKeyDown={
+                      canStar
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onToggleStar(item, !item.starred);
+                            }
+                          }
+                        : undefined
+                    }
+                    className={`absolute right-1.5 top-1.5 flex items-center justify-center rounded-full text-[13px] ${
+                      phone ? 'h-6 w-6' : 'h-7 w-7'
+                    } ${
+                      item.starred
+                        ? 'bg-wishlist text-[oklch(0.20_0.04_80)]'
+                        : 'bg-[oklch(0.16_0.014_250/0.6)] text-text backdrop-blur-[4px]'
+                    }`}
+                  >
+                    ★
+                  </span>
+                )}
               </button>
             );
           })}

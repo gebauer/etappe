@@ -22,10 +22,15 @@ onRecordAfterCreateSuccess((e) => {
   e.next();
 }, 'trips');
 
-// 2. An invite for an already-registered email is materialised immediately.
+// 2. An invite for an already-registered email is materialised immediately;
+//    either way the person gets an email (best effort — a mail failure never
+//    fails the invite).
 onRecordAfterCreateSuccess((e) => {
-  const { ensureMembership } = require(`${__hooks}/membership_lib.js`);
+  const { ensureMembership, displayName, sendInviteMail } = require(
+    `${__hooks}/membership_lib.js`,
+  );
   const email = e.record.get('email');
+  const role = e.record.get('role');
   let user = null;
   try {
     user = e.app.findAuthRecordByEmail('users', email);
@@ -33,15 +38,27 @@ onRecordAfterCreateSuccess((e) => {
     user = null;
   }
   if (user) {
-    ensureMembership(
-      e.app,
-      e.record.get('trip'),
-      user.id,
-      e.record.get('role'),
-    );
+    ensureMembership(e.app, e.record.get('trip'), user.id, role);
     e.record.set('status', 'accepted');
     e.app.save(e.record);
   }
+
+  let tripTitle = 'a trip';
+  try {
+    tripTitle = e.app
+      .findRecordById('trips', e.record.get('trip'))
+      .get('title');
+  } catch (_) {
+    // fall back to the generic title
+  }
+  sendInviteMail(e.app, {
+    to: email,
+    accepted: !!user,
+    role: role,
+    inviterName: displayName(e.app, e.record.get('invited_by')),
+    tripTitle: tripTitle,
+  });
+
   e.next();
 }, 'invites');
 

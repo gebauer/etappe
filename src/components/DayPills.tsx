@@ -21,6 +21,8 @@ interface Props {
    * appends; these are the gaps between pills. */
   onInsertDay: (atIndex: number) => void;
   onFitTrip: () => void;
+  /** False for a `contributor`/`viewer` (WORK 22): no `+` / insert-day. */
+  canAddDay?: boolean;
 }
 
 // Tailwind's `/<opacity>` modifier doesn't generate a rule for a custom
@@ -75,6 +77,7 @@ export function DayPills({
   onAddDay,
   onInsertDay,
   onFitTrip,
+  canAddDay = true,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pillRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -273,7 +276,7 @@ export function DayPills({
               const active = day.id === activeDayId;
               return (
                 <Fragment key={day.id}>
-                  {i > 0 && (
+                  {i > 0 && canAddDay && (
                     <button
                       onClick={() => onInsertDay(i)}
                       aria-label={`Insert a day before Day ${i + 1}`}
@@ -341,15 +344,19 @@ export function DayPills({
           </button>
         )}
 
-        <span className="mx-1.5 w-px flex-none bg-[oklch(0.30_0.012_250)]" />
-        <button
-          onClick={onAddDay}
-          aria-label="Add day"
-          title="Add day"
-          className="h-7 w-7 flex-none rounded-lg border border-dashed border-[oklch(0.36_0.012_250)] text-[oklch(0.78_0.008_250)] hover:border-[oklch(0.46_0.012_250)] hover:text-text"
-        >
-          +
-        </button>
+        {canAddDay && (
+          <>
+            <span className="mx-1.5 w-px flex-none bg-[oklch(0.30_0.012_250)]" />
+            <button
+              onClick={onAddDay}
+              aria-label="Add day"
+              title="Add day"
+              className="h-7 w-7 flex-none rounded-lg border border-dashed border-[oklch(0.36_0.012_250)] text-[oklch(0.78_0.008_250)] hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

@@ -146,6 +146,7 @@ export function MapPane({
   overview,
   onAddDay,
   onInsertDay,
+  canAddDay = true,
   picking,
   placing,
   parkingLots,
@@ -193,6 +194,8 @@ export function MapPane({
   onAddDay?: () => void;
   /** Insert a day before the one at this index (WORK 16.2). */
   onInsertDay?: (atIndex: number) => void;
+  /** False for a `contributor`/`viewer` — hides the day dock's `+` (WORK 22). */
+  canAddDay?: boolean;
   /** Access-point picking mode (WORK 12.9). When set, the map is zoomed to
    * the stop and every bare click reports an access point rather than
    * selecting a pin; `parkingLots` render as clickable chips. Memoised by
@@ -1223,6 +1226,7 @@ export function MapPane({
         days={records.days}
         stops={records.stops}
         activeDayId={activeDayId}
+        canAddDay={canAddDay}
         onSelectDay={(id) => onSelectDay?.(id)}
         onHoverDay={setHoveredDayId}
         onAddDay={() => onAddDay?.()}

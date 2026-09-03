@@ -24,6 +24,8 @@ interface Props {
    * the wishlist's own control surface. */
   pinMode: 'photo' | 'icon';
   onTogglePinMode: () => void;
+  /** False for a `viewer` (WORK 22) — hides "+ Idea" / "Import". */
+  canAdd?: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export function WishlistPanel({
   onBrowseAll,
   pinMode,
   onTogglePinMode,
+  canAdd = true,
 }: Props) {
   const shown = open ? items.slice(0, 4) : [];
 
@@ -144,21 +147,23 @@ export function WishlistPanel({
             </button>
           )}
 
-          <div className="flex gap-1.5 border-t border-[oklch(0.28_0.012_250)] px-[11px] py-2">
-            <button
-              onClick={onAdd}
-              className="h-7 flex-1 rounded-[7px] border border-dashed border-border-strong text-xs text-text-2 hover:border-text-5 hover:text-text"
-            >
-              + Idea
-            </button>
-            <button
-              onClick={onImport}
-              title="Import highlights from pasted JSON"
-              className="h-7 flex-1 rounded-[7px] border border-dashed border-border-strong text-xs text-text-2 hover:border-text-5 hover:text-text"
-            >
-              Import
-            </button>
-          </div>
+          {canAdd && (
+            <div className="flex gap-1.5 border-t border-[oklch(0.28_0.012_250)] px-[11px] py-2">
+              <button
+                onClick={onAdd}
+                className="h-7 flex-1 rounded-[7px] border border-dashed border-border-strong text-xs text-text-2 hover:border-text-5 hover:text-text"
+              >
+                + Idea
+              </button>
+              <button
+                onClick={onImport}
+                title="Import highlights from pasted JSON"
+                className="h-7 flex-1 rounded-[7px] border border-dashed border-border-strong text-xs text-text-2 hover:border-text-5 hover:text-text"
+              >
+                Import
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

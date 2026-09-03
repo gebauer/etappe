@@ -15,10 +15,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { PrintView } from './PrintView';
 import { AccountPanel } from './AccountPanel';
 import { logout } from '../lib/auth';
-import {
-  shouldHintLinkOut,
-  markLinkOutHinted,
-} from '../lib/user-settings';
+import { shouldHintLinkOut, markLinkOutHinted } from '../lib/user-settings';
 import {
   listMembers,
   setTripStartDate,
@@ -54,7 +51,11 @@ import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
 import type { PlacementOption } from '../lib/placement';
 import { queryParking, type NearbyPoi, type ParkingLot } from '../lib/overpass';
-import type { BlocksResponse, PoisResponse } from '../types/pb';
+import type {
+  BlocksResponse,
+  PoisResponse,
+  TripMembersRoleOptions,
+} from '../types/pb';
 import {
   addBlock,
   updateBlock,
@@ -230,6 +231,13 @@ export function TripEditor({
   const [printOpen, setPrintOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  // Membership role (WORK 22). `editor`+ may change the itinerary;
+  // `contributor` may add/edit wishlist places but nothing on the plan;
+  // `viewer` is read-only. Defaults to the most restrictive until the
+  // members list resolves.
+  const [myRole, setMyRole] = useState<TripMembersRoleOptions>('viewer');
+  const canEditItinerary = myRole === 'owner' || myRole === 'editor';
+  const canEditWishlist = canEditItinerary || myRole === 'contributor';
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -295,6 +303,7 @@ export function TripEditor({
         if (cancelled) return;
         const mine = members.find((m) => m.user === user.id);
         setIsOwner(mine?.role === 'owner');
+        setMyRole(mine?.role ?? 'viewer');
       })
       .catch(() => {});
     return () => {
@@ -368,6 +377,22 @@ export function TripEditor({
     return true;
   }
 
+  /** Role gate (WORK 22). `scope: 'itinerary'` also blocks a `contributor`;
+   * `'wishlist'` only blocks a `viewer`. The editor hides the affordances
+   * these guards protect — this is the belt-and-braces on top of the
+   * server's own refusal. */
+  function blockedByRole(scope: 'itinerary' | 'wishlist'): boolean {
+    const ok = scope === 'itinerary' ? canEditItinerary : canEditWishlist;
+    if (ok) return false;
+    setNotice(
+      scope === 'itinerary'
+        ? 'You can add and edit wishlist places, but not the itinerary.'
+        : 'This trip is shared with you read-only.',
+    );
+    window.setTimeout(() => setNotice(null), 5000);
+    return true;
+  }
+
   async function run(fn: () => Promise<unknown>) {
     if (blockedOffline()) return;
     try {
@@ -388,7 +413,7 @@ export function TripEditor({
     fn: () => Promise<unknown>,
     rerouteStopIds?: Iterable<string>,
   ) {
-    if (blockedOffline()) return;
+    if (blockedOffline() || blockedByRole('itinerary')) return;
     try {
       await fn();
       if (records?.days.some((d) => d.start_stop)) {
@@ -602,6 +627,7 @@ export function TripEditor({
   // placement picker. "+ Idea" and a nearby ghost pin both feed the same
   // SearchPalette; searchMode decides what onPick does with the result.
   function commitWishlistPick(place: PlaceResult, sourceUrl?: string) {
+    if (blockedByRole('wishlist')) return;
     void run(async () => {
       const poiId = await addWishlistItem(pb, tripId, {
         title: place.name,
@@ -625,7 +651,7 @@ export function TripEditor({
   }
 
   function deleteWishlist(id: string) {
-    if (blockedOffline()) return;
+    if (blockedOffline() || blockedByRole('wishlist')) return;
     void deleteWishlistItem(pb, id).then(reloadWishlist);
   }
 
@@ -634,7 +660,7 @@ export function TripEditor({
   // appears/clears. Not routed through `run()` — that reloads the cascade
   // trip doc, and starring touches neither stops nor legs.
   function toggleWishStar(item: PoisResponse, next: boolean) {
-    if (blockedOffline()) return;
+    if (blockedOffline() || blockedByRole('wishlist')) return;
     void setPoiStarred(pb, item.id, next)
       .then(reloadWishlist)
       .catch((err) =>
@@ -937,7 +963,7 @@ export function TripEditor({
 
   /** Writes a plan's changes in one go, then reloads once. */
   function applyTimingChanges(changes: TimingChange[]) {
-    if (changes.length === 0) return;
+    if (changes.length === 0 || blockedByRole('itinerary')) return;
     void run(async () => {
       for (const change of changes) {
         await updateStop(pb, change.stopId, change.patch);
@@ -983,6 +1009,7 @@ export function TripEditor({
   }
 
   function handleUpdateStop(id: string, patch: StopPatch) {
+    if (blockedByRole('itinerary')) return;
     const existing = records?.stops.find((s) => s.id === id);
     if (existing && !existing.is_accommodation) {
       maybeAskAccommodation(
@@ -1012,7 +1039,7 @@ export function TripEditor({
   // through `runStructural` — that skips the reconcile until some day
   // already has a start point, which is exactly the case this creates.
   function setStartPoint(dayId: string, stopId: string | null) {
-    if (blockedOffline()) return;
+    if (blockedOffline() || blockedByRole('itinerary')) return;
     void (async () => {
       try {
         await setDayStartStop(pb, dayId, stopId);
@@ -1079,7 +1106,7 @@ export function TripEditor({
   }
 
   function doBulkShift(delta: number) {
-    if (!records) return;
+    if (!records || blockedByRole('itinerary')) return;
     const targets = records.stops.filter(
       (s) => selectedStopIds.has(s.id) && s.anchor_time,
     );
@@ -1113,6 +1140,9 @@ export function TripEditor({
       if (e.key === 'Escape' && browsing) return setBrowsing(false);
       if (e.key === 'Escape' && (wishCard || emptyCard)) return closeCard();
       if (e.key === 'Escape') return setSelectedStopIds(new Set());
+      // A contributor/viewer keeps navigation (Escape, ⌘K above) but none
+      // of the structural shortcuts below (WORK 22).
+      if (!canEditItinerary) return;
       if (e.key === 'Delete' || e.key === 'Backspace')
         return void (e.preventDefault(), deleteSelected());
       if (e.altKey && e.key === 'ArrowUp')
@@ -1158,6 +1188,7 @@ export function TripEditor({
     wishCard,
     emptyCard,
     browsing,
+    canEditItinerary,
   ]);
 
   if (!records) {
@@ -1232,14 +1263,25 @@ export function TripEditor({
     }
   }
 
+  // A block on a `poi` needs wishlist rights; on any itinerary parent it
+  // needs itinerary rights (WORK 22). Update/delete resolve the parent from
+  // the block record.
+  const blockRoleBlocked = (parentType: 'stop' | 'poi'): boolean =>
+    blockedByRole(parentType === 'poi' ? 'wishlist' : 'itinerary');
+  const parentTypeOf = (blockId: string): 'stop' | 'poi' =>
+    records.blocks.find((b) => b.id === blockId)?.parent_type === 'poi'
+      ? 'poi'
+      : 'stop';
+
   const blockHandlers = {
     onAddBlock: (
       parentId: string,
       kind: BlockKind,
       parentType: 'stop' | 'poi' = 'stop',
       visibility: 'private' | 'trip' | 'public' = 'trip',
-    ) =>
-      run(() =>
+    ) => {
+      if (blockRoleBlocked(parentType)) return;
+      return run(() =>
         addBlock(
           pb,
           tripId,
@@ -1249,40 +1291,52 @@ export function TripEditor({
           parentType,
           visibility,
         ),
-      ),
-    onUpdateBlock: (blockId: string, patch: BlockPatch) =>
-      run(() => updateBlock(pb, blockId, patch)),
-    onDeleteBlock: (blockId: string) => run(() => deleteBlock(pb, blockId)),
+      );
+    },
+    onUpdateBlock: (blockId: string, patch: BlockPatch) => {
+      if (blockRoleBlocked(parentTypeOf(blockId))) return;
+      return run(() => updateBlock(pb, blockId, patch));
+    },
+    onDeleteBlock: (blockId: string) => {
+      if (blockRoleBlocked(parentTypeOf(blockId))) return;
+      return run(() => deleteBlock(pb, blockId));
+    },
     onMoveBlock: (
       parentId: string,
       blockId: string,
       dir: -1 | 1,
       parentType: 'stop' | 'poi' = 'stop',
-    ) =>
-      run(() =>
+    ) => {
+      if (blockRoleBlocked(parentType)) return;
+      return run(() =>
         moveBlock(
           pb,
           blocksFor(records.blocks, parentType, parentId),
           blockId,
           dir,
         ),
-      ),
+      );
+    },
     onReorderBlock: (
       parentId: string,
       blockId: string,
       targetIndex: number,
       parentType: 'stop' | 'poi' = 'stop',
-    ) =>
-      run(() =>
+    ) => {
+      if (blockRoleBlocked(parentType)) return;
+      return run(() =>
         reorderBlock(
           pb,
           blocksFor(records.blocks, parentType, parentId),
           blockId,
           targetIndex,
         ),
-      ),
-    onUploadBlockFile: (blockId: string, file: File) =>
-      run(() => uploadBlockPhoto(pb, blockId, file)),
+      );
+    },
+    onUploadBlockFile: (blockId: string, file: File): Promise<void> => {
+      if (blockRoleBlocked(parentTypeOf(blockId))) return Promise.resolve();
+      return run(() => uploadBlockPhoto(pb, blockId, file));
+    },
   };
 
   // BUILD §7: "the trip header shows an uncategorized counter" — real kind
@@ -1351,7 +1405,11 @@ export function TripEditor({
           <TripDatePopover
             startDate={trip.start_date}
             dayCount={days.length}
-            onChange={(date) => run(() => setTripStartDate(trip.id, date))}
+            readOnly={!canEditItinerary}
+            onChange={(date) =>
+              !blockedByRole('itinerary') &&
+              run(() => setTripStartDate(trip.id, date))
+            }
           />
         )}
         {uncategorizedCount > 0 && (
@@ -1380,14 +1438,16 @@ export function TripEditor({
               group) is unaffected and was already the fix for the same
               friction with the trip title/email. */}
           <div className="hidden items-center gap-2 desktop:flex">
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="Trip settings — buffer, surfaces, dwells, timezone, currency"
-              aria-label="Trip settings"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-control text-[14px] text-text-2 hover:bg-control-hover"
-            >
-              ⚙
-            </button>
+            {canEditItinerary && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                title="Trip settings — buffer, surfaces, dwells, timezone, currency"
+                aria-label="Trip settings"
+                className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-control text-[14px] text-text-2 hover:bg-control-hover"
+              >
+                ⚙
+              </button>
+            )}
             <button
               onClick={() => setSearchMode('placement')}
               title="Search places (⌘K)"
@@ -1395,13 +1455,15 @@ export function TripEditor({
             >
               Search
             </button>
-            <button
-              onClick={() => setShowHighlightsImport(true)}
-              title="Import highlights from pasted JSON"
-              className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
-            >
-              Import
-            </button>
+            {canEditWishlist && (
+              <button
+                onClick={() => setShowHighlightsImport(true)}
+                title="Import highlights from pasted JSON"
+                className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+              >
+                Import
+              </button>
+            )}
             <div className="relative">
               <button
                 onClick={() => setShareOpen(true)}
@@ -1514,6 +1576,7 @@ export function TripEditor({
             onFitTrip={enterTripOverview}
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
+            canAddDay={canEditItinerary}
             picking={mapPicking}
             placing={!!placingWish}
             parkingLots={parkingLots}
@@ -1591,6 +1654,7 @@ export function TripEditor({
               <WishlistPanel
                 items={wishlist}
                 blocks={records.blocks}
+                canAdd={canEditWishlist}
                 open={wishlistPanelOpen}
                 onToggle={() => setWishlistPanelOpen((v) => !v)}
                 selectedId={wishCard?.id ?? null}
@@ -1639,6 +1703,7 @@ export function TripEditor({
               order={wishChain}
               blocks={records.blocks}
               phone={phone}
+              canStar={canEditWishlist}
               starOnly={starOnly}
               onToggleStarOnly={() => setStarOnly((v) => !v)}
               hoveredId={hoveredWishId}
@@ -1657,6 +1722,8 @@ export function TripEditor({
           {cardTarget && !picking && (
             <PinCard
               phone={phone}
+              canEditItinerary={canEditItinerary}
+              canEditWishlist={canEditWishlist}
               linkOut={linkOut}
               onLinkOut={() => noteLinkOut()}
               target={cardTarget}
@@ -1744,6 +1811,7 @@ export function TripEditor({
               }}
               onUpdateStop={(patch) => {
                 if (cardTarget.type === 'wish') {
+                  if (blockedByRole('wishlist')) return;
                   const id = cardTarget.item.id;
                   void run(async () => {
                     await updatePoi(pb, id, patch);
@@ -1882,12 +1950,15 @@ export function TripEditor({
               )
             }
             onUpdateLeg={(legId, patch: LegPatch) =>
+              !blockedByRole('itinerary') &&
               run(() => updateLeg(pb, legId, patch))
             }
             onRerouteLeg={(legId) =>
+              !blockedByRole('itinerary') &&
               run(() => rerouteLeg(pb, routing, records, legId))
             }
             onSetLegDuration={(legId, durationMin) =>
+              !blockedByRole('itinerary') &&
               run(() => setLegDurationOverride(pb, legId, durationMin))
             }
             onMoveStop={(stopId, targetDayId, targetIndex) =>
@@ -1901,6 +1972,14 @@ export function TripEditor({
                   targetIndex,
                 ),
               )
+            }
+            canEditItinerary={canEditItinerary}
+            banner={
+              canEditItinerary
+                ? undefined
+                : canEditWishlist
+                  ? 'You can add and edit wishlist places, but not the itinerary.'
+                  : 'View only — this trip is shared with you read-only.'
             }
           />
         </aside>
@@ -2020,7 +2099,10 @@ export function TripEditor({
         <SettingsPanel
           trip={trip}
           onClose={() => setSettingsOpen(false)}
-          onSave={(patch) => run(() => updateTripSettings(tripId, patch))}
+          onSave={(patch) =>
+            !blockedByRole('itinerary') &&
+            run(() => updateTripSettings(tripId, patch))
+          }
         />
       )}
       {accountOpen && (
@@ -2107,6 +2189,7 @@ export function TripEditor({
           daylight={null}
           onClose={() => setExpanded(false)}
           onUpdate={(patch) => {
+            if (blockedByRole('wishlist')) return;
             const id = cardTarget.item.id;
             void run(async () => {
               await updatePoi(pb, id, patch);

@@ -16,11 +16,14 @@ export function TripDatePopover({
   startDate,
   dayCount,
   onChange,
+  readOnly = false,
 }: {
   /** The trip's stored start date, in whatever shape PocketBase returns. */
   startDate: string;
   dayCount: number;
   onChange: (isoDate: string) => void;
+  /** A non-editing member still sees the span, just not the picker. */
+  readOnly?: boolean;
 }) {
   const current = startDate.slice(0, 10);
   const [open, setOpen] = useState(false);
@@ -66,6 +69,14 @@ export function TripDatePopover({
   function commit() {
     if (value && value !== current) onChange(value);
     setOpen(false);
+  }
+
+  if (readOnly) {
+    return (
+      <span className="h-[30px] flex-none whitespace-nowrap px-2 font-mono text-[11px] leading-[30px] text-text-4">
+        {span}
+      </span>
+    );
   }
 
   return (

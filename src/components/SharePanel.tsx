@@ -33,11 +33,18 @@ import type {
  * here than to let someone discover their booking details were the one
  * thing they assumed wasn't shared. Costs never appear at all.
  */
-const ROLES: TripMembersRoleOptions[] = ['owner', 'editor', 'viewer'];
+const ROLES: TripMembersRoleOptions[] = [
+  'owner',
+  'editor',
+  'contributor',
+  'viewer',
+];
 
 const ROLE_HELP: Record<string, string> = {
   owner: 'Everything, including sharing and deleting the trip.',
   editor: 'Can change the plan, but not who it is shared with.',
+  contributor:
+    'Can add and edit wishlist places, but not the itinerary or the sharing.',
   viewer: 'Read-only. The server refuses their writes.',
 };
 
@@ -62,6 +69,7 @@ export function SharePanel({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<TripMembersRoleOptions>('editor');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareEnabled, setEnabled] = useState(!!trip.share_enabled);
   const [token, setToken] = useState(trip.share_token ?? '');
@@ -101,6 +109,34 @@ export function SharePanel({
     }
   }
 
+  /** Invite, then say what happened: a known address is added straight away
+   * (and shows up under People); an unknown one gets a pending invite. Both
+   * get an email if the server has SMTP configured. */
+  async function invite() {
+    const addr = email.trim();
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await inviteToTrip(trip.id, addr, role);
+      const [m] = await Promise.all([listMembers(trip.id), refresh()]);
+      onChanged();
+      const added = m.some(
+        (member) => (member.label || '').toLowerCase() === addr.toLowerCase(),
+      );
+      setNotice(
+        added
+          ? `${addr} is on the trip now — they’ve been emailed.`
+          : `Invited ${addr}. They’ll get an email to create an account.`,
+      );
+      setEmail('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not work.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const owners = members.filter((m) => m.role === 'owner');
 
   return (
@@ -126,6 +162,11 @@ export function SharePanel({
         {error && (
           <p className="mt-2 rounded-lg border border-danger-border px-3 py-2 text-[12.5px] text-danger-text">
             {error}
+          </p>
+        )}
+        {notice && (
+          <p className="mt-2 rounded-lg border border-border-strong bg-field px-3 py-2 text-[12.5px] text-text-2">
+            {notice}
           </p>
         )}
 
@@ -234,12 +275,7 @@ export function SharePanel({
             </select>
             <button
               disabled={busy || !email.includes('@')}
-              onClick={() =>
-                act(async () => {
-                  await inviteToTrip(trip.id, email.trim(), role);
-                  setEmail('');
-                })
-              }
+              onClick={() => void invite()}
               className="h-9 rounded-lg bg-accent px-3 text-[13px] font-medium text-on-accent disabled:opacity-40"
             >
               Invite

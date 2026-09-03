@@ -95,6 +95,11 @@ interface Props {
    * for the wishlist panel), and one source of truth is simpler than two
    * components independently asking the same question. */
   phone?: boolean;
+  /** Membership rights (WORK 22). `canEditItinerary` false → a stop card is
+   * read-only (only the ↗ Maps link) and "Add to itinerary" is hidden.
+   * `canEditWishlist` false → a wishlist card is read-only too. */
+  canEditItinerary?: boolean;
+  canEditWishlist?: boolean;
 }
 
 const BTN = 'h-[34px] whitespace-nowrap rounded-lg px-3 text-[13px]';
@@ -140,6 +145,8 @@ export function PinCard({
   onChangeCost,
   openKindPickerSignal,
   phone = false,
+  canEditItinerary = true,
+  canEditWishlist = true,
 }: Props) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
@@ -209,13 +216,15 @@ export function PinCard({
       <div className="flex flex-none items-center gap-2.5 border-t border-[oklch(0.28_0.012_250)] bg-surface-3 px-4 py-[11px]">
         {target.type === 'stop' && (
           <>
-            <button
-              onClick={onToggleEdit}
-              className={editing ? PRIMARY : GHOST}
-            >
-              {editing ? 'Done' : 'Edit'}
-            </button>
-            {!phone && (
+            {canEditItinerary && (
+              <button
+                onClick={onToggleEdit}
+                className={editing ? PRIMARY : GHOST}
+              >
+                {editing ? 'Done' : 'Edit'}
+              </button>
+            )}
+            {canEditItinerary && !phone && (
               <button onClick={onOpenDetails} className={GHOST}>
                 All details
               </button>
@@ -238,7 +247,7 @@ export function PinCard({
             {/* Phone is a companion (BUILD §6): a trailhead reorder is
                 allowed, deleting a stop or moving it off the itinerary is
                 not — those stay desktop-only. */}
-            {phone
+            {phone && canEditItinerary
               ? onMoveStop && (
                   <div className="ml-auto flex items-center gap-1.5">
                     <button
@@ -260,7 +269,7 @@ export function PinCard({
                   </div>
                 )
               : null}
-            {!phone && (
+            {!phone && canEditItinerary && (
               <div className="ml-auto flex items-center gap-2">
                 <button
                   onClick={onDowngrade}
@@ -290,53 +299,65 @@ export function PinCard({
 
         {target.type === 'wish' && (
           <>
-            <button
-              onClick={onToggleEdit}
-              className={editing ? PRIMARY : GHOST}
-            >
-              {editing ? 'Done' : 'Edit'}
-            </button>
-            <button onClick={onOpenDetails} className={GHOST}>
-              All details
-            </button>
-            {located ? (
-              <button onClick={onAddToItinerary} className={GHOST}>
-                Add to itinerary
-              </button>
-            ) : (
+            {canEditWishlist && (
               <button
-                onClick={onSetLocation}
-                title="Geocoding found nothing for this one — click the map to say where it is"
-                className={PRIMARY}
+                onClick={onToggleEdit}
+                className={editing ? PRIMARY : GHOST}
               >
-                Set location on the map
+                {editing ? 'Done' : 'Edit'}
               </button>
             )}
-            <button
-              onClick={() =>
-                confirmingRemove ? onDelete() : setConfirmingRemove(true)
-              }
-              onBlur={() => setConfirmingRemove(false)}
-              title={confirmingRemove ? undefined : 'Delete'}
-              className={
-                confirmingRemove
-                  ? `${BTN} ml-auto flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
-                  : `${ICON_BTN} ml-auto border border-border-strong text-text-2 hover:bg-control`
-              }
-            >
-              {confirmingRemove ? 'Delete idea?' : '🗑'}
-            </button>
+            {canEditWishlist && (
+              <button onClick={onOpenDetails} className={GHOST}>
+                All details
+              </button>
+            )}
+            {located
+              ? canEditItinerary && (
+                  <button onClick={onAddToItinerary} className={GHOST}>
+                    Add to itinerary
+                  </button>
+                )
+              : canEditWishlist && (
+                  <button
+                    onClick={onSetLocation}
+                    title="Geocoding found nothing for this one — click the map to say where it is"
+                    className={PRIMARY}
+                  >
+                    Set location on the map
+                  </button>
+                )}
+            {canEditWishlist && (
+              <button
+                onClick={() =>
+                  confirmingRemove ? onDelete() : setConfirmingRemove(true)
+                }
+                onBlur={() => setConfirmingRemove(false)}
+                title={confirmingRemove ? undefined : 'Delete'}
+                className={
+                  confirmingRemove
+                    ? `${BTN} ml-auto flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
+                    : `${ICON_BTN} ml-auto border border-border-strong text-text-2 hover:bg-control`
+                }
+              >
+                {confirmingRemove ? 'Delete idea?' : '🗑'}
+              </button>
+            )}
           </>
         )}
 
         {target.type === 'empty' && (
           <>
-            <button onClick={onAddWishlist} className={PRIMARY}>
-              + Wishlist
-            </button>
-            <button onClick={onAddDay} className={GHOST}>
-              + Day
-            </button>
+            {canEditWishlist && (
+              <button onClick={onAddWishlist} className={PRIMARY}>
+                + Wishlist
+              </button>
+            )}
+            {canEditItinerary && (
+              <button onClick={onAddDay} className={GHOST}>
+                + Day
+              </button>
+            )}
             <button onClick={onClose} className={`${GHOST} ml-auto`}>
               Dismiss
             </button>

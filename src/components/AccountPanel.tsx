@@ -41,6 +41,10 @@ export function AccountPanel({
   );
   const [linkOut, setLinkOut] = useState(initial.linkOut);
   const [keyDraft, setKeyDraft] = useState<Record<string, string>>({});
+  const [nick, setNick] = useState(
+    (pb.authStore.record?.name as string | undefined) ?? '',
+  );
+  const savedNick = (pb.authStore.record?.name as string | undefined) ?? '';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +99,15 @@ export function AccountPanel({
       await pb.collection('users').authRefresh();
     });
 
+  const saveNick = () =>
+    guard(async () => {
+      const id = pb.authStore.record?.id;
+      if (!id) return;
+      await pb.collection('users').update(id, { name: nick.trim() });
+      await pb.collection('users').authRefresh();
+      setNick((pb.authStore.record?.name as string | undefined) ?? '');
+    });
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-scrim p-6 font-sans"
@@ -117,6 +130,30 @@ export function AccountPanel({
         <p className="mt-1 truncate font-mono text-[12px] text-text-4">
           {email}
         </p>
+
+        <div className="mt-5 text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+          Nickname
+        </div>
+        <p className="mt-1 text-[11.5px] leading-snug text-text-4">
+          Shown on wishlist places you add. Places you&rsquo;ve already added
+          keep the name they were saved with.
+        </p>
+        <div className="mt-2 flex items-center gap-1.5">
+          <input
+            value={nick}
+            onChange={(e) => setNick(e.target.value)}
+            placeholder="e.g. Jan"
+            maxLength={40}
+            className="h-[30px] min-w-0 flex-1 rounded-lg border border-border-strong bg-field px-2.5 text-[13px] text-text outline-none placeholder:text-text-4 focus:border-accent"
+          />
+          <button
+            onClick={saveNick}
+            disabled={busy || nick.trim() === savedNick.trim()}
+            className="h-[30px] flex-none rounded-lg border border-border-strong px-2.5 text-[12px] text-text-2 hover:bg-control hover:text-text disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
 
         {error && (
           <p className="mt-3 rounded-lg border border-danger-border px-3 py-2 text-[12.5px] text-danger-text">
