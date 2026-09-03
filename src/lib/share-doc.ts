@@ -9,6 +9,7 @@
  * the same function").
  */
 
+import { parseBufferOverride } from './leg-buffer';
 import type {
   CascadeTrip,
   CascadeDay,
@@ -47,6 +48,10 @@ export interface ShareLeg {
   mode: string;
   surface?: string;
   duration_min: number;
+  /** WORK 19.5 — the planner's corrections, so the share view's clocks
+   * match the editor's rather than recomputing from the raw routed time. */
+  duration_override_min?: number;
+  buffer_override?: string;
   distance_m?: number;
   geometry?: unknown;
 }
@@ -68,10 +73,22 @@ export interface ShareDoc {
     start_date: string;
     timezone: string;
     car_buffer_pct: number;
-    surface_multipliers: Record<string, number>;
     default_dwell: Record<string, number>;
   };
   days: ShareDay[];
+}
+
+/** Splits the stored `"12%"` / `"12"` into the cascade's two fields. */
+function bufferFields(raw: string | undefined): {
+  buffer_pct: number | null;
+  buffer_min: number | null;
+} {
+  const parsed = parseBufferOverride(raw);
+  const o = parsed === 'invalid' ? null : parsed;
+  return {
+    buffer_pct: o?.unit === 'pct' ? o.value : null,
+    buffer_min: o?.unit === 'min' ? o.value : null,
+  };
 }
 
 function emptyToUndefined(v: string | undefined): string | undefined {
@@ -103,6 +120,8 @@ export function shareToCascade(doc: ShareDoc): CascadeTrip {
       mode: l.mode as CascadeLeg['mode'],
       surface: l.surface as CascadeLeg['surface'],
       duration_min: l.duration_min,
+      duration_override_min: l.duration_override_min || null,
+      ...bufferFields(l.buffer_override),
     }));
 
     const startStopId = emptyToUndefined(day.start_stop);
@@ -127,7 +146,6 @@ export function shareToCascade(doc: ShareDoc): CascadeTrip {
   return {
     start_date: doc.trip.start_date.slice(0, 10),
     car_buffer_pct: doc.trip.car_buffer_pct,
-    surface_multipliers: doc.trip.surface_multipliers,
     default_dwell: doc.trip.default_dwell,
     days,
   };

@@ -42,8 +42,7 @@ without being specific to it.
 | `start_date` | date | the only absolute date in the system |
 | `timezone` | text | IANA, default `Atlantic/Reykjavik` for the test trip |
 | `currency` | text | ISO 4217, default EUR |
-| `car_buffer_pct` | number | default 15 |
-| `surface_multipliers` | json | `{paved: 1.0, gravel: 1.3, froad: 2.0}` |
+| `car_buffer_pct` | number | default 5 |
 | `default_dwell` | json | kind → minutes, seeded from the taxonomy, editable |
 | `owner` | relation → users | |
 | `share_token` | text | random 22 chars, regenerable, indexed |
@@ -86,12 +85,13 @@ clears the pointer rather than cascading.
 |---|---|---|
 | `from_stop`, `to_stop` | relation | |
 | `mode` | select | `car` \| `walk` \| `flight` \| `ferry` \| `bike` \| `other` |
-| `surface` | select | `paved` \| `gravel` \| `froad` — car only |
-| `duration_min` | number | raw, before buffer |
+| `surface` | select | `paved` \| `gravel` \| `froad` — car only, recorded not applied |
+| `duration_min` | number | what the engine said, before buffer |
+| `duration_override_min` | number | 0 → use `duration_min`; keeps the route |
 | `distance_m` | number | |
 | `geometry` | json | GeoJSON LineString |
 | `routing_source` | select | `ors` \| `manual` |
-| `buffer_override_pct` | number | null → trip default |
+| `buffer_override` | text | `"12%"` or `"12"` (minutes); `""` → trip default |
 | `seasonal_warning` | bool | set on F-roads |
 
 Legs are never created by hand. Inserting a stop between two others splits the
@@ -149,11 +149,15 @@ Input: the full trip document. Output: for each stop an `arrival` and
    `departure(n) = arrival(n) + dwell(n)`.
 3. `dwell` = `dwell_override` if set, else the sum of the stop's activity
    durations, else the taxonomy default for its kind.
-4. `effective_duration` = `duration_min × surface_multiplier × (1 + buffer/100)`
-   for car legs; raw `duration_min` for every other mode. **Round half up to
-   the nearest minute once, after both multipliers** — never round the
-   intermediate. Clock arithmetic operates only on integer minutes, so two
-   implementations cannot drift by a minute on the same input.
+4. `effective_duration` = `base + buffer` for car legs, where `base` is
+   `duration_override_min` when set and `duration_min` otherwise; raw
+   `duration_min` for every other mode. The buffer is
+   `buffer_override` when the leg carries one — a percentage of `base`, or a
+   flat number of minutes — and `base × car_buffer_pct / 100` otherwise.
+   **Round the buffer half up to a whole minute before adding it**, so the
+   parts a reader sees add up to the total they see. Clock arithmetic
+   operates only on integer minutes, so two implementations cannot drift by
+   a minute on the same input.
 5. Where a downstream anchor exists, compare computed arrival against it. Later
    than the anchor → a `MISSED_ANCHOR` warning carrying the deficit in minutes.
    The anchor still wins for everything below it, so a single delay does not
@@ -203,10 +207,24 @@ Non-car legs are not routed. Walk and hike durations are entered manually with
 an optional Komoot link; flight and ferry durations are entered manually and
 drawn on the map as great-circle or straight lines.
 
-**Buffers.** Trip-level `car_buffer_pct`, default 15, overridable per leg. On
-top of that a per-leg `surface` multiplier, because ORS routes Icelandic
-F-roads at speeds that assume neither fords nor washboard gravel. Defaults
-1.0 / 1.3 / 2.0. Setting a leg to `froad` also sets `seasonal_warning`.
+**Buffers.** Trip-level `car_buffer_pct`, default 5, overridable per leg. The
+per-leg `buffer_override` carries its own unit: `"12%"` scales with the leg,
+`"12"` is twelve flat minutes — a short drive wants the second, since 5 % of
+eight minutes rounds away. The row shows the arithmetic, `2h19 + 7 = 2h26`,
+rather than one total: the routed number is the engine's and the padding is
+the planner's, and they should not look like one figure.
+
+A leg's `surface` is **recorded, not applied**. Earlier versions multiplied by
+1.0 / 1.3 / 2.0 on top of the engine, which counted the same fact twice — a
+routing engine already slows for gravel and for a highland track. Setting a
+leg to `froad` still sets `seasonal_warning`.
+
+**Overriding a duration.** `duration_override_min` replaces what the engine
+said without discarding how it got there: the geometry, the distance and the
+engine's own `duration_min` all stay, so the map still draws the road, a
+re-route still refreshes it, and both numbers can be shown. That is different
+from `routing_source: 'manual'`, which means the leg was never routed at all
+— no road near a trailhead, or a ferry.
 
 ---
 
@@ -488,18 +506,22 @@ the short-link resolver.
 
 ## 12. Worked example — Iceland day 1
 
-The canonical fixture: `fixtures/iceland-day1.json`. Trip buffer 15%, gravel
-multiplier 1.3, date 2026-09-12.
+The canonical fixture: `fixtures/iceland-day1.json`. Trip buffer 5%, date
+2026-09-12.
 
 | time | item | detail |
 |---|---|---|
 | 10:25 | Keflavík airport | anchor, arrival · dwell 65 (pick up 4×4) |
-| | leg, car, paved | ORS 100 min → ×1.15 = 115 min · 118 km |
-| 13:25 | Gullfoss | activity: walk the falls, 120 min, Komoot link |
-| | leg, car, gravel | ORS 40 min → ×1.3 ×1.15 = 59.8 → 60 min · 44 km |
-| 16:25 | Hótel Skálholt | accommodation |
+| | leg, car, paved | routed 100 min + 5 = 105 min · 118 km |
+| 13:15 | Gullfoss | activity: walk the falls, 120 min, Komoot link |
+| | leg, car, gravel | routed 40 min + 2 = 42 min · 44 km |
+| 15:57 | Hótel Skálholt | accommodation |
 
-Totals: 65 + 115 + 120 + 60 = 360 min, so 6 h 00 elapsed and 162 km.
+Totals: 65 + 105 + 120 + 42 = 332 min, so 5 h 32 elapsed and 162 km.
+
+The gravel leg is *not* scaled for its surface — the engine's 40 minutes
+already account for the road. Only the 5 % buffer is added, and it is
+rounded (2.0 → 2) before being added.
 
 Departure at 11:30 is fixed by the plan ("pick up the 4×4, leave at 11:30"), so
 the 65-minute dwell is an input, not a free parameter. The ORS durations are
@@ -510,9 +532,8 @@ Sunset at Skálholt on 12 September is around 20:15, so this day emits **no
 warnings at all**. That is deliberate: the canonical fixture proves the happy
 path, and each warning code gets a fixture that isolates it.
 
-`AFTER_DARK` is covered by `fixtures/after-dark.json` — the same day with the
-daylight stub returning a 16:24 sunset, expecting one warning with a deficit of
-1 min. Use a stub rather than a real winter date; the point is to test the
+`AFTER_DARK` is covered by the same day with the daylight stub returning a
+15:56 sunset, expecting one warning with a deficit of 1 min. Use a stub rather than a real winter date; the point is to test the
 comparison, not SunCalc.
 
 The §12 table, the §8 JSON snippet and `fixtures/iceland-day1.json` must agree

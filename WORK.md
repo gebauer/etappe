@@ -2406,13 +2406,40 @@ reported, not silently applied (`routeUrl` returns `truncated`).
 land on the access point the cascade actually routes through. First `↗`
 click says once — per browser, `localStorage` — that the app is a setting.
 
-**19.5 Buffer and surface-multiplier tuning** · ⬜
-Not started, and a spec decision. With a good engine the default
-`car_buffer_pct` of 15 % is too much (~5 % would do), and
-`surface_multipliers` **double-count**: ORS and HERE both already slow
-down for gravel, then Etappe multiplies again. Proposal: apply the
-multipliers only to `manual` legs, where the planner typed a paved-ish
-estimate and wants it scaled.
+**19.5 Buffer, surface and the duration override** · ✅
+Three changes, one shape (author, 2026-09-03).
+
+*Surface is recorded, not applied.* `surface_multipliers` no longer feeds
+the cascade — a routing engine already slows for gravel and for a highland
+track, so multiplying on top counted the same fact twice. The `surface`
+select stays (it drives `FROAD_SEASON`); the trip-settings control for the
+multipliers is gone, since a control that changes nothing is worse than no
+control. The stored column stays, inert, because it is `required` and
+dropping it buys nothing.
+
+*Buffer is visible arithmetic.* Default down 15 % → 5 %; migration moves
+trips still sitting on the old default and leaves anything customised. The
+row now prints `1h 40m + 5 = 1h 45m` rather than one opaque total — the
+routed number is the engine's and the padding is the planner's. `LegTiming`
+carries `baseDuration` / `bufferMin` / `overridden` to make that possible,
+and the buffer is rounded before it is added, so the parts add up to the
+total on screen.
+
+*Two units in one field.* `legs.buffer_override` is text: `"12%"` is a
+percentage of the leg, `"12"` is twelve flat minutes, `""` is the trip
+default — and `"0"` is a real zero, which the old number column could not
+express. Parsed by `lib/leg-buffer.ts`; rubbish is refused and the field
+reverts.
+
+*Override the time, keep the road.* `legs.duration_override_min` replaces
+the engine's duration while `geometry`, `distance_m` and `duration_min` all
+stay, so the map still draws the route, a re-route still refreshes it, and
+`↩ routed` puts the engine back. Distinct from `routing_source: 'manual'`
+(never routed at all) — the row badges them differently, `set` vs
+`unrouted`. Both overrides travel in the share payload, which previously
+dropped per-leg buffers on the floor.
+
+BUILD §3.4, §4, §8 and the §12 worked example were rewritten to match.
 
 ---
 

@@ -46,11 +46,23 @@ export interface CascadeStop {
 export interface CascadeLeg {
   id?: string;
   mode: 'car' | 'walk' | 'flight' | 'ferry' | 'bike' | 'other';
+  /**
+   * Recorded for the F-road season warning and for the planner's own
+   * reference. **Not** a multiplier: a routing engine already slows down
+   * for gravel, and multiplying its answer again double-counted the same
+   * fact (WORK 19.5).
+   */
   surface?: 'paved' | 'gravel' | 'froad' | null;
-  /** Raw duration before buffer/surface multipliers. */
+  /** What the routing engine said, before any buffer. */
   duration_min: number;
-  /** null falls back to the trip's car_buffer_pct. */
-  buffer_override_pct?: number | null;
+  /** "This leg takes N minutes, whatever the engine says." Replaces
+   * `duration_min` as the base; the geometry and distance stay the
+   * engine's, so the route still draws (WORK 19.5). */
+  duration_override_min?: number | null;
+  /** Per-leg buffer, in percent or in flat minutes — at most one of the
+   * two. Both null falls back to the trip's `car_buffer_pct`. */
+  buffer_pct?: number | null;
+  buffer_min?: number | null;
 }
 
 export interface CascadeDay {
@@ -76,7 +88,6 @@ export interface CascadeTrip {
   /** YYYY-MM-DD; the only absolute date in the system. */
   start_date: string;
   car_buffer_pct: number;
-  surface_multipliers: Record<string, number>;
   default_dwell: Record<string, number>;
   days: CascadeDay[];
 }
@@ -130,7 +141,15 @@ export interface StopTiming {
 
 export interface LegTiming {
   legId?: string;
+  /** What the itinerary actually spends: `baseDuration + bufferMin`. */
   effectiveDuration: number;
+  /** The routed time, or the planner's override when one is set — the
+   * number the buffer is added *to*. Surfaced so the row can show the
+   * arithmetic instead of one opaque total (WORK 19.5). */
+  baseDuration: number;
+  bufferMin: number;
+  /** True when `baseDuration` is a planner's override, not the engine's. */
+  overridden: boolean;
 }
 
 export interface DayResult {
@@ -223,15 +242,47 @@ function resolveDwell(stop: CascadeStop, trip: CascadeTrip): number {
   return trip.default_dwell[stop.kind] ?? 0;
 }
 
-function effectiveDuration(leg: CascadeLeg, trip: CascadeTrip): number {
-  if (leg.mode !== 'car') return leg.duration_min;
-  const surface = leg.surface
-    ? (trip.surface_multipliers[leg.surface] ?? 1)
-    : 1;
-  const bufferPct = leg.buffer_override_pct ?? trip.car_buffer_pct;
-  // Round once, after both multipliers — never the intermediate (BUILD §3.4).
-  return roundHalfUp(leg.duration_min * surface * (1 + bufferPct / 100));
+/**
+ * A leg's time, split into the parts the row shows (WORK 19.5).
+ *
+ * The buffer is rounded to whole minutes *before* being added, so the
+ * arithmetic on screen — `2h19 + 7 = 2h26` — is the arithmetic the cascade
+ * did. Rounding the product instead can leave the displayed parts a minute
+ * short of the displayed total.
+ *
+ * Buffer is a car idea: it stands for traffic, fuel stops and photographs,
+ * none of which apply to a ferry crossing with a timetable.
+ */
+function legTiming(leg: CascadeLeg, trip: CascadeTrip): Omit<LegTiming, 'legId'> {
+  const override = leg.duration_override_min;
+  const overridden = override != null && override > 0;
+  const baseDuration = overridden ? override : leg.duration_min;
+
+  if (leg.mode !== 'car') {
+    return { effectiveDuration: baseDuration, baseDuration, bufferMin: 0, overridden };
+  }
+
+  const bufferMin =
+    leg.buffer_min != null
+      ? roundHalfUp(leg.buffer_min)
+      : roundHalfUp(
+          (baseDuration * (leg.buffer_pct ?? trip.car_buffer_pct)) / 100,
+        );
+
+  return {
+    effectiveDuration: baseDuration + bufferMin,
+    baseDuration,
+    bufferMin,
+    overridden,
+  };
 }
+
+const NO_LEG: Omit<LegTiming, 'legId'> = {
+  effectiveDuration: 0,
+  baseDuration: 0,
+  bufferMin: 0,
+  overridden: false,
+};
 
 interface Anchor {
   index: number;
@@ -288,13 +339,14 @@ function computeDay(
   const dwell = stops.map((s) => resolveDwell(s, trip));
   const legEff = stops.map((_, i) =>
     i < stops.length - 1 && day.legs[i]
-      ? effectiveDuration(day.legs[i] as CascadeLeg, trip)
-      : 0,
+      ? legTiming(day.legs[i] as CascadeLeg, trip)
+      : NO_LEG,
   );
 
   // The morning drive from the day's start point to stops[0] (WORK 13.1).
   // Zero when the day is an island or the leading leg isn't routed yet.
-  const leadEff = day.leadingLeg ? effectiveDuration(day.leadingLeg, trip) : 0;
+  const lead = day.leadingLeg ? legTiming(day.leadingLeg, trip) : NO_LEG;
+  const leadEff = lead.effectiveDuration;
 
   // Baseline: the arrival of stop 0. Derive it from the first anchor by walking
   // backwards, so the forward pass reproduces that anchor exactly. With no
@@ -311,7 +363,8 @@ function computeDay(
         ? anchor.minutes
         : anchor.minutes - dwell[anchor.index]!;
     let prefix = 0;
-    for (let i = 0; i < anchor.index; i++) prefix += dwell[i]! + legEff[i]!;
+    for (let i = 0; i < anchor.index; i++)
+      prefix += dwell[i]! + legEff[i]!.effectiveDuration;
     arrival0 = targetAtAnchor - prefix;
   }
 
@@ -319,7 +372,8 @@ function computeDay(
   let prevDeparture = 0;
   for (let i = 0; i < stops.length; i++) {
     const stop = stops[i]!;
-    let arrival = i === 0 ? arrival0 : prevDeparture + legEff[i - 1]!;
+    let arrival =
+      i === 0 ? arrival0 : prevDeparture + legEff[i - 1]!.effectiveDuration;
     let departure = arrival + dwell[i]!;
 
     const pinned = parseClock(stop.anchor_time);
@@ -346,10 +400,10 @@ function computeDay(
 
   const legs: LegTiming[] = [];
   for (let i = 0; i < stops.length - 1; i++) {
-    legs.push({ legId: day.legs[i]?.id, effectiveDuration: legEff[i]! });
+    legs.push({ legId: day.legs[i]?.id, ...legEff[i]! });
   }
   const leadingLeg: LegTiming | null = day.leadingLeg
-    ? { legId: day.leadingLeg.id, effectiveDuration: leadEff }
+    ? { legId: day.leadingLeg.id, ...lead }
     : null;
 
   const first = timings[0]!;

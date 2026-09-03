@@ -13,7 +13,7 @@ import type {
 const trip = {
   id: 't',
   start_date: '2026-09-12 00:00:00.000Z',
-  car_buffer_pct: 15,
+  car_buffer_pct: 5,
   surface_multipliers: { paved: 1.0, gravel: 1.3, froad: 2.0 },
   default_dwell: { waterfall: 45 },
 } as unknown as TripsResponse;
@@ -99,8 +99,8 @@ describe('buildCascadeTrip', () => {
     );
     const [a, b, c] = days[0]!.stops;
     expect(formatClock(a!.arrival)).toBe('10:25');
-    expect(formatClock(b!.arrival)).toBe('13:25'); // +115
-    expect(formatClock(c!.arrival)).toBe('16:25'); // +60
+    expect(formatClock(b!.arrival)).toBe('13:15'); // +105
+    expect(formatClock(c!.arrival)).toBe('15:57'); // +42
   });
 });
 
@@ -196,10 +196,13 @@ describe('buildCascadeTrip / start_stop', () => {
       duration_min: 60,
     });
     const { days } = cascade(ct, () => null);
-    expect(formatClock(days[1]!.stops[0]!.arrival)).toBe('10:09'); // 09:00 + 69
+    expect(formatClock(days[1]!.stops[0]!.arrival)).toBe('10:03'); // 09:00 + 63
     expect(days[1]!.leadingLeg).toEqual({
       legId: 'L_CD',
-      effectiveDuration: 69,
+      baseDuration: 60,
+      bufferMin: 3,
+      effectiveDuration: 63,
+      overridden: false,
     });
   });
 

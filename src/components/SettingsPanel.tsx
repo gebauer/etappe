@@ -6,12 +6,18 @@ import type { TripsResponse } from '../types/pb';
 
 /**
  * Trip settings (WORK 11.2) — the cascade assumptions and locale that were
- * fixed at trip creation with no UI to change them: car buffer, surface
- * multipliers, per-kind default dwells, timezone, currency. Members and the
- * public link live in `SharePanel`, not here.
+ * fixed at trip creation with no UI to change them: car buffer, per-kind
+ * default dwells, timezone, currency. Members and the public link live in
+ * `SharePanel`, not here.
+ *
+ * Surface multipliers used to live here too. They are gone because the
+ * cascade no longer applies them (WORK 19.5): a routing engine already
+ * slows down for gravel, and a control that silently changes nothing is
+ * worse than no control. A leg's `surface` is still recorded — it drives
+ * the F-road season warning.
  *
  * A local draft with one Save, not a write per keystroke — several numeric
- * fields, and a half-typed multiplier shouldn't re-run the cascade.
+ * fields, and a half-typed number shouldn't re-run the cascade.
  */
 
 const COMMON_TZ = [
@@ -39,12 +45,6 @@ function isValidTimezone(tz: string): boolean {
   }
 }
 
-const SURFACES: { key: string; label: string; hint: string; def: number }[] = [
-  { key: 'paved', label: 'Paved', hint: 'sealed road', def: 1 },
-  { key: 'gravel', label: 'Gravel', hint: 'maintained unsealed', def: 1.3 },
-  { key: 'froad', label: 'F-road', hint: 'highland track, in season', def: 2 },
-];
-
 const FIELD =
   'h-[34px] w-full rounded-lg border border-border-strong bg-field px-2.5 text-[13px] text-text outline-none focus:border-accent';
 
@@ -58,17 +58,11 @@ export function SettingsPanel({
   onSave: (patch: TripSettingsPatch) => void;
 }) {
   const seedDwell = useMemo(() => defaultDwellSeed(), []);
-  const startMult = (trip.surface_multipliers ?? {}) as Record<string, number>;
   const startDwell = (trip.default_dwell ?? {}) as Record<string, number>;
 
   const [currency, setCurrency] = useState(trip.currency || 'EUR');
   const [timezone, setTimezone] = useState(trip.timezone || 'UTC');
-  const [buffer, setBuffer] = useState(String(trip.car_buffer_pct ?? 15));
-  const [mult, setMult] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      SURFACES.map((s) => [s.key, String(startMult[s.key] ?? s.def)]),
-    ),
-  );
+  const [buffer, setBuffer] = useState(String(trip.car_buffer_pct ?? 5));
   const [dwell, setDwell] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       KINDS.map((k) => [k, String(startDwell[k] ?? seedDwell[k] ?? 0)]),
@@ -79,16 +73,12 @@ export function SettingsPanel({
   const bufferNum = Number(buffer);
   const bufferOk =
     Number.isFinite(bufferNum) && bufferNum >= 0 && bufferNum <= 200;
-  const multOk = SURFACES.every((s) => {
-    const v = Number(mult[s.key]);
-    return Number.isFinite(v) && v > 0;
-  });
   const dwellOk = KINDS.every((k) => {
     const v = Number(dwell[k]);
     return Number.isFinite(v) && v >= 0;
   });
   const tzOk = isValidTimezone(timezone);
-  const canSave = bufferOk && multOk && dwellOk && tzOk;
+  const canSave = bufferOk && dwellOk && tzOk;
 
   function save() {
     if (!canSave) return;
@@ -96,9 +86,6 @@ export function SettingsPanel({
       currency,
       timezone: timezone.trim(),
       car_buffer_pct: bufferNum,
-      surface_multipliers: Object.fromEntries(
-        SURFACES.map((s) => [s.key, Number(mult[s.key])]),
-      ),
       default_dwell: Object.fromEntries(
         KINDS.map((k) => [k, Number(dwell[k])]),
       ),
@@ -161,6 +148,10 @@ export function SettingsPanel({
                 bufferOk ? '' : 'border-danger-border'
               }`}
             />
+            <span className="mt-1 block text-[11px] text-text-5">
+              Added on top of every routed car leg. A leg can override it
+              with its own percentage or a flat number of minutes.
+            </span>
           </label>
           <label className="col-span-2 block">
             <span className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
@@ -186,39 +177,6 @@ export function SettingsPanel({
               </span>
             )}
           </label>
-        </div>
-
-        <div className="mt-4 text-[10.5px] uppercase tracking-[0.08em] text-text-4">
-          Surface multipliers
-        </div>
-        <p className="mt-1 text-[11.5px] text-text-4">
-          Multiplies a car leg&rsquo;s routed time by surface. 1.0 = no change.
-        </p>
-        <div className="mt-2 grid grid-cols-3 gap-3">
-          {SURFACES.map((s) => {
-            const v = Number(mult[s.key]);
-            const ok = Number.isFinite(v) && v > 0;
-            return (
-              <label key={s.key} className="block">
-                <span className="text-[12px] text-text-2">{s.label}</span>
-                <span className="block text-[10.5px] text-text-5">
-                  {s.hint}
-                </span>
-                <input
-                  type="number"
-                  step="0.05"
-                  min={0.1}
-                  value={mult[s.key]}
-                  onChange={(e) =>
-                    setMult((m) => ({ ...m, [s.key]: e.target.value }))
-                  }
-                  className={`${FIELD} mt-1 font-mono ${
-                    ok ? '' : 'border-danger-border'
-                  }`}
-                />
-              </label>
-            );
-          })}
         </div>
 
         <div className="mt-4 rounded-lg border border-border-strong">

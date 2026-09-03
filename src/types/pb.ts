@@ -253,10 +253,11 @@ export const LegsRoutingSourceOptions = {
 } as const
 export type LegsRoutingSourceOptions = typeof LegsRoutingSourceOptions[keyof typeof LegsRoutingSourceOptions]
 export type LegsRecord<Tgeometry = unknown> = {
-	buffer_override_pct?: number
+	buffer_override?: string
 	created: IsoAutoDateString
 	distance_m?: number
 	duration_min?: number
+	duration_override_min?: number
 	from_stop: RecordIdString
 	geometry?: null | Tgeometry
 	id: string

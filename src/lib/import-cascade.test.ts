@@ -49,18 +49,18 @@ describe('importToCascade + fixtures/iceland-day1.json', () => {
     const [kef, gullfoss, skalholt] = days[0]!.stops;
     expect(formatClock(kef!.arrival)).toBe('10:25');
     expect(formatClock(kef!.departure)).toBe('11:30');
-    expect(formatClock(gullfoss!.arrival)).toBe('13:25');
-    expect(formatClock(skalholt!.arrival)).toBe('16:25');
-    expect(days[0]!.legs.map((l) => l.effectiveDuration)).toEqual([115, 60]);
-    expect(days[0]!.elapsedMin).toBe(360);
+    expect(formatClock(gullfoss!.arrival)).toBe('13:15');
+    expect(formatClock(skalholt!.arrival)).toBe('15:57');
+    expect(days[0]!.legs.map((l) => l.effectiveDuration)).toEqual([105, 42]);
+    expect(days[0]!.elapsedMin).toBe(332);
     expect(warnings).toEqual([]);
   });
 
-  it('is the after-dark case under a 16:24 sunset stub (deficit 1 min)', () => {
+  it('is the after-dark case under a 15:56 sunset stub (deficit 1 min)', () => {
     const trip = importToCascade(doc, icelandRouting);
     const { warnings } = cascade(
       trip,
-      stubDaylight({ sunrise: 400, sunset: 984, dusk: 1014 }),
+      stubDaylight({ sunrise: 400, sunset: 956, dusk: 986 }),
     );
     expect(warnings).toEqual([
       { code: 'AFTER_DARK', dayId: 'd1', stopId: 'd1-s2', deficitMin: 1 },
@@ -69,12 +69,7 @@ describe('importToCascade + fixtures/iceland-day1.json', () => {
 
   it('uses BUILD default trip settings', () => {
     const settings = defaultSettings();
-    expect(settings.car_buffer_pct).toBe(15);
-    expect(settings.surface_multipliers).toEqual({
-      paved: 1.0,
-      gravel: 1.3,
-      froad: 2.0,
-    });
+    expect(settings.car_buffer_pct).toBe(5);
     expect(settings.default_dwell.waterfall).toBe(45);
   });
 });

@@ -5,9 +5,11 @@
  *
  * PocketBase returns 0 for an unset number and "" for unset text (there is no
  * null for these), so we treat 0/"" as "unset": dwell_override 0 -> use
- * activities/default, lat/lon 0 -> no coordinates, buffer_override_pct 0 -> trip
- * default. A genuine 0 for these is therefore not expressible — an acceptable
- * trade-off (a 0-minute dwell or a stop at 0°,0° does not occur in practice).
+ * activities/default, lat/lon 0 -> no coordinates, duration_override_min 0 ->
+ * the engine's own duration. A genuine 0 for these is therefore not
+ * expressible — an acceptable trade-off (a 0-minute dwell or a stop at 0°,0°
+ * does not occur in practice). `buffer_override` escapes it by being text:
+ * "" is unset and "0" is a real, deliberate zero-minute buffer.
  */
 
 import type {
@@ -16,6 +18,7 @@ import type {
   CascadeStop,
   CascadeLeg,
 } from './cascade';
+import { parseBufferOverride } from './leg-buffer';
 import type { TypedPocketBase } from '../types/pb';
 import type {
   TripsResponse,
@@ -39,12 +42,19 @@ export interface TripRecords {
 }
 
 function toCascadeLeg(leg: LegsResponse): CascadeLeg {
+  // An unparseable buffer never reaches here — the editor refuses it — but
+  // hand-edited data might, and falling back to the trip default beats
+  // throwing inside a pure engine's input.
+  const buffer = parseBufferOverride(leg.buffer_override);
+  const override = buffer === 'invalid' ? null : buffer;
   return {
     id: leg.id,
     mode: leg.mode,
     surface: leg.surface || null,
     duration_min: leg.duration_min,
-    buffer_override_pct: leg.buffer_override_pct || null,
+    duration_override_min: leg.duration_override_min || null,
+    buffer_pct: override?.unit === 'pct' ? override.value : null,
+    buffer_min: override?.unit === 'min' ? override.value : null,
   };
 }
 
@@ -133,10 +143,6 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
   return {
     start_date: trip.start_date,
     car_buffer_pct: trip.car_buffer_pct,
-    surface_multipliers: (trip.surface_multipliers ?? {}) as Record<
-      string,
-      number
-    >,
     default_dwell: (trip.default_dwell ?? {}) as Record<string, number>,
     days: cascadeDays,
   };

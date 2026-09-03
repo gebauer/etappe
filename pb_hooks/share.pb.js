@@ -83,7 +83,6 @@ routerAdd('GET', '/api/share/{token}', (e) => {
       start_date: trip.get('start_date'),
       timezone: trip.get('timezone'),
       car_buffer_pct: trip.get('car_buffer_pct'),
-      surface_multipliers: trip.get('surface_multipliers'),
       default_dwell: trip.get('default_dwell'),
     },
     days: [],
@@ -146,6 +145,11 @@ routerAdd('GET', '/api/share/{token}', (e) => {
               mode: leg.get('mode'),
               surface: leg.get('surface'),
               duration_min: leg.get('duration_min'),
+              // The overrides travel too (WORK 19.5) — a share view that
+              // recomputed from the raw routed time would show different
+              // clocks than the planner sees.
+              duration_override_min: leg.get('duration_override_min'),
+              buffer_override: leg.get('buffer_override'),
               distance_m: leg.get('distance_m'),
               geometry: leg.get('geometry'),
             }

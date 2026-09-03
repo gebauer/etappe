@@ -339,7 +339,10 @@ export async function updateStopAndReroute(
 }
 
 export type LegPatch = Partial<
-  Pick<LegsResponse, 'surface' | 'buffer_override_pct' | 'duration_min'>
+  Pick<
+    LegsResponse,
+    'surface' | 'buffer_override' | 'duration_min' | 'duration_override_min'
+  >
 >;
 
 export async function updateLeg(
@@ -350,27 +353,34 @@ export async function updateLeg(
   await pb.collection('legs').update(legId, patch);
 }
 
-/** Explicitly opt a car leg out of routing: keep the current duration (or a
- * user-entered one) as a manual value and drop any ORS geometry, so the map
- * falls back to a straight dashed connector instead of implying a real
- * route. `⟳ route` (rerouteLeg) is the way back to auto. */
-export async function setLegManual(
+/**
+ * Override how long a leg takes without touching how it goes (WORK 19.5).
+ *
+ * The engine's `duration_min`, `distance_m` and `geometry` all stay, so the
+ * map still draws the real road and a later re-route still refreshes it —
+ * the planner is correcting one number, not throwing the route away. Pass
+ * 0 to drop the override and fall back to the engine.
+ *
+ * Distinct from `routing_source: 'manual'`, which means the leg was never
+ * routed at all (no road near a trailhead, or a ferry). That case has no
+ * geometry to protect and is set by `buildLegRecord`, not here.
+ */
+export async function setLegDurationOverride(
   pb: TypedPocketBase,
   legId: string,
   durationMin: number,
 ): Promise<void> {
-  await pb.collection('legs').update(legId, {
-    routing_source: 'manual',
-    duration_min: durationMin,
-    distance_m: 0,
-    geometry: null,
-  });
+  await pb
+    .collection('legs')
+    .update(legId, { duration_override_min: Math.max(0, durationMin) });
 }
 
 /** Re-run routing for a single existing leg from its stops' current
  * coordinates. Heals a leg left manual because routing was down or hadn't run
  * when the stop was added. Returns true if the leg came back routed; a leg
- * whose endpoint has no nearby road (e.g. a trailhead) stays manual. */
+ * whose endpoint has no nearby road (e.g. a trailhead) stays manual. A
+ * duration override survives: it is the planner's correction of the number,
+ * not of the road (WORK 19.5). */
 export async function rerouteLeg(
   pb: TypedPocketBase,
   provider: RoutingProvider,

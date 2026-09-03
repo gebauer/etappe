@@ -35,7 +35,7 @@ import {
   rerouteAllLegs,
   updateLeg,
   rerouteLeg,
-  setLegManual,
+  setLegDurationOverride,
   type StopPatch,
   type LegPatch,
 } from '../lib/pb-stops';
@@ -1887,8 +1887,8 @@ export function TripEditor({
             onRerouteLeg={(legId) =>
               run(() => rerouteLeg(pb, routing, records, legId))
             }
-            onSetManualLeg={(legId, durationMin) =>
-              run(() => setLegManual(pb, legId, durationMin))
+            onSetLegDuration={(legId, durationMin) =>
+              run(() => setLegDurationOverride(pb, legId, durationMin))
             }
             onMoveStop={(stopId, targetDayId, targetIndex) =>
               runStructural(() =>

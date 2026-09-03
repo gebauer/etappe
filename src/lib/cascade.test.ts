@@ -28,8 +28,7 @@ function leg(p: Partial<CascadeLeg> = {}): CascadeLeg {
 function trip(p: Partial<CascadeTrip> = {}): CascadeTrip {
   return {
     start_date: '2026-09-12',
-    car_buffer_pct: 15,
-    surface_multipliers: { paved: 1.0, gravel: 1.3, froad: 2.0 },
+    car_buffer_pct: 5,
     default_dwell: {},
     days: [],
     ...p,
@@ -83,19 +82,21 @@ describe('Iceland day 1 (BUILD §12)', () => {
     const [kef, gullfoss, skalholt] = days[0]!.stops;
     expect(formatClock(kef!.arrival)).toBe('10:25');
     expect(formatClock(kef!.departure)).toBe('11:30'); // 10:25 + 65
-    expect(formatClock(gullfoss!.arrival)).toBe('13:25'); // + 115 (100×1.15)
-    expect(formatClock(gullfoss!.departure)).toBe('15:25'); // + 120
-    expect(formatClock(skalholt!.arrival)).toBe('16:25'); // + 60 (40×1.3×1.15)
-    expect(days[0]!.legs.map((l) => l.effectiveDuration)).toEqual([115, 60]);
-    expect(days[0]!.elapsedMin).toBe(360);
+    expect(formatClock(gullfoss!.arrival)).toBe('13:15'); // + 105 (100 + 5%)
+    expect(formatClock(gullfoss!.departure)).toBe('15:15'); // + 120
+    expect(formatClock(skalholt!.arrival)).toBe('15:57'); // + 42 (40 + 5%)
+    expect(days[0]!.legs.map((l) => l.effectiveDuration)).toEqual([105, 42]);
+    expect(days[0]!.legs.map((l) => l.baseDuration)).toEqual([100, 40]);
+    expect(days[0]!.legs.map((l) => l.bufferMin)).toEqual([5, 2]);
+    expect(days[0]!.elapsedMin).toBe(332);
   });
 
   it('emits no warnings (sunset ~20:15)', () => {
     expect(cascade(t, sunsetAt(AT('20:15'))).warnings).toEqual([]);
   });
 
-  it('emits exactly one AFTER_DARK of 1 min with a 16:24 sunset', () => {
-    const { warnings } = cascade(t, sunsetAt(AT('16:24')));
+  it('emits exactly one AFTER_DARK of 1 min with a 15:56 sunset', () => {
+    const { warnings } = cascade(t, sunsetAt(AT('15:56')));
     expect(warnings).toEqual([
       { code: 'AFTER_DARK', dayId: 'd1', stopId: 'skalholt', deficitMin: 1 },
     ]);
@@ -105,8 +106,7 @@ describe('Iceland day 1 (BUILD §12)', () => {
 // --- rounding --------------------------------------------------------------
 
 describe('effective duration', () => {
-  it('rounds half up once after both multipliers', () => {
-    // 40 × 1.3 × 1.15 = 59.8 -> 60
+  function oneLeg(l: Partial<CascadeLeg>, over: Partial<CascadeTrip> = {}) {
     const t = trip({
       days: [
         {
@@ -117,11 +117,67 @@ describe('effective duration', () => {
             stop('a', { anchor_time: '09:00', anchor_type: 'departure' }),
             stop('b', { is_accommodation: true }),
           ],
-          legs: [leg({ surface: 'gravel', duration_min: 40 })],
+          legs: [leg(l)],
         },
       ],
+      ...over,
     });
-    expect(cascade(t, noDaylight).days[0]!.legs[0]!.effectiveDuration).toBe(60);
+    return cascade(t, noDaylight).days[0]!.legs[0]!;
+  }
+
+  it('leaves the routed time alone whatever the surface (WORK 19.5)', () => {
+    // The engine already slowed down for the gravel; multiplying again was
+    // counting the same fact twice.
+    const paved = oneLeg({ surface: 'paved', duration_min: 40 });
+    const gravel = oneLeg({ surface: 'gravel', duration_min: 40 });
+    expect(gravel.baseDuration).toBe(paved.baseDuration);
+    expect(gravel.effectiveDuration).toBe(paved.effectiveDuration);
+  });
+
+  it('splits the total into the routed time and the buffer', () => {
+    const l = oneLeg({ duration_min: 100 });
+    expect(l).toMatchObject({
+      baseDuration: 100,
+      bufferMin: 5,
+      effectiveDuration: 105,
+      overridden: false,
+    });
+  });
+
+  it('rounds the buffer to whole minutes before adding it', () => {
+    // 5 % of 45 is 2.25 -> 2, and 45 + 2 is exactly what the row prints.
+    const l = oneLeg({ duration_min: 45 });
+    expect(l.bufferMin).toBe(2);
+    expect(l.baseDuration + l.bufferMin).toBe(l.effectiveDuration);
+  });
+
+  it('takes a per-leg buffer as a percentage', () => {
+    expect(oneLeg({ duration_min: 100, buffer_pct: 20 }).bufferMin).toBe(20);
+  });
+
+  it('takes a per-leg buffer as flat minutes', () => {
+    // Minutes win over the trip percentage; 5 % of 8 would round to nothing.
+    expect(oneLeg({ duration_min: 8, buffer_min: 10 })).toMatchObject({
+      bufferMin: 10,
+      effectiveDuration: 18,
+    });
+  });
+
+  it('honours a zero-minute buffer instead of falling back', () => {
+    expect(oneLeg({ duration_min: 100, buffer_min: 0 }).effectiveDuration).toBe(
+      100,
+    );
+  });
+
+  it('replaces the routed time with an override, buffer still on top', () => {
+    expect(
+      oneLeg({ duration_min: 100, duration_override_min: 180 }),
+    ).toMatchObject({
+      baseDuration: 180,
+      bufferMin: 9,
+      effectiveDuration: 189,
+      overridden: true,
+    });
   });
 
   it('passes non-car legs through unmultiplied', () => {
@@ -162,7 +218,7 @@ describe('downstream anchor', () => {
           }),
           stop('c', { is_accommodation: true }),
         ],
-        // 09:00 +60 dwell +138 (120×1.15) = 12:18 computed at b, anchor 10:00.
+        // 09:00 +60 dwell +126 (120 + 5%) = 12:06 computed at b, anchor 10:00.
         legs: [
           leg({ surface: 'paved', duration_min: 120 }),
           leg({ surface: 'paved', duration_min: 60 }),
@@ -174,10 +230,10 @@ describe('downstream anchor', () => {
   it('flags the miss with the deficit and resets the clock to the anchor', () => {
     const { days, warnings } = cascade(t, noDaylight);
     expect(warnings).toEqual([
-      { code: 'MISSED_ANCHOR', dayId: 'd', stopId: 'b', deficitMin: 138 },
+      { code: 'MISSED_ANCHOR', dayId: 'd', stopId: 'b', deficitMin: 126 },
     ]);
-    // c is computed from b's anchor (10:00 + 30 + 69), not the delayed arrival.
-    expect(formatClock(days[0]!.stops[2]!.arrival)).toBe('11:39');
+    // c is computed from b's anchor (10:00 + 30 + 63), not the delayed arrival.
+    expect(formatClock(days[0]!.stops[2]!.arrival)).toBe('11:33');
   });
 });
 
@@ -214,7 +270,7 @@ describe('warning codes', () => {
         }),
         stop('b', { is_accommodation: true }),
       ],
-      [leg({ surface: 'paved', duration_min: 600 })], // 690 min -> elapsed 750
+      [leg({ surface: 'paved', duration_min: 700 })], // 735 min -> elapsed 750
     );
     expect(cascade(t, noDaylight).warnings).toContainEqual({
       code: 'LONG_DAY',
@@ -372,7 +428,7 @@ describe('edge cases', () => {
       code: 'MISSED_ANCHOR',
       dayId: 'd',
       stopId: 'b',
-      deficitMin: 680, // 09:30 + 690 = 21:00 computed vs 09:40 anchor
+      deficitMin: 620, // 09:30 + 630 = 20:00 computed vs 09:40 anchor
     });
     expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('09:40');
   });
@@ -412,9 +468,9 @@ describe('routing waypoints', () => {
     // Arrival and departure at a waypoint coincide — nothing is spent there.
     expect(b.arrival).toBe(b.departure);
     // The next stop's arrival reflects the zero dwell, not the 45/50 min it
-    // would have taken on: 09:00 + 35 (30 min leg + 15% buffer) + 0
-    // (waypoint) + 35 = 10:10.
-    expect(formatClock(days[0]!.stops[2]!.arrival)).toBe('10:10');
+    // would have taken on: 09:00 + 32 (30 min leg + 5% buffer) + 0
+    // (waypoint) + 32 = 10:04.
+    expect(formatClock(days[0]!.stops[2]!.arrival)).toBe('10:04');
   });
 
   it('is the ordinary case when routing_kind is absent — no behaviour change', () => {
@@ -447,7 +503,7 @@ describe('leading leg', () => {
         stop('a', { dwell_override: 30 }),
         stop('b', { is_accommodation: true }),
       ],
-      legs: [leg({ surface: 'paved', duration_min: 60 })], // 69 within-day
+      legs: [leg({ surface: 'paved', duration_min: 60 })], // 63 within-day
       ...over,
     };
     return trip({ days: [day] });
@@ -455,11 +511,11 @@ describe('leading leg', () => {
 
   it('an anchorless day starts stop 0 at 09:00 + the leading leg', () => {
     const t = oneDay({
-      leadingLeg: leg({ surface: 'paved', duration_min: 60 }), // 60×1.15 = 69
+      leadingLeg: leg({ surface: 'paved', duration_min: 60 }), // 60 + 5% = 63
     });
     const { days } = cascade(t, noDaylight);
-    expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('10:09'); // 09:00 + 69
-    expect(days[0]!.leadingLeg).toEqual({ effectiveDuration: 69 });
+    expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('10:03'); // 09:00 + 63
+    expect(days[0]!.leadingLeg).toMatchObject({ effectiveDuration: 63 });
   });
 
   it('surfaces the leading leg with its id and effective duration', () => {
@@ -468,7 +524,10 @@ describe('leading leg', () => {
     });
     expect(cascade(t, noDaylight).days[0]!.leadingLeg).toEqual({
       legId: 'lead1',
-      effectiveDuration: 35, // 30×1.15 = 34.5 -> 35
+      baseDuration: 30,
+      bufferMin: 2, // 5 % of 30 = 1.5 -> 2
+      effectiveDuration: 32,
+      overridden: false,
     });
   });
 
@@ -482,12 +541,12 @@ describe('leading leg', () => {
         }),
         stop('b', { is_accommodation: true }),
       ],
-      leadingLeg: leg({ surface: 'paved', duration_min: 120 }), // 138
+      leadingLeg: leg({ surface: 'paved', duration_min: 120 }), // 126
     });
     const { days } = cascade(t, noDaylight);
     expect(formatClock(days[0]!.stops[0]!.arrival)).toBe('10:00'); // anchor wins
-    expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('11:39'); // 10:00+30+69
-    expect(days[0]!.elapsedMin).toBe(99 + 138); // stop span + morning drive
+    expect(formatClock(days[0]!.stops[1]!.arrival)).toBe('11:33'); // 10:00+30+63
+    expect(days[0]!.elapsedMin).toBe(93 + 126); // stop span + morning drive
   });
 
   it('a downstream anchor back-derives the same with or without a leading leg', () => {
@@ -535,7 +594,7 @@ describe('leading leg', () => {
       }),
       stop('b', { is_accommodation: true }),
     ];
-    const legs = [leg({ surface: 'paved', duration_min: 300 })]; // 345 -> span 405
+    const legs = [leg({ surface: 'paved', duration_min: 300 })]; // 315 -> span 375
     const short = cascade(oneDay({ stops, legs }), noDaylight);
     expect(short.warnings.some((w) => w.code === 'LONG_DAY')).toBe(false);
 
@@ -543,12 +602,12 @@ describe('leading leg', () => {
       oneDay({
         stops,
         legs,
-        leadingLeg: leg({ surface: 'paved', duration_min: 360 }), // 414
+        leadingLeg: leg({ surface: 'paved', duration_min: 360 }), // 378
       }),
       noDaylight,
     );
     expect(long.warnings).toContainEqual({ code: 'LONG_DAY', dayId: 'd' });
-    expect(long.days[0]!.elapsedMin).toBe(405 + 414);
+    expect(long.days[0]!.elapsedMin).toBe(375 + 378);
   });
 
   it('carries leadingLeg: null on an empty day', () => {

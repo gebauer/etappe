@@ -90,14 +90,12 @@ export type RouteResolver = (ctx: LegContext) => ResolvedRoute;
 
 export interface CascadeSettings {
   car_buffer_pct: number;
-  surface_multipliers: Record<string, number>;
   default_dwell: Record<string, number>;
 }
 
 export function defaultSettings(): CascadeSettings {
   return {
-    car_buffer_pct: 15,
-    surface_multipliers: { paved: 1.0, gravel: 1.3, froad: 2.0 },
+    car_buffer_pct: 5,
     default_dwell: defaultDwellSeed(),
   };
 }
@@ -169,7 +167,6 @@ export function importToCascade(
     // importer before anything is written.
     start_date: doc.start_date ?? new Date().toISOString().slice(0, 10),
     car_buffer_pct: settings.car_buffer_pct,
-    surface_multipliers: settings.surface_multipliers,
     default_dwell: settings.default_dwell,
     days,
   };

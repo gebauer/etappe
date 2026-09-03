@@ -36,7 +36,8 @@ interface Props {
   onDeleteDay: (dayId: string) => void;
   onUpdateLeg: (legId: string, patch: LegPatch) => void;
   onRerouteLeg: (legId: string) => void;
-  onSetManualLeg: (legId: string, durationMin: number) => void;
+  /** Minutes, or 0 to drop the override and go back to the engine. */
+  onSetLegDuration: (legId: string, durationMin: number) => void;
   onMoveStop: (
     stopId: string,
     targetDayId: string,
@@ -100,7 +101,7 @@ export function Timeline({
   onDeleteDay,
   onUpdateLeg,
   onRerouteLeg,
-  onSetManualLeg,
+  onSetLegDuration,
   onMoveStop,
   selectedStopIds,
   onSelectStop,
@@ -349,15 +350,16 @@ export function Timeline({
                 leg={startPointLeg}
                 from={startPointStop}
                 to={dayStops[0]}
-                effectiveDuration={dayResult?.leadingLeg?.effectiveDuration}
+                timing={dayResult?.leadingLeg ?? undefined}
+                tripBufferPct={trip.car_buffer_pct ?? 0}
                 onUpdate={(patch) =>
                   startPointLeg && onUpdateLeg(startPointLeg.id, patch)
                 }
                 onReroute={() =>
                   startPointLeg && onRerouteLeg(startPointLeg.id)
                 }
-                onSetManual={(min) =>
-                  startPointLeg && onSetManualLeg(startPointLeg.id, min)
+                onSetDuration={(min) =>
+                  startPointLeg && onSetLegDuration(startPointLeg.id, min)
                 }
                 linkOut={linkOut}
                 onLinkOut={() => onLinkOut?.(0)}
@@ -442,10 +444,13 @@ export function Timeline({
                       leg={leg}
                       from={stop}
                       to={next}
-                      effectiveDuration={dayResult?.legs[i]?.effectiveDuration}
+                      timing={dayResult?.legs[i]}
+                      tripBufferPct={trip.car_buffer_pct ?? 0}
                       onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
                       onReroute={() => leg && onRerouteLeg(leg.id)}
-                      onSetManual={(min) => leg && onSetManualLeg(leg.id, min)}
+                      onSetDuration={(min) =>
+                        leg && onSetLegDuration(leg.id, min)
+                      }
                       linkOut={linkOut}
                       onLinkOut={() => onLinkOut?.(0)}
                     />

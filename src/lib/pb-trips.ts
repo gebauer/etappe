@@ -33,7 +33,10 @@ export async function createTrip(input: NewTripInput): Promise<TripsResponse> {
     start_date: `${input.start_date} 00:00:00.000Z`,
     timezone: input.timezone || 'Atlantic/Reykjavik',
     currency: input.currency || 'EUR',
-    car_buffer_pct: 15,
+    car_buffer_pct: 5,
+    // Inert since WORK 19.5 — the cascade no longer multiplies by surface.
+    // Still written because the column is `required` and dropping it is a
+    // schema change with nothing to gain.
     surface_multipliers: { paved: 1.0, gravel: 1.3, froad: 2.0 },
     default_dwell: defaultDwellSeed(),
     owner: user.id,
@@ -136,7 +139,6 @@ export async function setTripStartDate(
  */
 export interface TripSettingsPatch {
   car_buffer_pct?: number;
-  surface_multipliers?: Record<string, number>;
   default_dwell?: Record<string, number>;
   timezone?: string;
   currency?: string;
