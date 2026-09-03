@@ -108,3 +108,24 @@ export async function saveRoutingKey(
   );
   return res.providers ?? [];
 }
+
+/** One-time hint that the link-out app is configurable (author request):
+ * shown on the first `↗` click, never again. Per-browser — it is a nicety,
+ * not state worth a round trip. */
+const LINK_OUT_HINT_KEY = 'etappe.linkOutHinted';
+
+export function shouldHintLinkOut(): boolean {
+  try {
+    return localStorage.getItem(LINK_OUT_HINT_KEY) !== '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markLinkOutHinted(): void {
+  try {
+    localStorage.setItem(LINK_OUT_HINT_KEY, '1');
+  } catch {
+    /* private mode — the hint just shows again next session */
+  }
+}

@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { formatDuration } from '../lib/format';
-import { legDirectionsUrl } from '../lib/geo-links';
+import { legUrl, type LinkOut } from '../lib/geo-links';
+import { routingPoint } from '../lib/routing';
 import type { LegsResponse, StopsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
 
@@ -15,19 +16,9 @@ interface Props {
    * that is what the cascade routes through. */
   from?: StopsResponse | null;
   to?: StopsResponse | null;
-}
-
-/** The point routing actually leaves from / arrives at: the access point
- * when set, otherwise the stop itself. */
-function routingPoint(
-  s: StopsResponse | null | undefined,
-): { lat: number; lon: number } | null {
-  if (!s) return null;
-  if (s.access_lat && s.access_lon) {
-    return { lat: s.access_lat, lon: s.access_lon };
-  }
-  if (s.lat && s.lon) return { lat: s.lat, lon: s.lon };
-  return null;
+  /** Which map app the ↗ opens, and a one-time-hint callback (WORK 19.4). */
+  linkOut?: LinkOut;
+  onLinkOut?: () => void;
 }
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
@@ -55,6 +46,8 @@ export function LegRow({
   onSetManual,
   from,
   to,
+  linkOut = 'google',
+  onLinkOut,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isCar = leg?.mode === 'car';
@@ -63,7 +56,7 @@ export function LegRow({
 
   const a = routingPoint(from);
   const b = routingPoint(to);
-  const routeUrl = a && b ? legDirectionsUrl(a, b, leg?.mode) : null;
+  const routeHref = a && b ? legUrl(linkOut, a, b, leg?.mode) : null;
 
   return (
     <div className="py-[3px] pl-[22px] pr-3">
@@ -83,12 +76,13 @@ export function LegRow({
             {isManual ? ' · manual' : ''}
           </span>
         </button>
-        {routeUrl && (
+        {routeHref && (
           <a
-            href={routeUrl}
+            href={routeHref}
+            onClick={onLinkOut}
             target="_blank"
             rel="noreferrer"
-            title="Open this leg in Google Maps"
+            title="Open this leg in your map app"
             className="flex-none px-1 text-[11px] text-text-5 hover:text-accent"
           >
             ↗

@@ -17,6 +17,8 @@ import type { LegPatch } from '../lib/pb-stops';
 import { StopRow } from './StopRow';
 import { LegRow } from './LegRow';
 import { TripOverview } from './TripOverview';
+import { routeUrl, type LinkOut } from '../lib/geo-links';
+import { routingPoint } from '../lib/routing';
 
 interface Props {
   trip: TripsResponse;
@@ -68,6 +70,11 @@ interface Props {
    * to the previous / next day. Undefined on desktop — the day dock is
    * the switcher there. */
   onStepDay?: (direction: -1 | 1) => void;
+  /** Which map app the ↗ links open (WORK 19.4). `onLinkOut` fires on every
+   * ↗ click — the one-time "you can change this" hint lives in TripEditor.
+   * `truncated` says how many stops the app could not take. */
+  linkOut?: LinkOut;
+  onLinkOut?: (truncated: number) => void;
 }
 
 /**
@@ -110,6 +117,8 @@ export function Timeline({
   overview = false,
   onSelectDay,
   onStepDay,
+  linkOut = 'google',
+  onLinkOut,
 }: Props) {
   const swipe = useRef<number | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -165,6 +174,16 @@ export function Timeline({
       ? `${formatClock(first.arrival)} – ${formatClock(last.departure)}`
       : '';
 
+  // The whole day as one route (WORK 19.4). The start point leads, since
+  // that is where the day actually begins; stops with no coordinates yet
+  // are skipped rather than sent as 0,0.
+  const dayRoute = routeUrl(
+    linkOut,
+    [startPointStop, ...dayStops]
+      .map(routingPoint)
+      .filter((p): p is NonNullable<typeof p> => p !== null),
+  );
+
   // Leading leg (WORK 13.3): the morning drive shown above stop 1. "Leave
   // at" = the first stop's arrival minus the leading leg's effective
   // duration (the cascade already baked that duration in — WORK 13.1).
@@ -219,6 +238,22 @@ export function Timeline({
         <div className="flex flex-none items-center gap-2.5">
           {span && (
             <span className="font-mono text-[11.5px] text-text-4">{span}</span>
+          )}
+          {dayRoute && (
+            <a
+              href={dayRoute.url}
+              onClick={() => onLinkOut?.(dayRoute.truncated)}
+              target="_blank"
+              rel="noreferrer"
+              title={
+                dayRoute.truncated
+                  ? `Open the day in your map app — ${dayRoute.truncated} stop(s) will not fit`
+                  : 'Open the whole day in your map app'
+              }
+              className="flex h-[22px] flex-none items-center rounded-[7px] border border-border-strong px-2 text-[11px] text-text-4 hover:text-text-2"
+            >
+              ↗ Day{dayRoute.truncated ? ' ⚠' : ''}
+            </a>
           )}
           {onToggleCollapse && (
             <button
@@ -324,6 +359,8 @@ export function Timeline({
                 onSetManual={(min) =>
                   startPointLeg && onSetManualLeg(startPointLeg.id, min)
                 }
+                linkOut={linkOut}
+                onLinkOut={() => onLinkOut?.(0)}
               />
             </>
           )}
@@ -409,6 +446,8 @@ export function Timeline({
                       onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
                       onReroute={() => leg && onRerouteLeg(leg.id)}
                       onSetManual={(min) => leg && onSetManualLeg(leg.id, min)}
+                      linkOut={linkOut}
+                      onLinkOut={() => onLinkOut?.(0)}
                     />
                   )}
                 </Fragment>

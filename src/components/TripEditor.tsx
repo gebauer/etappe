@@ -3,6 +3,7 @@ import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPhone } from '../hooks/useIsPhone';
+import { useLinkOut } from '../hooks/useLinkOut';
 import { insertDay, deleteDay } from '../lib/pb-days';
 import { setSingleCost } from '../lib/pb-costs';
 import { costsFor } from '../lib/costs';
@@ -14,6 +15,10 @@ import { SettingsPanel } from './SettingsPanel';
 import { PrintView } from './PrintView';
 import { AccountPanel } from './AccountPanel';
 import { logout } from '../lib/auth';
+import {
+  shouldHintLinkOut,
+  markLinkOutHinted,
+} from '../lib/user-settings';
 import {
   listMembers,
   setTripStartDate,
@@ -196,6 +201,29 @@ export function TripEditor({
   // Neutral counterpart to actionError: something happened that the planner
   // should know about but nothing went wrong.
   const [notice, setNotice] = useState<string | null>(null);
+  const linkOut = useLinkOut();
+
+  /** Every `↗` click. Says once — ever, per browser — that the app the
+   * links open is a setting, then gets out of the way. `truncated` is the
+   * day export losing stops to Google's 9-waypoint cap; that one is worth
+   * saying every time, since the route on screen is genuinely incomplete. */
+  const noteLinkOut = useCallback((truncated = 0) => {
+    const parts: string[] = [];
+    if (truncated > 0) {
+      parts.push(
+        `Only part of the day fits — ${truncated} stop${
+          truncated === 1 ? '' : 's'
+        } left out of the link.`,
+      );
+    }
+    if (shouldHintLinkOut()) {
+      markLinkOutHinted();
+      parts.push('You can change which map app ↗ opens under Account.');
+    }
+    if (parts.length === 0) return;
+    setNotice(parts.join(' '));
+    window.setTimeout(() => setNotice(null), 8000);
+  }, []);
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1629,6 +1657,8 @@ export function TripEditor({
           {cardTarget && !picking && (
             <PinCard
               phone={phone}
+              linkOut={linkOut}
+              onLinkOut={() => noteLinkOut()}
               target={cardTarget}
               blocks={
                 cardTarget.type === 'stop'
@@ -1827,6 +1857,8 @@ export function TripEditor({
             }
             hoveredStopId={hoveredStopId}
             onHoverStop={setHoveredStopId}
+            linkOut={linkOut}
+            onLinkOut={noteLinkOut}
             startPointStop={startPointStop}
             startPointLeg={startPointLeg}
             startPointCandidate={startPointCandidate}

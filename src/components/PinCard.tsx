@@ -6,7 +6,7 @@ import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { describeDaylight } from '../lib/daylight';
 import { ContributorPill } from './ContributorMark';
-import { mapsDirectionsUrl } from '../lib/geo-links';
+import { directionsUrl, type LinkOut } from '../lib/geo-links';
 import { formatDuration } from '../lib/format';
 import type { CurrencyCode } from '../lib/currency';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
@@ -78,6 +78,9 @@ interface Props {
    * matters, so the change is findable and not only announced once. */
   timingFlashStopId?: string | null;
   onPlaceAccessPoint: () => void;
+  /** Which map app the ↗ opens, and a one-time-hint callback (WORK 19.4). */
+  linkOut?: LinkOut;
+  onLinkOut?: () => void;
   onClearAccessPoint: () => void;
   onAddBlock: (kind: BlockKind) => void;
   onAddPrivateNote: () => void;
@@ -128,6 +131,8 @@ export function PinCard({
   onEditTiming,
   timingFlashStopId,
   onPlaceAccessPoint,
+  linkOut = 'google',
+  onLinkOut,
   onClearAccessPoint,
   onAddBlock,
   onAddPrivateNote,
@@ -217,10 +222,14 @@ export function PinCard({
             )}
             {!!target.stop.lat && !!target.stop.lon && (
               <a
-                href={mapsDirectionsUrl(target.stop.lat, target.stop.lon)}
+                href={directionsUrl(linkOut, {
+                  lat: target.stop.lat,
+                  lon: target.stop.lon,
+                })}
+                onClick={onLinkOut}
                 target="_blank"
                 rel="noreferrer"
-                title="Directions in Google Maps"
+                title="Directions in your map app"
                 className={`${GHOST} flex items-center`}
               >
                 ↗ Maps

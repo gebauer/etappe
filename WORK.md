@@ -2394,14 +2394,17 @@ the previous engine's numbers. Legs the planner set to **manual** are left
 alone — a typed duration is a correction *of* the engine, not something to
 overwrite when the engine changes.
 
-**19.4 Link-out provider + full-day export** · ⬜
-Not started. `geo-links.ts` gains a provider dimension (Google Maps /
-Apple Maps / HERE WeGo / OpenStreetMap — all handle multi-point); the leg
-`↗`, the stop card and a new day-header `↗` all read the user's
-`link_out`. The day export builds origin + waypoints + destination (Google
-caps at 9 waypoints — truncate and say so rather than silently drop
-stops). On the **first** link-out click, a one-time notice that the
-provider is changeable in Account settings.
+**19.4 Link-out provider + full-day export** · ✅
+`geo-links.ts` rebuilt around a `LinkOut` provider (Google Maps / Apple
+Maps / HERE WeGo / OpenStreetMap): `placeUrl`, `routeUrl` (multi-point),
+`legUrl`, `directionsUrl` (from-my-location, for the card). `useLinkOut()`
+reads `users.link_out` and re-reads on any auth-store change, so switching
+the app in Account updates every `↗` already on screen. New day-header
+`↗ Day` routes start point → every stop; Google's 9-waypoint cap is
+reported, not silently applied (`routeUrl` returns `truncated`).
+`routingPoint()` moved out of `LegRow` into `lib/routing.ts`, so link-outs
+land on the access point the cascade actually routes through. First `↗`
+click says once — per browser, `localStorage` — that the app is a setting.
 
 **19.5 Buffer and surface-multiplier tuning** · ⬜
 Not started, and a spec decision. With a good engine the default

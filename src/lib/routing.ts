@@ -5,7 +5,7 @@
  * 3.1), which owns the ORS key and the cache.
  */
 
-import type { TypedPocketBase } from '../types/pb';
+import type { StopsResponse, TypedPocketBase } from '../types/pb';
 
 export interface LatLon {
   lat: number;
@@ -30,6 +30,20 @@ export const ROUTABLE_MODES = ['car'] as const;
 
 export function isRoutable(mode: string): boolean {
   return (ROUTABLE_MODES as readonly string[]).includes(mode);
+}
+
+/** The point routing actually leaves from / arrives at: the access point
+ * when one is set, otherwise the stop itself. Map link-outs use it too, so
+ * `↗` lands the driver where the cascade said they would park. */
+export function routingPoint(
+  s: StopsResponse | null | undefined,
+): LatLon | null {
+  if (!s) return null;
+  if (s.access_lat && s.access_lon) {
+    return { lat: s.access_lat, lon: s.access_lon };
+  }
+  if (s.lat && s.lon) return { lat: s.lat, lon: s.lon };
+  return null;
 }
 
 /**
