@@ -37,13 +37,13 @@ be left out, set to `null`, or `""` — all three read as "absent". Never write
 ]
 ```
 
-| field | required | shown as | example |
-|---|---|---|---|
-| `file` | yes | — (the image filename in this folder) | `"big-sur-coast.jpg"` |
-| `place` | yes | caption, bold line | `"McWay Falls, California"` |
-| `region` | no | caption, appended after `place` when `place` doesn't already name it | `"California"` |
-| `coords` | no | small mono line above the place | `"36°09′N"` |
-| `month` | no | small mono line, next to `coords` | `"April"` |
+| field    | required | shown as                                                             | example                     |
+| -------- | -------- | -------------------------------------------------------------------- | --------------------------- |
+| `file`   | yes      | — (the image filename in this folder)                                | `"big-sur-coast.jpg"`       |
+| `place`  | yes      | caption, bold line                                                   | `"McWay Falls, California"` |
+| `region` | no       | caption, appended after `place` when `place` doesn't already name it | `"California"`              |
+| `coords` | no       | small mono line above the place                                      | `"36°09′N"`                 |
+| `month`  | no       | small mono line, next to `coords`                                    | `"April"`                   |
 
 If `photos.json` is missing, unreadable or empty, the sign-in falls back to a
 plain dark background — the form still works.
@@ -58,4 +58,3 @@ plain dark background — the form still works.
 > `"July"`). Omit any field you are not sure of — never guess a value, never
 > write `"Unknown"`. The files are: [list the filenames, or attach the images].
 > Output only the JSON array.
-

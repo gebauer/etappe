@@ -95,7 +95,8 @@ export function routeUrl(
   }
 
   if (app === 'here') {
-    const kind = mode === 'walk' ? 'walk' : mode === 'bike' ? 'bicycle' : 'drive';
+    const kind =
+      mode === 'walk' ? 'walk' : mode === 'bike' ? 'bicycle' : 'drive';
     return {
       url: `https://wego.here.com/directions/${kind}/${points.map(ll).join('/')}`,
       truncated: 0,

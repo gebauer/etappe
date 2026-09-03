@@ -13,8 +13,7 @@
  */
 
 export type BufferOverride =
-  | { unit: 'pct'; value: number }
-  | { unit: 'min'; value: number };
+  { unit: 'pct'; value: number } | { unit: 'min'; value: number };
 
 /** `null` = no override (use the trip default). `'invalid'` = the input is
  * not a buffer at all, and the caller should refuse it rather than guess. */

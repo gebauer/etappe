@@ -149,8 +149,8 @@ export function SettingsPanel({
               }`}
             />
             <span className="mt-1 block text-[11px] text-text-5">
-              Added on top of every routed car leg. A leg can override it
-              with its own percentage or a flat number of minutes.
+              Added on top of every routed car leg. A leg can override it with
+              its own percentage or a flat number of minutes.
             </span>
           </label>
           <label className="col-span-2 block">

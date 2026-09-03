@@ -253,13 +253,21 @@ function resolveDwell(stop: CascadeStop, trip: CascadeTrip): number {
  * Buffer is a car idea: it stands for traffic, fuel stops and photographs,
  * none of which apply to a ferry crossing with a timetable.
  */
-function legTiming(leg: CascadeLeg, trip: CascadeTrip): Omit<LegTiming, 'legId'> {
+function legTiming(
+  leg: CascadeLeg,
+  trip: CascadeTrip,
+): Omit<LegTiming, 'legId'> {
   const override = leg.duration_override_min;
   const overridden = override != null && override > 0;
   const baseDuration = overridden ? override : leg.duration_min;
 
   if (leg.mode !== 'car') {
-    return { effectiveDuration: baseDuration, baseDuration, bufferMin: 0, overridden };
+    return {
+      effectiveDuration: baseDuration,
+      baseDuration,
+      bufferMin: 0,
+      overridden,
+    };
   }
 
   const bufferMin =

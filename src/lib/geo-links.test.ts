@@ -58,9 +58,9 @@ describe('routeUrl', () => {
   it('reports how many stops Google could not take', () => {
     // 13 points = origin + 11 intermediate + destination; Google caps at 9.
     const r = routeUrl('google', chain(13))!;
-    expect(new URL(r.url).searchParams.get('waypoints')!.split('|')).toHaveLength(
-      9,
-    );
+    expect(
+      new URL(r.url).searchParams.get('waypoints')!.split('|'),
+    ).toHaveLength(9);
     expect(r.truncated).toBe(2);
   });
 
