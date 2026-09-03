@@ -32,7 +32,10 @@ export function LoginForm() {
   useEffect(() => {
     let live = true;
     loadLoginPhotos().then((p) => {
-      if (live) setPhotos(p);
+      if (!live) return;
+      setPhotos(p);
+      // One photo is chosen per visit, not always the first.
+      if (p.length > 1) setIdx(Math.floor(Math.random() * p.length));
     });
     return () => {
       live = false;

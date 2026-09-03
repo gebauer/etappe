@@ -1,6 +1,14 @@
 [
   {
-    "file": "20230721_105916.jpg",
+    "file": "tunnel-view-yosemite.jpg",
+    "place": "Tunnel View",
+    "region": "Yosemite, California, USA",
+    "coords": "37°43′N, 119°39′W",
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "quiraing-isle-of-skye.jpg",
     "place": "The Quiraing",
     "region": "Isle of Skye, Scotland",
     "coords": "57°38′N, 6°17′W",
@@ -8,7 +16,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "river.jpeg",
+    "file": "salt-marsh-creek-spiekeroog.jpg",
     "place": "Salt Marsh Creek, Spiekeroog",
     "region": "East Frisian Islands, Germany",
     "coords": "53°46′N, 7°41′E",
@@ -16,7 +24,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "coast.jpeg",
+    "file": "worms-head-gower.jpg",
     "place": "Worm's Head",
     "region": "Gower Peninsula, Wales",
     "coords": "51°34′N, 4°20′W",
@@ -24,7 +32,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "ireland.jpeg",
+    "file": "sea-loch-scotland.jpg",
     "place": "Sea Loch at Sunset",
     "region": "Scotland",
     "coords": null,
@@ -32,7 +40,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "scotland.jpeg",
+    "file": "highland-glen-track-scotland.jpg",
     "place": "Highland Glen Track at Sunset",
     "region": "Scotland",
     "coords": null,
@@ -40,7 +48,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "forest.jpeg",
+    "file": "wooded-stream-new-hampshire.jpg",
     "place": "Wooded Stream near New London",
     "region": "New Hampshire, USA",
     "coords": "43.440755°N, 71.973677°W",
@@ -48,7 +56,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "madagascar.JPG",
+    "file": "miarinarivo-coast-madagascar.jpg",
     "place": "Miarinarivo Coast",
     "region": "Madagascar",
     "coords": null,
@@ -56,7 +64,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "spoog2.jpeg",
+    "file": "westend-spiekeroog.jpg",
     "place": "Westend, Spiekeroog",
     "region": "East Frisian Islands, Germany",
     "coords": "53°45′N, 7°37′E",
@@ -64,7 +72,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "sppog3.jpeg",
+    "file": "wadden-sea-tidal-flats-spiekeroog.jpg",
     "place": "Wadden Sea Tidal Flats at Sunset, Spiekeroog",
     "region": "East Frisian Islands, Germany",
     "coords": "53°46′N, 7°41′E",
@@ -72,7 +80,7 @@
     "photographer": "J. Gebauer"
   },
   {
-    "file": "west_coast.jpeg",
+    "file": "pfeiffer-beach-sea-cave-big-sur.jpg",
     "place": "Pfeiffer Beach Sea Cave",
     "region": "Big Sur, California, USA",
     "coords": "36°14′N, 121°48′W",
