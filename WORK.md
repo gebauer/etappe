@@ -2120,7 +2120,9 @@ types normally. The fields re-key on `stop.lat`/`stop.lon` so the pasted
 values show without a card reopen.
 - Verified in batch-18-check: pasting the pair into Latitude fills both.
 
-**18.6 The rest of the light-theme debt** · Standard · ⬜
+---
+
+## Noticed
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
