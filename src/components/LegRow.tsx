@@ -219,14 +219,22 @@ export function LegRow({
                   ↩ routed
                 </button>
               )}
-              {unrouted && (
-                <button
-                  onClick={onReroute}
-                  className="h-7 rounded-md border border-border-strong px-2 text-[11.5px] text-text-2 hover:bg-control"
-                >
-                  ⟳ route
-                </button>
-              )}
+              {/* Re-run routing for this one leg. On an unrouted leg it's the
+                  only way to get a road; on a routed one it re-fetches from
+                  the current engine — the way to move a leg onto HERE (or
+                  off a stale cache entry) without re-routing the whole trip
+                  from Account settings. */}
+              <button
+                onClick={onReroute}
+                title={
+                  unrouted
+                    ? 'Try routing this leg again'
+                    : 'Re-run routing with the current engine'
+                }
+                className="h-7 rounded-md border border-border-strong px-2 text-[11.5px] text-text-2 hover:bg-control"
+              >
+                {unrouted ? '⟳ route' : '⟳ re-route'}
+              </button>
 
               <select
                 defaultValue={leg.surface || ''}
