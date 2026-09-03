@@ -111,21 +111,24 @@ below.**
 **Phase 15 (wishlist contributor attribution) also done 2026-09-02 —
 15.1 (schema + per-user colour, snapshotted onto each poi) and 15.2 (the
 chip + two pills on the panel, carousel and docked card).**
-**→ Next: nothing queued.** Phase 20 (sign-in redesign, handoff revision
-10) shipped 2026-09-03; the author still needs to drop 8–12 photos into
-`public/login-photos/` and update `photos.json` (one sample photo ships).
+**→ Next: the trip-selection redesign (Phase 21), from handoff revision
+11.** Phase 20 (sign-in redesign) shipped 2026-09-03 — the photo set is
+in `public/login-photos/`.
 `ToDo.md` may have loose ends worth a pass.
 
 **Handoff folders consolidated 2026-09-03.** The numbered download copies
-`design_handoff_map_first_planner(9)/` and `(10)/` have been merged into
-the single in-repo `design_handoff_map_first_planner/` and deleted. `(9)`
-was fully absorbed — its only delta over the base folder was the trip
-overview (17.6), and Phase 18 took its two carried-over items (overlay
-contrast, block-editor redesign) from `(9)/CLAUDE_CODE_PROMPT.md`. `(10)`
-added exactly one thing over `(9)`: the **`## Sign-in`** section plus its
-assets (`Etappe Login.dc.html`, `photos/`, a `photos.json` manifest
-concept, `FEATURE_REQUEST_trip-photos.md`, and the prototype-only
-`image-slot.js`). That section is **not built** — see Phase 20.
+`(9)/`, `(10)/` and `(11)/` have all been merged into the single in-repo
+`design_handoff_map_first_planner/` and deleted. Each was a strict
+superset of the last:
+- `(9)` — trip overview (built as 17.6); Phase 18 took its two
+  carried-over items (overlay contrast, block-editor redesign) from its
+  `CLAUDE_CODE_PROMPT.md`. Fully absorbed.
+- `(10)` — one net-new section, **`## Sign-in`**, plus `Etappe
+  Login.dc.html`, `photos/`, the `photos.json` concept, and
+  `FEATURE_REQUEST_trip-photos.md`. Built as Phase 20.
+- `(11)` — one net-new section, **`## Trip selection`**, plus `Etappe
+  Trips.dc.html`. **Not built — see Phase 21.** (`image-slot.js` and the
+  prototype-only `support.js` ride along unchanged.)
 The Blocks section
 of the expanded card reuses `BlockEditor` as-is (light-themed) rather than
 restyling it — out of this bundle's scope, and a visible mismatch inside
@@ -2596,6 +2599,56 @@ note in the Status section).
 `FEATURE_REQUEST_trip-photos.md` — sourcing the rotation from the user's
 own finished trips. Needs an upload opt-in flag, a pre-auth public bucket
 or a post-email load sequence, and a moderation path. Separate task.
+
+---
+
+## Phase 21 — Trip-selection redesign
+
+Source: `design_handoff_map_first_planner/README.md` **"Trip selection"**
+section + `Etappe Trips.dc.html`. The one net-new item in handoff
+revision 11; everything else in that revision was already built.
+**Not started.**
+
+Today's `TripList.tsx` is an always-open `TITLE` / `START DATE` form with
+bare title + ISO-date rows under it — a data-entry form before the user
+has anything to look at, and a week's planning reduced to one 13px line.
+The redesign makes each trip a **horizontal photo card**.
+
+**21.1 Trip cards** · Standard
+- Header: brand dot + `Etappe`, and `Import a trip` (ghost) + `New trip`
+  (accent) buttons move here. **New trip opens the title/date fields as a
+  small on-demand form**, not the resting state of the page. Then
+  `Your trips` (26px/600) + a mono count line (`3 trips · 1 upcoming`).
+- Each trip is one full-width button, `flex; align-items:stretch;
+  gap:16px; padding:14px`, `surface-2`, 12px between cards:
+  1. **Hero photo** 236×152, `radius:12px`, `to top` scrim; a status pill
+     top-left (`In N days` accent / `Past` control / `Draft` gold, and an
+     in-progress trip reads the current day) and the place name
+     bottom-left in mono uppercase.
+  2. **Highlight strip** — three 88×46 tiles, each captioned with its
+     place; hero + strip = four of the trip's places visible unopened.
+  3. **Facts column** — title 19px/600, date range 13px, then one mono
+     line `10 days · 8 stops · 1 340 km · €€€` (cost band in the
+     itinerary gold, omitted when the trip has no costs), then contributor
+     pills + a saved-places count.
+  4. **Right rail** (`space-between`) — last-edited mono 11px at the top,
+     the action at the bottom (`Open` upcoming / `Revisit` past /
+     `Continue` draft) with an accent `›`.
+- A dashed 62px **`+ Plan a new trip`** closes the list, matching the
+  itinerary column's `+ Stop` footer.
+- **Ordering:** in-progress first, then upcoming by start date, then
+  drafts by last-edited, then past newest-first.
+
+**21.2 Card photo source** · Standard
+- Hero = the trip's first **starred** wishlist photo; strip = the next
+  three. Fallback chain: starred → unstarred wishlist photo → a
+  `kind`-tinted gradient plate carrying the place name. **Never a stock
+  image, never an empty frame** — a trip with two saved places shows two
+  tiles and a plate, not three grey holes.
+- Reuses the existing PocketBase thumb pipeline and the wishlist
+  `blocks`/`pois` the map pins already read; no new fetch path.
+- Once `FEATURE_REQUEST_trip-photos.md` lands, a past trip's own photos
+  take precedence over wishlist thumbnails — out of scope here.
 
 ---
 

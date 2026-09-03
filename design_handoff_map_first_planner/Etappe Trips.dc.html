@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="./image-slot.js"></script>
+<style>
+  html, body { margin: 0; background: oklch(0.16 0.012 250); }
+  body { font-family: "Space Grotesk", system-ui, sans-serif; color: oklch(0.95 0.005 250); -webkit-font-smoothing: antialiased; }
+  a { color: oklch(0.72 0.13 215); text-decoration: none; }
+  a:hover { color: oklch(0.84 0.11 215); }
+  input::placeholder { color: oklch(0.62 0.01 250); }
+  input:focus { outline: none; border-color: oklch(0.56 0.09 215); }
+</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:18px;padding:34px">
+  <div style="display:flex;align-items:baseline;gap:12px">
+    <span style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.60 0.01 250)">Turn 1 · Trip selection</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.50 0.01 250)">hero photo plus highlight strip</span>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="display:flex;align-items:center;justify-content:center;height:22px;padding:0 9px;border-radius:6px;background:oklch(0.24 0.013 250);font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.88 0.006 250)">1a · chosen</span>
+        <span style="font-size:13.5px;color:oklch(0.74 0.008 250)">Full card — hero photo plus highlight strip</span>
+      </div>
+
+      <div style="width:1180px;padding:30px 34px 34px;border-radius:18px;border:1px solid oklch(0.27 0.012 250);background:oklch(0.175 0.012 250)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:9px;height:9px;border-radius:50%;background:oklch(0.72 0.13 215);box-shadow:0 0 0 4px oklch(0.72 0.13 215 / 0.18)"></span>
+          <span style="font-size:19px;font-weight:700;letter-spacing:-0.01em">Etappe</span>
+          <span style="flex:1"></span>
+          <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:8px;border:1px solid oklch(0.32 0.012 250);background:oklch(0.24 0.013 250);color:oklch(0.86 0.006 250);font:inherit;font-size:12.5px;cursor:pointer" style-hover="background:oklch(0.28 0.014 250)">Import a trip</button>
+          <button onClick="{{ noop }}" style="height:34px;padding:0 14px;border-radius:8px;border:0;background:oklch(0.72 0.13 215);color:oklch(0.16 0.02 240);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:oklch(0.80 0.12 215)">New trip</button>
+        </div>
+
+        <div style="margin-top:26px;display:flex;align-items:baseline;gap:12px">
+          <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-0.02em">Your trips</h1>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.58 0.01 250)">3 trips · 1 upcoming</span>
+        </div>
+
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ trips }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ noop }}" style="{{ t.cardStyle }}" style-hover="border-color:oklch(0.40 0.012 250);background:oklch(0.215 0.012 250)">
+
+              <span style="position:relative;flex:0 0 auto;width:236px;height:152px;border-radius:12px;overflow:hidden;background:oklch(0.22 0.012 250)">
+                <sc-if value="{{ t.hasHero }}" hint-placeholder-val="{{ true }}">
+                  <image-slot id="{{ t.slotId }}" shape="rect" fit="cover" src="{{ t.hero }}" placeholder="{{ t.heroHint }}"></image-slot>
+                </sc-if>
+                <sc-if value="{{ t.noHero }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ t.heroPlateStyle }}"></span>
+                </sc-if>
+                <span style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,oklch(0.13 0.02 250 / 0.66),oklch(0.13 0.02 250 / 0) 52%)"></span>
+                <span style="{{ t.statusStyle }}">{{ t.status }}</span>
+                <span style="position:absolute;left:10px;bottom:9px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.88 0.01 250)">{{ t.heroCaption }}</span>
+              </span>
+
+              <span style="flex:0 0 auto;display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ t.strip }}" as="s" hint-placeholder-count="3">
+                  <span style="{{ s.style }}"><span style="{{ s.labelStyle }}">{{ s.label }}</span></span>
+                </sc-for>
+              </span>
+
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:0 4px">
+                <span style="display:block;min-width:0">
+                  <span style="display:block;font-size:19px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.title }}</span>
+                  <span style="display:block;margin-top:3px;font-size:13px;color:oklch(0.74 0.008 250)">{{ t.dates }}</span>
+                </span>
+
+                <span style="display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:oklch(0.62 0.01 250)">
+                  <span>{{ t.days }}</span>
+                  <span>{{ t.stops }}</span>
+                  <span>{{ t.distance }}</span>
+                  <span style="{{ t.costStyle }}">{{ t.cost }}</span>
+                </span>
+
+                <span style="display:flex;align-items:center;gap:8px">
+                  <sc-for list="{{ t.people }}" as="p" hint-placeholder-count="2">
+                    <span style="{{ p.style }}"><span style="{{ p.dotStyle }}"></span>{{ p.name }}</span>
+                  </sc-for>
+                  <span style="{{ t.wishStyle }}">{{ t.wish }}</span>
+                </span>
+              </span>
+
+              <span style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;align-self:stretch;padding:3px 0">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.54 0.01 250)">{{ t.edited }}</span>
+                <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:oklch(0.80 0.008 250)">{{ t.action }}<span style="font-size:15px;line-height:1;color:oklch(0.72 0.13 215)">›</span></span>
+              </span>
+            </button>
+          </sc-for>
+
+          <button onClick="{{ noop }}" style="display:flex;align-items:center;justify-content:center;gap:9px;height:62px;border-radius:14px;border:1px dashed oklch(0.34 0.012 250);background:transparent;color:oklch(0.76 0.008 250);font:inherit;font-size:13.5px;cursor:pointer" style-hover="border-color:oklch(0.46 0.012 250);color:oklch(0.92 0.006 250)">
+            <span style="font-size:16px;line-height:1">+</span>Plan a new trip
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="max-width:1180px;padding:16px 18px;border-radius:12px;border:1px solid oklch(0.27 0.012 250);background:oklch(0.20 0.013 250);font-size:13px;line-height:1.6;color:oklch(0.74 0.008 250);text-wrap:pretty">
+    <strong style="color:oklch(0.92 0.006 250);font-weight:600">Where the photos come from.</strong> The hero is the first starred wishlist photo on the trip; the strip beside it is the next three. A trip with no starred places falls back to its unstarred wishlist photos, then to a plain <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">kind</span>-tinted plate — never a stock image, and never an empty frame. <span style="color:oklch(0.92 0.006 250)">New trip moved into the header:</span> the always-open title and date fields from the current screen are a form the user meets before they have anything to look at. Drop an image on any frame to see it filled.
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const USERS = {
+  julia: { name: "Julia", color: "oklch(0.72 0.13 300)", ink: "oklch(0.18 0.03 300)" },
+  jan:   { name: "Jan",   color: "oklch(0.75 0.13 155)", ink: "oklch(0.18 0.03 155)" }
+};
+
+// € 1–50 · €€ 51–250 · €€€ 251+  (matches the itinerary marks)
+function band(c) {
+  if (!c) return "";
+  return c <= 50 ? "€" : (c <= 250 ? "€€" : "€€€");
+}
+
+const TRIPS = [
+  {
+    id: "iceland", title: "Ring Road, Iceland",
+    dates: "14 – 23 Oct 2026", datesShort: "14 – 23 Oct 2026",
+    status: "In 41 days", tone: "up",
+    days: 10, stops: 8, distance: "1 340 km", cost: 2480,
+    people: ["julia", "jan"], wish: 6, edited: "2 d ago",
+    action: "Open", hero: "./photos/yosemite-tunnel-view.jpg",
+    heroCaption: "Jökulsárlón", heroHint: "Starred wishlist photo",
+    strip: ["Gullfoss", "Vík", "Geysir"]
+  },
+  {
+    id: "yosemite", title: "Yosemite & the Eastern Sierra",
+    dates: "14 – 21 Jul 2025", datesShort: "14 – 21 Jul 2025",
+    status: "Past", tone: "past",
+    days: 8, stops: 22, distance: "980 km", cost: 1720,
+    people: ["jan"], wish: 0, edited: "Jul 2025",
+    action: "Revisit", hero: "./photos/yosemite-tunnel-view.jpg",
+    heroCaption: "Tunnel View", heroHint: "Starred wishlist photo",
+    strip: ["Mono Lake", "Glacier Pt", "Bodie"]
+  },
+  {
+    id: "test", title: "Untitled trip",
+    dates: "No dates yet", datesShort: "No dates yet",
+    status: "Draft", tone: "draft",
+    days: 0, stops: 0, distance: "—", cost: 0,
+    people: ["julia"], wish: 2, edited: "5 min ago",
+    action: "Continue", hero: "",
+    heroCaption: "Sognefjord", heroHint: "",
+    strip: ["Bergen", "", ""]
+  }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const tone = {
+      up:    { bg: "oklch(0.72 0.13 215)",  fg: "oklch(0.16 0.02 240)" },
+      past:  { bg: "oklch(0.28 0.014 250)", fg: "oklch(0.84 0.008 250)" },
+      draft: { bg: "oklch(0.30 0.045 80)",  fg: "oklch(0.90 0.10 85)" }
+    };
+    const plate = [
+      "linear-gradient(135deg,oklch(0.32 0.05 215),oklch(0.24 0.03 260))",
+      "linear-gradient(135deg,oklch(0.34 0.05 150),oklch(0.24 0.03 200))",
+      "linear-gradient(135deg,oklch(0.33 0.05 85),oklch(0.24 0.03 40))"
+    ];
+
+    return {
+      noop: () => {},
+      trips: TRIPS.map((t, ti) => ({
+        title: t.title, dates: t.dates, datesShort: t.datesShort, status: t.status,
+        days: t.days ? t.days + " days" : "no days",
+        stops: t.stops ? t.stops + " stops" : "no stops",
+        distance: t.distance,
+        cost: band(t.cost),
+        costStyle: `letter-spacing:0.02em;color:oklch(0.82 0.11 85);${t.cost ? "" : "display:none"}`,
+        edited: t.edited,
+        action: t.action,
+        hero: t.hero,
+        hasHero: !!t.hero,
+        noHero: !t.hero,
+        heroHint: t.heroHint,
+        heroCaption: t.heroCaption,
+        heroPlateStyle: `position:absolute;inset:0;background:${plate[ti % 3]}`,
+        slotId: "trip-hero-a-" + t.id,
+        slotIdB: "trip-hero-b-" + t.id,
+        wish: t.wish ? t.wish + " saved places" : "",
+        wishStyle: `font-size:11.5px;color:oklch(0.60 0.01 250);${t.wish ? "" : "display:none"}`,
+        statusStyle: `position:absolute;top:9px;left:10px;display:flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:10.5px;font-weight:500;background:${tone[t.tone].bg};color:${tone[t.tone].fg}`,
+        statusInlineStyle: `flex:0 0 auto;display:flex;align-items:center;height:19px;padding:0 8px;border-radius:10px;font-size:10.5px;font-weight:500;background:${tone[t.tone].bg};color:${tone[t.tone].fg}`,
+        cardStyle: "display:flex;align-items:stretch;gap:16px;width:100%;padding:14px;border-radius:14px;border:1px solid oklch(0.29 0.012 250);background:oklch(0.20 0.013 250);color:inherit;font:inherit;text-align:left;cursor:pointer",
+        rowStyle: "display:flex;align-items:center;gap:14px;width:100%;padding:10px;border-radius:11px;border:1px solid oklch(0.29 0.012 250);background:oklch(0.20 0.013 250);color:inherit;font:inherit;cursor:pointer",
+        strip: [0, 1, 2].map((i) => {
+          const label = t.strip[i] || "";
+          return {
+            label,
+            style: `position:relative;display:block;width:88px;height:${(152 - 12) / 3}px;border-radius:8px;overflow:hidden;background:${label ? plate[(ti + i) % 3] : "oklch(0.235 0.012 250)"}`,
+            labelStyle: "position:absolute;left:7px;bottom:5px;right:6px;font-size:9.5px;letter-spacing:0.04em;color:oklch(0.94 0.01 250);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px oklch(0.13 0.02 250 / 0.8)"
+          };
+        }),
+        people: t.people.map((k) => ({
+          name: USERS[k].name,
+          initial: USERS[k].name[0],
+          style: "display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:11px;font-size:11px;font-weight:500;color:oklch(0.88 0.006 250);background:oklch(0.25 0.012 250);border:1px solid oklch(0.32 0.012 250)",
+          dotStyle: `width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:${USERS[k].color}`,
+          chipStyle: `width:22px;height:22px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:${USERS[k].color};color:${USERS[k].ink}`
+        }))
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

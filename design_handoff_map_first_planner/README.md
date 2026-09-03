@@ -262,6 +262,25 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 
 **Not covered** (unchanged from today): loading states, form validation, error states.
 
+## Trip selection
+
+The screen after sign-in. Today it is an always-open `TITLE` / `START DATE` form with two bare title-and-ISO-date rows under it: a user meets a data-entry form before they have anything to look at, and a trip they spent a week planning is one 13px line. The redesign makes each trip a **horizontal card carrying its own photographs**.
+
+**Shell** — brand dot + `Etappe` top-left; **`Import a trip` and `New trip` move into the header** as a ghost and an accent button. New trip opens the title/date fields as a small form on demand; it is not the resting state of the page. Then `Your trips` at 26px/600 with a mono count line (`3 trips · 1 upcoming`).
+
+**Card** — `display:flex; align-items:stretch; gap:16px; padding:14px`, `radius:14px`, `surface-2` `oklch(0.20 0.013 250)`, border `oklch(0.29 0.012 250)`; hover border `oklch(0.40 0.012 250)` on `oklch(0.215 0.012 250)`. 12px between cards. The whole card is one button.
+
+1. **Hero photo**, 236×152, `radius:12px`, `object-fit:cover`, with a `to top` scrim from `oklch(0.13 0.02 250 / 0.66)`. A **status pill** top-left — `In 41 days` on accent, `Past` on `control`, `Draft` on `oklch(0.30 0.045 80)` with `oklch(0.90 0.10 85)` text — and the place name bottom-left in mono 10.5px, letterspaced, uppercase.
+2. **Highlight strip**, three 88×46 tiles stacked at 6px, each captioned with its place at 9.5px. Together with the hero this is four of the trip's places visible without opening it.
+3. **Facts column**: title 19px/600; date range 13px `text-2`; then one **mono 12px line** — `10 days · 8 stops · 1 340 km · €€€` — with the cost band in the itinerary's gold `oklch(0.82 0.11 85)` and omitted entirely when the trip has no costs. Below it the **contributor pills** (dot + nickname, same as the wishlist card) and a saved-places count.
+4. **Right rail**, `justify-content:space-between`: last-edited in mono 11px `text-5` at the top, and the action at the bottom — `Open` for upcoming, `Revisit` for past, `Continue` for a draft, each with an accent `›`.
+
+A dashed 62px **`+ Plan a new trip`** closes the list, matching the `+ Stop` footer in the itinerary column.
+
+**Photo source** — the hero is the trip's **first starred wishlist photo**; the strip is the next three. No starred places falls back to unstarred wishlist photos, then to a `kind`-tinted gradient plate carrying the place name. Never a stock image and never an empty frame: a trip with two saved places shows two tiles and a plate, not three grey holes. Once the trip-photos feature request lands, photos from the finished trip take precedence over wishlist thumbnails for past trips.
+
+**Ordering** — upcoming trips first by start date, then drafts by last edited, then past trips newest first. A trip in progress sorts above everything with its status pill reading the current day.
+
 ## Sign-in
 
 The old sign-in was a dark card centred on an empty dark field — correct and completely inert. This is the one screen seen before any trip exists, so it is the one place the product can do the thing it is for: make the user want to go somewhere.
@@ -441,9 +460,10 @@ None shipped. Everything in the prototype is CSS.
 
 - `Etappe Redesign.dc.html` — the full prototype: desktop shell, all card modes, the expanded card, phone layout. Open it directly in a browser. Reach the expanded card via `All details` on any stop card.
 - `Etappe Login.dc.html` — the sign-in prototype (see the "Sign-in" section).
+- `Etappe Trips.dc.html` — the trip-selection prototype (see the "Trip selection" section).
 - `support.js`, `image-slot.js` — prototype runtime only. Not for the target app; ignore both.
 - `photos/` + (expected) `photos.json` — the sample sign-in photo and the manifest shape the "Sign-in" section describes. Ship 8–12 of your own.
-- `FEATURE_REQUEST_trip-photos.md` — the follow-up that swaps the supplied folder for the user's own trip photos. Not part of the sign-in redesign.
+- `FEATURE_REQUEST_trip-photos.md` — the follow-up that swaps the supplied folder for the user's own trip photos. Touches both the sign-in and the trip-selection photo sources; not part of either redesign.
 
 Inside the prototype: the markup section is the template, the `class Component` block below it holds the logic. `STOPS` and `WISH` at the top are seeded demo data mirroring the Iceland Ring Road trip from the screenshots. Four tweakable props sit at the bottom of the file — demo state (`rest` / `stop` / `stop-edit` / `wishlist` / `empty`), force-phone, wishlist pins on/off, and accent color — useful for stepping through every state without clicking.
 
