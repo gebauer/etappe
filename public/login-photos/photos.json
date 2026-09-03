@@ -1,9 +1,90 @@
 [
   {
-    "file": "yosemite-tunnel-view.jpg",
-    "place": "Tunnel View, Yosemite",
-    "region": "California",
-    "coords": "37°43′N",
-    "month": "July"
+    "file": "20230721_105916.jpg",
+    "place": "The Quiraing",
+    "region": "Isle of Skye, Scotland",
+    "coords": "57°38′N, 6°17′W",
+    "month": "July",
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "river.jpeg",
+    "place": "Salt Marsh Creek, Spiekeroog",
+    "region": "East Frisian Islands, Germany",
+    "coords": "53°46′N, 7°41′E",
+    "month": "September",
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "coast.jpeg",
+    "place": "Worm's Head",
+    "region": "Gower Peninsula, Wales",
+    "coords": "51°34′N, 4°20′W",
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "ireland.jpeg",
+    "place": "Sea Loch at Sunset",
+    "region": "Scotland",
+    "coords": null,
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "scotland.jpeg",
+    "place": "Highland Glen Track at Sunset",
+    "region": "Scotland",
+    "coords": null,
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "forest.jpeg",
+    "place": "Wooded Stream near New London",
+    "region": "New Hampshire, USA",
+    "coords": "43.440755°N, 71.973677°W",
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "madagascar.JPG",
+    "place": "Miarinarivo Coast",
+    "region": "Madagascar",
+    "coords": null,
+    "month": "November",
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "spoog2.jpeg",
+    "place": "Westend, Spiekeroog",
+    "region": "East Frisian Islands, Germany",
+    "coords": "53°45′N, 7°37′E",
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "sppog3.jpeg",
+    "place": "Wadden Sea Tidal Flats at Sunset, Spiekeroog",
+    "region": "East Frisian Islands, Germany",
+    "coords": "53°46′N, 7°41′E",
+    "month": null,
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "soledad.heic",
+    "place": "Pinnacles National Park",
+    "region": "California, USA",
+    "coords": "36.482°N, 121.200°W",
+    "month": "July",
+    "photographer": "J. Gebauer"
+  },
+  {
+    "file": "west_coast.jpeg",
+    "place": "Pfeiffer Beach Sea Cave",
+    "region": "Big Sur, California, USA",
+    "coords": "36°14′N, 121°48′W",
+    "month": null,
+    "photographer": "J. Gebauer"
   }
 ]
