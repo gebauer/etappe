@@ -31,10 +31,7 @@ import { loadThumbnailUrl } from '../lib/wikimedia';
 import { pb } from '../lib/pb';
 import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
 import { DayPills } from './DayPills';
-
-const TILE_URL =
-  import.meta.env.VITE_TILE_URL ??
-  'https://tiles.openfreemap.org/styles/liberty';
+import { TILE_URL } from '../lib/map-config';
 
 const STOP_LAYERS = ['stops'];
 

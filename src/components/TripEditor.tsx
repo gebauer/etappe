@@ -11,6 +11,7 @@ import { SharePanel } from './SharePanel';
 import { BudgetPopover } from './BudgetPopover';
 import { TripDatePopover } from './TripDatePopover';
 import { SettingsPanel } from './SettingsPanel';
+import { PrintView } from './PrintView';
 import {
   listMembers,
   setTripStartDate,
@@ -193,6 +194,7 @@ export function TripEditor({
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
@@ -1335,6 +1337,13 @@ export function TripEditor({
                 Share
               </button>
               <button
+                onClick={() => setPrintOpen(true)}
+                title="A one-page-per-day printable itinerary"
+                className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
+              >
+                Print
+              </button>
+              <button
                 onClick={() => setExportOpen((open) => !open)}
                 title="Download this trip as JSON"
                 className="h-[30px] rounded-lg bg-control px-3 text-[13px] text-text-2 hover:bg-control-hover"
@@ -1905,6 +1914,18 @@ export function TripEditor({
           trip={trip}
           onClose={() => setSettingsOpen(false)}
           onSave={(patch) => run(() => updateTripSettings(tripId, patch))}
+        />
+      )}
+      {printOpen && (
+        <PrintView
+          trip={trip}
+          days={days}
+          stops={stops}
+          legs={legs}
+          blocks={records.blocks}
+          result={result}
+          allowPrivate
+          onClose={() => setPrintOpen(false)}
         />
       )}
       {timingConflict && (

@@ -31,7 +31,7 @@ export interface LegFeatureCollection {
   features: LegFeature[];
 }
 
-function asLineString(
+export function asLineString(
   g: unknown,
 ): { type: 'LineString'; coordinates: number[][] } | null {
   if (

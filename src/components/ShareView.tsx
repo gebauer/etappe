@@ -71,8 +71,13 @@ export function ShareView({ token }: { token: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-bg font-sans text-text">
-      <header className="border-b border-border bg-surface-2 px-5 py-4">
+    <div className="min-h-screen bg-bg font-sans text-text sv-root">
+      {/* A minimal print treatment (WORK 9.3): the dark shell inverts to
+          paper, and each day starts a fresh page. The full per-day-map
+          print view lives in the editor; a public reader gets the clean
+          itinerary. */}
+      <style>{SHARE_PRINT_CSS}</style>
+      <header className="border-b border-border bg-surface-2 px-5 py-4 sv-head">
         <h1 className="text-xl font-semibold">{doc.trip.title}</h1>
         <p className="text-[13px] text-text-4">
           Shared read-only from Etappe — nothing here can be edited.
@@ -86,7 +91,7 @@ export function ShareView({ token }: { token: string }) {
             (w) => w.dayId === day.id && !w.stopId,
           );
           return (
-            <section key={day.id} className="mb-8">
+            <section key={day.id} className="mb-8 sv-day">
               <div className="mb-2 flex items-baseline justify-between">
                 <h2 className="text-base font-semibold">
                   Day {i + 1}
@@ -152,6 +157,18 @@ export function ShareView({ token }: { token: string }) {
     </div>
   );
 }
+
+const SHARE_PRINT_CSS = `
+@media print {
+  @page { margin: 14mm; }
+  .sv-root { background: #fff !important; color: #14171c !important; }
+  .sv-head { background: #fff !important; border-color: #d8dbe0 !important; }
+  .sv-root * { color: #14171c !important; background-color: transparent !important; border-color: #d8dbe0 !important; }
+  .sv-day { break-inside: avoid; }
+  .sv-day + .sv-day { break-before: page; }
+  .sv-root a { color: #1f6feb !important; text-decoration: none; }
+}
+`;
 
 function publicBlocksOf(blocks: ShareBlock[]) {
   if (blocks.length === 0) return null;

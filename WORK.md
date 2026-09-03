@@ -500,9 +500,37 @@ Read-only, unauthenticated, same cascade output, public blocks only.
 Built as `src/components/ShareView.tsx` + `src/lib/share-doc.ts`, as part
 of WORK 16.6.
 
-**9.3 Print stylesheet** · Standard
-One page per day, MapLibre canvas to PNG per day, attribution block, private-
-block checkbox forced off in the share context.
+**9.3 Print stylesheet** · Standard · ✅ (2026-09-03)
+One page per day, a client-rendered map per day, note/link/photo blocks
+with Commons attribution, a private-note toggle. No server PDF — the
+browser's own print, per BUILD §10.
+- `PrintView.tsx`, opened from a **Print** button in the header, portalled
+  to `<body>` so the print stylesheet hides the live app with one
+  `body.printing > *:not(.print-portal)` rule. Deliberately **light** —
+  print is paper; a dark background wastes ink — which is the one place
+  in the app that isn't the dark palette, on purpose.
+- `lib/print-map.ts` renders the per-day maps: one reused **offscreen**
+  MapLibre instance (`preserveDrawingBuffer: true`), days done **one at a
+  time**, fit to that day's stops + start point + routed leg geometries
+  (a straight connector where a leg has no route), waiting on `idle` +
+  a short settle before `getCanvas().toDataURL()`. Fourteen live WebGL
+  contexts would risk the browser cap; one instance with two swapped
+  sources doesn't. The Print button stays disabled until every map is in.
+- `TILE_URL` moved to `lib/map-config.ts` so the live map and the
+  snapshot map share it (and a self-hosted `VITE_TILE_URL` reaches both).
+  `asLineString` exported from `map-features.ts` for reuse.
+- **Private blocks:** `allowPrivate` prop — `true` from the editor (with a
+  checkbox, default on), and the checkbox simply isn't rendered without
+  it, so the share context can never include them.
+- **ShareView** gets a lighter print treatment inline (`@media print`:
+  invert the dark shell to paper, `break-before: page` per day). No
+  per-day maps there — the full map print view is the editor's; a public
+  reader gets the clean itinerary. Noted as a deliberate narrowing.
+- Verified: `.claude/skills/run-etappe/print-check.mjs` imports a 2-day
+  trip, opens Print, waits for "Maps ready", and asserts two `<img>` maps
+  each a >3 KB PNG data URL plus one section per day and a trip note
+  present. No console errors (headless Chromium with swiftshader GL).
+- Commit: `phase 9.3: print view — one page per day`.
 
 ---
 
