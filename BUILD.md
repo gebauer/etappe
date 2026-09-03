@@ -90,7 +90,7 @@ clears the pointer rather than cascading.
 | `duration_override_min` | number | 0 → use `duration_min`; keeps the route |
 | `distance_m` | number | |
 | `geometry` | json | GeoJSON LineString |
-| `routing_source` | select | `ors` \| `manual` |
+| `routing_source` | select | `ors` \| `here` \| `osrm` \| `manual` — which engine answered; `manual` = none could |
 | `buffer_override` | text | `"12%"` or `"12"` (minutes); `""` → trip default |
 | `seasonal_warning` | bool | set on F-roads |
 

@@ -7,7 +7,12 @@
  */
 
 import type { TypedPocketBase } from '../types/pb';
-import { isRoutable, type LatLon, type RoutingProvider } from './routing';
+import {
+  isRoutable,
+  isRoutingBackend,
+  type LatLon,
+  type RoutingProvider,
+} from './routing';
 
 export type LegMode = 'car' | 'walk' | 'flight' | 'ferry' | 'bike' | 'other';
 export type Surface = 'paved' | 'gravel' | 'froad';
@@ -139,7 +144,11 @@ export async function buildLegRecord(
       duration_min: r.duration_min,
       distance_m: r.distance_m,
       geometry: r.geometry,
-      routing_source: 'ors',
+      // Whoever actually answered (WORK 19.6). This was the literal 'ors'
+      // until HERE existed, which filed every HERE route under the wrong
+      // engine. An unrecognised backend falls back rather than writing a
+      // value the select would reject.
+      routing_source: isRoutingBackend(r.backend) ? r.backend : 'ors',
     };
   } catch {
     return manual;

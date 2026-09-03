@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { planInsertBetween, planDeleteStop, type LegLike } from './pb-legs';
-import { isRoutable, createPocketBaseRouting } from './routing';
+import {
+  planInsertBetween,
+  planDeleteStop,
+  buildLegRecord,
+  type LegLike,
+} from './pb-legs';
+import {
+  isRoutable,
+  createPocketBaseRouting,
+  type RouteResult,
+  type RoutingProvider,
+} from './routing';
 import type { TypedPocketBase } from '../types/pb';
 
 const leg = (
@@ -128,5 +138,56 @@ describe('createPocketBaseRouting', () => {
         },
       },
     ]);
+  });
+});
+
+// --- which engine answered (WORK 19.6) --------------------------------------
+
+describe('buildLegRecord', () => {
+  const coords = new Map([
+    ['a', { lat: 64, lon: -21 }],
+    ['b', { lat: 63, lon: -22 }],
+  ]);
+  const newLeg = {
+    from_stop: 'a',
+    to_stop: 'b',
+    mode: 'car' as const,
+    surface: null,
+  };
+
+  const answering = (r: Partial<RouteResult>): RoutingProvider => ({
+    route: async () => ({
+      routable: true,
+      duration_min: 100,
+      distance_m: 118000,
+      geometry: {},
+      cached: false,
+      ...r,
+    }),
+  });
+
+  it('files the leg under the engine that answered', async () => {
+    for (const backend of ['ors', 'here', 'osrm']) {
+      const rec = await buildLegRecord(answering({ backend }), newLeg, coords);
+      expect(rec.routing_source).toBe(backend);
+    }
+  });
+
+  it('falls back rather than writing a value the select would reject', async () => {
+    // An older hook that doesn't send `backend`, or a typo in one.
+    for (const backend of [undefined, 'valhalla']) {
+      const rec = await buildLegRecord(answering({ backend }), newLeg, coords);
+      expect(rec.routing_source).toBe('ors');
+    }
+  });
+
+  it('marks a leg no engine could route as manual, not as an engine', async () => {
+    const rec = await buildLegRecord(
+      answering({ routable: false, backend: 'here' }),
+      newLeg,
+      coords,
+    );
+    expect(rec.routing_source).toBe('manual');
+    expect(rec.duration_min).toBe(0);
   });
 });

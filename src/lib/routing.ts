@@ -12,11 +12,30 @@ export interface LatLon {
   lon: number;
 }
 
+/** The engines `/api/route` can answer from. `manual` is not one of them —
+ * it is what a leg becomes when no engine could route it. */
+export const ROUTING_BACKENDS = ['ors', 'here', 'osrm'] as const;
+export type RoutingBackend = (typeof ROUTING_BACKENDS)[number];
+
+export function isRoutingBackend(v: unknown): v is RoutingBackend {
+  return (ROUTING_BACKENDS as readonly unknown[]).includes(v);
+}
+
+/** Short label for the leg row's debug line — `HERE API: 1h 40m`. */
+export const BACKEND_LABEL: Record<RoutingBackend, string> = {
+  ors: 'ORS',
+  here: 'HERE',
+  osrm: 'OSRM',
+};
+
 export interface RouteResult {
   routable: boolean;
   duration_min: number;
   distance_m: number;
   geometry: unknown; // GeoJSON LineString
+  /** Which engine answered (WORK 19.6). Stored on the leg as
+   * `routing_source`, so a row can say whose number it is showing. */
+  backend?: string;
   cached: boolean;
 }
 

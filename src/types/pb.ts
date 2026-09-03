@@ -249,6 +249,8 @@ export type LegsSurfaceOptions = typeof LegsSurfaceOptions[keyof typeof LegsSurf
 
 export const LegsRoutingSourceOptions = {
 	"ors": "ors",
+	"here": "here",
+	"osrm": "osrm",
 	"manual": "manual",
 } as const
 export type LegsRoutingSourceOptions = typeof LegsRoutingSourceOptions[keyof typeof LegsRoutingSourceOptions]

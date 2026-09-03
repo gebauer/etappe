@@ -96,11 +96,14 @@ routerAdd(
       cached = null;
     }
     if (cached) {
+      // The backend is part of the cache key, so a hit is by definition an
+      // answer from this backend — no need to store it on the row.
       return e.json(200, {
         routable: true,
         duration_min: cached.get('duration_min'),
         distance_m: cached.get('distance_m'),
         geometry: cached.get('geometry'),
+        backend: backend,
         cached: true,
       });
     }
@@ -241,6 +244,7 @@ routerAdd(
         duration_min: 0,
         distance_m: 0,
         geometry: null,
+        backend: backend,
         cached: false,
       });
     }
@@ -267,6 +271,7 @@ routerAdd(
       duration_min: durationMin,
       distance_m: distanceM,
       geometry: geometry,
+      backend: backend,
       cached: false,
     });
   },

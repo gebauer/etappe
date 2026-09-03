@@ -1,7 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { formatDuration } from '../lib/format';
 import { legUrl, type LinkOut } from '../lib/geo-links';
-import { routingPoint } from '../lib/routing';
+import { BACKEND_LABEL, isRoutingBackend, routingPoint } from '../lib/routing';
 import { parseBufferOverride } from '../lib/leg-buffer';
 import type { LegTiming } from '../lib/cascade';
 import type { LegsResponse, StopsResponse } from '../types/pb';
@@ -74,6 +74,14 @@ export function LegRow({
   const unrouted = leg?.routing_source === 'manual';
   const km = leg?.distance_m ? Math.round(leg.distance_m / 1000) : null;
   const overridden = timing?.overridden ?? false;
+
+  // What the engine itself said, and which engine (WORK 19.6). Always on
+  // screen rather than behind a click: the point of the whole 19.x thread
+  // was that the routed number needed checking against reality, and an
+  // override otherwise hides it completely.
+  const engine = isRoutingBackend(leg?.routing_source)
+    ? BACKEND_LABEL[leg.routing_source]
+    : null;
   const bufferBad = parseBufferOverride(bufferText) === 'invalid';
 
   const a = routingPoint(from);
@@ -109,6 +117,14 @@ export function LegRow({
             {km != null ? ` · ${km} km` : ''}
           </span>
         </button>
+        {engine && leg && (
+          <span
+            title={`Raw answer from the ${engine} routing API, before any buffer or override`}
+            className="flex-none truncate font-mono text-[10.5px] text-text-5 opacity-70"
+          >
+            {engine} API: {formatDuration(leg.duration_min)}
+          </span>
+        )}
         {overridden && (
           <span
             title="Time set by hand — the routed road is kept"
