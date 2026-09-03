@@ -6,6 +6,7 @@ import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { describeDaylight } from '../lib/daylight';
 import { ContributorPill } from './ContributorMark';
+import { mapsDirectionsUrl } from '../lib/geo-links';
 import { formatDuration } from '../lib/format';
 import type { CurrencyCode } from '../lib/currency';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
@@ -64,6 +65,12 @@ interface Props {
   onDelete: () => void;
   onAddWishlist: () => void;
   onAddDay: () => void;
+  /** Reorder within the day (WORK 10.2) — the phone companion's one
+   * structural allowance: nudge the current stop up or down one slot.
+   * `canMove*` gate the arrows at the ends of the day. */
+  onMoveStop?: (direction: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   onUpdateStop: (patch: StopPatch) => void;
   /** A timing cell was typed into — see `planTimingEdit`. */
   onEditTiming: (cell: TimingCell, value: string) => void;
@@ -114,6 +121,9 @@ export function PinCard({
   onDelete,
   onAddWishlist,
   onAddDay,
+  onMoveStop,
+  canMoveUp = false,
+  canMoveDown = false,
   onUpdateStop,
   onEditTiming,
   timingFlashStopId,
@@ -200,32 +210,72 @@ export function PinCard({
             >
               {editing ? 'Done' : 'Edit'}
             </button>
-            <button onClick={onOpenDetails} className={GHOST}>
-              All details
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={onDowngrade}
-                title="Move back to wishlist"
-                className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
-              >
-                ♻
+            {!phone && (
+              <button onClick={onOpenDetails} className={GHOST}>
+                All details
               </button>
-              <button
-                onClick={() =>
-                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
-                }
-                onBlur={() => setConfirmingRemove(false)}
-                title={confirmingRemove ? undefined : 'Delete'}
-                className={
-                  confirmingRemove
-                    ? `${BTN} flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
-                    : `${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`
-                }
+            )}
+            {!!target.stop.lat && !!target.stop.lon && (
+              <a
+                href={mapsDirectionsUrl(target.stop.lat, target.stop.lon)}
+                target="_blank"
+                rel="noreferrer"
+                title="Directions in Google Maps"
+                className={`${GHOST} flex items-center`}
               >
-                {confirmingRemove ? 'Delete stop?' : '🗑'}
-              </button>
-            </div>
+                ↗ Maps
+              </a>
+            )}
+            {/* Phone is a companion (BUILD §6): a trailhead reorder is
+                allowed, deleting a stop or moving it off the itinerary is
+                not — those stay desktop-only. */}
+            {phone
+              ? onMoveStop && (
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <button
+                      onClick={() => onMoveStop(-1)}
+                      disabled={!canMoveUp}
+                      aria-label="Move stop earlier"
+                      className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control disabled:opacity-30`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => onMoveStop(1)}
+                      disabled={!canMoveDown}
+                      aria-label="Move stop later"
+                      className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control disabled:opacity-30`}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )
+              : null}
+            {!phone && (
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={onDowngrade}
+                  title="Move back to wishlist"
+                  className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
+                >
+                  ♻
+                </button>
+                <button
+                  onClick={() =>
+                    confirmingRemove ? onRemove() : setConfirmingRemove(true)
+                  }
+                  onBlur={() => setConfirmingRemove(false)}
+                  title={confirmingRemove ? undefined : 'Delete'}
+                  className={
+                    confirmingRemove
+                      ? `${BTN} flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
+                      : `${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`
+                  }
+                >
+                  {confirmingRemove ? 'Delete stop?' : '🗑'}
+                </button>
+              </div>
+            )}
           </>
         )}
 

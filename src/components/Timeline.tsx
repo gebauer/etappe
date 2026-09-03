@@ -64,6 +64,10 @@ interface Props {
    * list; clicking a row selects that day. */
   overview?: boolean;
   onSelectDay?: (dayId: string) => void;
+  /** Phone only (WORK 10.1): a horizontal swipe on the day header steps
+   * to the previous / next day. Undefined on desktop — the day dock is
+   * the switcher there. */
+  onStepDay?: (direction: -1 | 1) => void;
 }
 
 /**
@@ -105,7 +109,9 @@ export function Timeline({
   onToggleCollapse,
   overview = false,
   onSelectDay,
+  onStepDay,
 }: Props) {
+  const swipe = useRef<number | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   // Two-click confirm rather than a dialog: deleting a day takes its stops
   // with it, but it is also the kind of thing you undo by adding one back.
@@ -183,7 +189,24 @@ export function Timeline({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1 font-sans text-text">
-      <div className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]">
+      <div
+        onTouchStart={
+          onStepDay
+            ? (e) => (swipe.current = e.touches[0]?.clientX ?? null)
+            : undefined
+        }
+        onTouchEnd={
+          onStepDay
+            ? (e) => {
+                if (swipe.current == null) return;
+                const dx = (e.changedTouches[0]?.clientX ?? 0) - swipe.current;
+                swipe.current = null;
+                if (Math.abs(dx) > 45) onStepDay(dx < 0 ? 1 : -1);
+              }
+            : undefined
+        }
+        className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]"
+      >
         <div className="min-w-0">
           <div className="truncate text-[15px] font-semibold tracking-[-0.01em]">
             Day {dayIndex + 1}

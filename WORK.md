@@ -536,13 +536,55 @@ browser's own print, per BUILD §10.
 
 ## Phase 10 — Mobile and offline
 
-**10.1 Today view** · Standard
-Opens on the current date during trip dates. Swipe between days. Large touch
-targets. Deep links out to Google Maps and Komoot.
+**10.1 Today view** · Standard · ✅ (2026-09-03)
+The phone shell already existed (12.7 + 17.2/17.3); this adds the
+companion behaviours.
+- **Opens on today.** A once-only effect in `TripEditor` (phone, no day
+  yet selected): "today" is read in the **trip's** timezone via
+  `Intl.DateTimeFormat('en-CA', { timeZone })`, matched against
+  `addDays(start_date, order_index)`. A returning session that left off
+  on a day keeps it — the guard is `!selectedDayId`.
+- **Swipe between days.** `Timeline` gains `onStepDay`; a >45px horizontal
+  swipe on the day-header bar (a fixed, non-scrolling strip — safe for
+  touch, unlike the map) steps prev/next. `TripEditor` wires it to
+  `selectDay(days[activeDayIndex ± 1])`, phone only. The day dock stays
+  the explicit switcher.
+- **Deep links.** `lib/geo-links.ts` — `mapsDirectionsUrl` /
+  `mapsPlaceUrl` / `komootUrl`. A `↗ Maps` link in the stop card's action
+  bar opens Google Maps turn-by-turn to the stop's coordinates (on
+  desktop too — it is useful there). **Komoot deviation:** Komoot has no
+  documented deep link to an arbitrary coordinate, so `komootUrl` drops
+  the planner at the point at z14 — kept in the lib, not surfaced in the
+  card yet; the one link the spec really wants (navigation) is Google's.
 
-**10.2 Permitted mobile edits** · Standard
-Dwell adjustment, reorder the next two stops, add photo or note, open a
-booking. Nothing structural.
+**10.2 Permitted mobile edits** · Standard · ✅ (2026-09-03)
+Most of this was already live in `PinCardEdit` on phone (dwell, anchor,
+access point, note/link/photo, cost, routing kind — all at 44px targets).
+This closes the gaps and trims what shouldn't be there:
+- **Reorder within the day** — `↑ ↓` in the phone stop card's action bar,
+  gated at the ends of the day, wired to the existing `doMoveSelected`.
+  ("Between days" stays desktop-only — that is the structural line.)
+- **Open a booking** — a link block is already a tappable `<a>`; the new
+  `↗ Maps` link covers "tap out to Maps".
+- **Removed from the phone stop card:** `All details`, the delete `🗑`,
+  and the ♻ downgrade-to-wishlist — all either structural or heavier than
+  a trailhead edit. `PinCard.renderActions` now branches on `phone`.
+  (Wishlist-idea delete stays: curating the candidate list isn't
+  itinerary structure.)
+- Verified: `.claude/skills/run-etappe/phone-companion-check.mjs` at
+  390px — opens on the day that is "today", header swipe steps both
+  directions, and the stop card shows Maps + reorder with delete/downgrade
+  gone.
+
+**10.3 PWA and offline read** · Standard
+Manifest, icons, service worker for the shell, offline read of the active
+trip. **Note:** the app has no TanStack Query — `useTripEditor` fetches
+PocketBase directly — so "persistQueryClient to IndexedDB" as specced
+does not apply; the equivalent is a hand-rolled IndexedDB cache of the
+last-opened trip, or a service worker that caches `/api` GETs. And a
+proper precache of Vite's hashed build output effectively needs
+`vite-plugin-pwa` (a dev dependency, with the PR note CLAUDE.md requires).
+Not started — the dependency call is the author's.
 
 **10.3 PWA and offline read** · Standard
 Manifest, icons, service worker for the shell, `persistQueryClient` to

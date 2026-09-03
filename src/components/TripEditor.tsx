@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pb, isAbortError } from '../lib/pb';
 import { useTripEditor } from '../hooks/useTripEditor';
 import { useAuth } from '../hooks/useAuth';
@@ -40,6 +40,7 @@ import {
   updatePoi,
 } from '../lib/pb-pois';
 import { createPocketBaseRouting } from '../lib/routing';
+import { addDays } from '../lib/cascade';
 import { shiftClock } from '../lib/format';
 import { photonReverse, type PlaceResult } from '../lib/photon';
 import { addLinkBlock, createWikimediaPhotoBlock } from '../lib/pb-capture';
@@ -285,6 +286,31 @@ export function TripEditor({
   useEffect(() => {
     void reloadWishlist();
   }, [reloadWishlist]);
+
+  // Open on today (WORK 10.1 / BUILD §6: "Mobile ... opens on today"). Phone
+  // only, once, and only when nothing is selected yet — a returning session
+  // that left off on a specific day keeps it. "Today" is read in the trip's
+  // own timezone: at a trailhead in Iceland that is the date that matters,
+  // not the browser's.
+  const openedOnToday = useRef(false);
+  useEffect(() => {
+    if (openedOnToday.current || !phone || !records || selectedDayId) return;
+    openedOnToday.current = true;
+    const tz = records.trip.timezone || 'UTC';
+    let localDate: string;
+    try {
+      localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(
+        new Date(),
+      );
+    } catch {
+      localDate = new Date().toISOString().slice(0, 10);
+    }
+    const start = records.trip.start_date.slice(0, 10);
+    const todayDay = records.days.find(
+      (d) => addDays(start, d.order_index) === localDate,
+    );
+    if (todayDay) setSelectedDayId(todayDay.id);
+  }, [phone, records, selectedDayId]);
 
   // A share-target capture opens the wishlist search prefilled, once. Copied
   // into local state immediately rather than read from the prop at render
@@ -1583,6 +1609,15 @@ export function TripEditor({
               onToggleEdit={() => setEditing((v) => !v)}
               onClose={closeCard}
               onStep={stepCard}
+              onMoveStop={
+                cardTarget.type === 'stop'
+                  ? (dir) => doMoveSelected(dir)
+                  : undefined
+              }
+              canMoveUp={cardTarget.type === 'stop' && cardTarget.seq > 1}
+              canMoveDown={
+                cardTarget.type === 'stop' && cardTarget.seq < cardTarget.total
+              }
               onOpenDetails={() => setExpanded(true)}
               onRemove={() => {
                 if (cardTarget.type === 'stop')
@@ -1736,6 +1771,14 @@ export function TripEditor({
             days={days}
             overview={tripOverview}
             onSelectDay={selectDay}
+            onStepDay={
+              phone
+                ? (dir) => {
+                    const next = days[activeDayIndex + dir];
+                    if (next) selectDay(next.id);
+                  }
+                : undefined
+            }
             collapsed={phone && dayCollapsed}
             onToggleCollapse={
               phone ? () => setDayFolded(!dayCollapsed) : undefined
