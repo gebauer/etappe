@@ -8,6 +8,8 @@ import {
   saveRoutingKey,
 } from '../lib/user-settings';
 
+const ENGINE_BY_ID = new Map(ROUTING_ENGINES.map((e) => [e.id, e]));
+
 /**
  * Account settings (WORK 19.1) — the two routing choices, which are
  * deliberately different in scope:
@@ -56,6 +58,13 @@ export function AccountPanel({
 
   const chooseEngine = (id: string) =>
     guard(async () => {
+      // No selecting an engine whose key hasn't been stored (and validated —
+      // saveRoutingKey probes it). Otherwise `/api/route` silently falls
+      // back to the server default and every leg quietly stays on it.
+      const eng = ENGINE_BY_ID.get(id);
+      if (id && eng?.needsKey && !providers.includes(id)) {
+        throw new Error(`Add a working ${eng.label} key first.`);
+      }
       setEngine(id);
       await saveUserSettings(pb, { routing_backend: id });
       await pb.collection('users').authRefresh();

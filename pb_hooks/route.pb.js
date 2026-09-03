@@ -61,9 +61,22 @@ routerAdd(
         const trip = e.app.findRecordById('trips', String(body.trip));
         const owner = e.app.findRecordById('users', trip.get('owner'));
         const chosen = String(owner.get('routing_backend') || '').toLowerCase();
+        // A PocketBase JSON field is a Go-backed value in Goja, not a plain
+        // object — `raw[chosen]` on it reads `undefined` and the engine
+        // choice was silently ignored (every leg fell back to the ORS env
+        // default). Round-trip through text, the same way routing.pb.js does
+        // when it writes the field.
         const raw = owner.get('routing_keys');
-        const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw;
-        if (chosen && parsed && parsed[chosen]) {
+        const text =
+          raw == null ? '' : typeof raw === 'string' ? raw : String(raw);
+        let parsed = {};
+        try {
+          const p = JSON.parse(text || '{}');
+          if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p;
+        } catch (_) {
+          parsed = {};
+        }
+        if (chosen && parsed[chosen]) {
           backend = chosen;
           ownerKeys = parsed;
         }

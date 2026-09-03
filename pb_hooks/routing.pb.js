@@ -41,8 +41,25 @@ routerAdd(
     }
 
     const key = body.key == null ? null : String(body.key).trim();
-    if (key) keys[provider] = key;
-    else delete keys[provider];
+
+    // Storing a key: prove it actually routes before it lands, so a typo or
+    // a dead key surfaces here instead of silently falling back to the
+    // server default on the next re-route (author, 2026-09-03).
+    if (key) {
+      const probe = probeRoutingKey(provider, key);
+      if (!probe.ok) {
+        return e.json(400, {
+          message:
+            provider.toUpperCase() +
+            " didn't accept that key" +
+            (probe.detail ? ' — ' + probe.detail : '') +
+            '.',
+        });
+      }
+      keys[provider] = key;
+    } else {
+      delete keys[provider];
+    }
 
     const stored = Object.keys(keys);
     user.set('routing_keys', keys);
@@ -53,3 +70,54 @@ routerAdd(
   },
   $apis.requireAuth(),
 );
+
+// One live routing request with the given key — an auth check, not a real
+// route. Two points ~4 km apart near Reykjavík; any working car router
+// answers. Handler-local: each hook runs in its own VM (see route.pb.js).
+function probeRoutingKey(provider, apiKey) {
+  const o = { lat: 64.1466, lon: -21.9426 };
+  const d = { lat: 64.1355, lon: -21.8954 };
+  try {
+    if (provider === 'here') {
+      const url =
+        'https://router.hereapi.com/v8/routes?transportMode=car&origin=' +
+        o.lat +
+        ',' +
+        o.lon +
+        '&destination=' +
+        d.lat +
+        ',' +
+        d.lon +
+        '&return=summary&apikey=' +
+        encodeURIComponent(apiKey);
+      const r = $http.send({ url: url, method: 'GET', timeout: 15 });
+      return r.statusCode === 200
+        ? { ok: true }
+        : { ok: false, detail: 'HTTP ' + r.statusCode };
+    }
+    if (provider === 'ors') {
+      const base =
+        $os.getenv('ORS_URL') || 'https://api.heigit.org/openrouteservice/v2';
+      const url =
+        base +
+        '/directions/driving-car?api_key=' +
+        encodeURIComponent(apiKey) +
+        '&start=' +
+        o.lon +
+        ',' +
+        o.lat +
+        '&end=' +
+        d.lon +
+        ',' +
+        d.lat;
+      const r = $http.send({ url: url, method: 'GET', timeout: 15 });
+      return r.statusCode === 200
+        ? { ok: true }
+        : { ok: false, detail: 'HTTP ' + r.statusCode };
+    }
+    // A provider with no key to check (self-hosted OSRM) — nothing to prove.
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, detail: String(err) };
+  }
+}
