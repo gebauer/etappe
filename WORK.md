@@ -4,7 +4,17 @@ Ordered tasks. Do them in sequence; each phase assumes the previous one is
 merged and `npm run check` passes. Specification is in `BUILD.md`, rules in
 `CLAUDE.md`.
 
-## Status — updated 2026-09-02
+## Status — updated 2026-09-03
+
+**Every numbered phase task is done.** Phases 0–18 complete: 9.3 (print
+view), 10.1–10.3 (phone companion + offline read-only + shell service
+worker), 11.1 (budget, via 16.7/16.10) and 11.2 (trip settings), and the
+whole of Phase 18 (the handoff-(9) dark-theme debt, five author fixes,
+the photo gallery, wishlist search, and the last light surfaces) all
+landed 2026-09-02/03. What's left is the **Noticed** list below —
+judgement calls (the Delete/Backspace confirm) and non-blocking polish
+(code-split MapLibre, the `.env` `VITE_` prefix, leg-direction arrows,
+the stale `run-etappe` driver).
 
 **Phase 6 complete; phase 7 complete (7.1, 7.2, 7.3); Highlights import
 (schema + importer) done; both Highlights follow-ups (wishlist-on-map,
@@ -622,17 +632,16 @@ present" (author). **No new dependency** — hand-rolled, since the specced
   everything the navigation needs.)
 - Commit: `phase 10.3: offline read-only + shell service worker`.
 
-**10.3 PWA and offline read** · Standard
-Manifest, icons, service worker for the shell, `persistQueryClient` to
-IndexedDB. Verify a full day renders with the network disabled.
-
 ---
 
 ## Phase 11 — Remaining surfaces
 
-**11.1 Budget** · Cheap
-Cost entry on stops and days, totals per day and per trip, estimate flag,
-category breakdown.
+**11.1 Budget** · Cheap · ✅
+Delivered across WORK 16.7 (the costs collection surfaced, list-of-costs
+UI) and WORK 16.10 (reworked to one estimated cost per stop with its own
+currency, converted via a cached ~monthly rate, bucketed by the stop's
+kind into a header popover). Cost marks on itinerary rows added in 17.5.
+Nothing about it touches the cascade engine.
 
 **11.2 Trip settings** · Cheap · ✅ (2026-09-03)
 Buffer percentage, surface multipliers, default dwells per kind, timezone,
@@ -2329,9 +2338,6 @@ current task. Do not act on it in the same commit.
   Fix is either renaming the `.env.example` keys to `VITE_`-prefixed or adding
   the remap; the former needs the user to update their real `.env` too, so
   didn't do it unprompted.
-- `public/manifest.json` has no `icons` — valid without them, but "add to
-  home screen" polish and full PWA installability (phase 10.3) will want
-  some. No app icon assets exist anywhere in the repo yet.
 - Wishlist items are placed one at a time via the picker; BUILD §9 also
   describes dragging a wishlist item directly onto the timeline. Not built —
   click-to-place via the ranked picker covers the same need and works across
@@ -2345,23 +2351,10 @@ current task. Do not act on it in the same commit.
   show — that control no longer exists, retired along with the rest of
   BUILD §5.3's marker-tier system. A stop pin has no photo mode any more;
   see WORK 12.4.)
-- **Day pills need a "whole trip" pill eventually** (author note, 2026-09-01,
-  ahead of WORK 12.5), alongside the per-day pills — a mode showing every
-  day at once rather than filtering to one focused day (WORK 12.4's
-  day-scoped stop pins). What that overview should actually render is an
-  open design question, explicitly deferred: current lean is start/end of
-  each day only (i.e. each day's accommodation stops, or first/last stop if
-  a day has none), not every stop and not wishlist highlights — but this
-  needs a real design pass before building it, not a default assumed here.
-  Do not build this as part of 12.5; add it as its own task once the
-  content question is settled.
-- **Light-theme leftovers inside the dark card.** `KindPicker`'s filter
-  input still carries `border-slate-300` and renders as a stark white box on
-  the dark panel, and `UncategorizedReview` is a fully light drawer. Same
-  family as the `BlockEditor` mismatch already noted above. The icon grid
-  itself was fixed (icons take `currentColor`, selected is `wishlist` gold),
-  so what is left is chrome, not content — worth one pass over all three
-  surfaces rather than three separate touch-ups.
+- ~~**Day pills need a "whole trip" pill eventually**~~ — built as WORK
+  17.6 (Fit trip → trip overview): no day selected, one numbered pin per
+  day at its starting point, the column becomes a day list. The "start of
+  each day only" lean this note landed on is what shipped.
 - **`run-etappe` driver is stale after 12.5/12.6.** Its `createAndOpenTrip`
   waits for a `+ Day` text button that the day rail retirement removed —
   the day switcher is now the `+` pill in `DayPills` (`aria-label="Add
