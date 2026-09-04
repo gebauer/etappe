@@ -54,8 +54,8 @@ interface Props {
   /** Steps through the day's stops, or the wishlist proximity chain. */
   onStep: (direction: -1 | 1) => void;
   onOpenDetails: () => void;
-  onRemove: () => void;
-  /** WORK 14.2: move a stop back to the wishlist — the mirror of promotion. */
+  /** WORK 14.2 / 22: move a stop back to the wishlist — the only way a stop
+   * leaves the itinerary (there is no hard delete). */
   onDowngrade: () => void;
   onAddToItinerary: () => void;
   /** Wishlist idea with no coordinates: start the click-the-map repair. */
@@ -122,7 +122,6 @@ export function PinCard({
   onClose,
   onStep,
   onOpenDetails,
-  onRemove,
   onDowngrade,
   onAddToItinerary,
   onSetLocation,
@@ -269,30 +268,16 @@ export function PinCard({
                   </div>
                 )
               : null}
+            {/* A stop leaves the itinerary only by going back to the
+                wishlist (WORK 22) — no hard delete here. */}
             {!phone && canEditItinerary && (
-              <div className="ml-auto flex items-center gap-2">
-                <button
-                  onClick={onDowngrade}
-                  title="Move back to wishlist"
-                  className={`${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`}
-                >
-                  ♻
-                </button>
-                <button
-                  onClick={() =>
-                    confirmingRemove ? onRemove() : setConfirmingRemove(true)
-                  }
-                  onBlur={() => setConfirmingRemove(false)}
-                  title={confirmingRemove ? undefined : 'Delete'}
-                  className={
-                    confirmingRemove
-                      ? `${BTN} flex-none whitespace-nowrap border border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text`
-                      : `${ICON_BTN} border border-border-strong text-text-2 hover:bg-control`
-                  }
-                >
-                  {confirmingRemove ? 'Delete stop?' : '🗑'}
-                </button>
-              </div>
+              <button
+                onClick={onDowngrade}
+                title="Move back to the wishlist"
+                className={`${GHOST} ml-auto flex items-center gap-1.5`}
+              >
+                ♻ Wishlist
+              </button>
             )}
           </>
         )}

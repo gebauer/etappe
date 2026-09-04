@@ -15,7 +15,7 @@ import {
 } from './pb-legs';
 import { isRoutable, type LatLon, type RoutingProvider } from './routing';
 import { planStopMove } from './stop-move';
-import type { TripRecords } from './pb-trip-doc';
+import { loadTripRecords, type TripRecords } from './pb-trip-doc';
 import { reparentBlocks } from './pb-blocks';
 import { addWishlistItem, setPoiStarred } from './pb-pois';
 
@@ -200,6 +200,25 @@ export async function downgradeStopToWishlist(
     { type: 'poi', id: poiId },
   );
   await deleteStop(pb, provider, dayStops, records.legs, stopId);
+}
+
+/**
+ * Recycle one or more stops back to the wishlist (WORK 22). The only way a
+ * stop leaves the itinerary — there is no hard delete of a stop from the
+ * editor; a place you spent time on is kept, just without a day. Records are
+ * re-fetched per stop because each downgrade re-merges legs and shifts
+ * indices, so a stale snapshot would mis-route the next one.
+ */
+export async function recycleStopsToWishlist(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  tripId: string,
+  stopIds: string[],
+): Promise<void> {
+  for (const id of stopIds) {
+    const records = await loadTripRecords(pb, tripId);
+    await downgradeStopToWishlist(pb, provider, records, id);
+  }
 }
 
 /** Move a stop within a day or to another day, reindexing and re-routing the

@@ -2718,16 +2718,14 @@ itinerary (no promote-to-stop, no stops/days/legs/costs/settings/members).
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
 
-- Stop deletion via the **Delete/Backspace keyboard shortcut**
-  (`deleteSelected` in `TripEditor.tsx`) still has **no confirmation** —
-  it deletes the instant the key is pressed. (The row ✕ this note
-  originally meant was removed entirely in the Phase 12 redesign — the
-  card's own `Remove`/`Delete` button is the only per-item delete
-  affordance now, and it already asks twice, made more visible 2026-09-02
-  to show "Delete stop?"/"Delete idea?" on screen instead of relying on a
-  hover tooltip — see `ToDo.md`.) Add a confirm here too before v1, or
-  decide deliberately that a keyboard shortcut trading safety for speed is
-  the point of it and leave it — author's call, not made unasked.
+- ~~Stop deletion via the **Delete/Backspace keyboard shortcut** has no
+  confirmation~~ — done 2026-09-04 (author request). The shortcut now opens
+  `RecycleStopsPrompt` and, on confirm, **recycles the stop(s) to the
+  wishlist** rather than deleting — `recycleStopsToWishlist` in
+  `pb-stops.ts`. There is no longer any hard delete of a stop from the
+  editor: the card's `🗑` for a stop is gone, replaced by `♻ To wishlist`
+  (docked and expanded). A stop's notes, star and access point travel with
+  it; a real delete happens only from the wishlist afterward.
 - Bundle is large (MapLibre); consider code-splitting the map.
 - The route hook still can't tell the client "routing genuinely failed" apart
   from "no road nearby" (both 200 `routable:false`). Low priority now that

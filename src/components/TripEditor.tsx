@@ -24,8 +24,8 @@ import {
 import {
   addStopAtEnd,
   addStopAt,
-  deleteStop,
   downgradeStopToWishlist,
+  recycleStopsToWishlist,
   moveStop,
   updateStop,
   updateStopAndReroute,
@@ -83,6 +83,7 @@ import { PlacementPicker, type PlacementCandidate } from './PlacementPicker';
 import { MergePrompt } from './MergePrompt';
 import { AccommodationPrompt } from './AccommodationPrompt';
 import { TimingConflictPrompt } from './TimingConflictPrompt';
+import { RecycleStopsPrompt } from './RecycleStopsPrompt';
 import {
   planTimingEdit,
   type TimingCell,
@@ -186,6 +187,11 @@ export function TripEditor({
     candidate: CaptureCandidate;
     existingStop: StopsResponse;
   } | null>(null);
+  // The Delete/Backspace shortcut asks before it acts, and it recycles to the
+  // wishlist rather than deleting (WORK 22).
+  const [pendingRecycle, setPendingRecycle] = useState<StopsResponse[] | null>(
+    null,
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   // Repairing a wishlist idea the importer couldn't geocode: the next map
   // click is its location. Separate from access-point `picking`, which zooms
@@ -813,17 +819,23 @@ export function TripEditor({
     if (check) setPendingPlacement(check.candidate);
   }
 
-  // Quick bulk delete for the selected stops (no confirmation yet — see the
-  // "Noticed" note in WORK.md). Legs cascade away with the stops.
+  // Delete/Backspace on the selected stop(s): ask first, then recycle to the
+  // wishlist — never a hard delete (WORK 22).
   function deleteSelected() {
     if (!records || selectedStopIds.size === 0) return;
-    const ids = [...selectedStopIds];
+    if (blockedByRole('itinerary')) return;
+    const chosen = records.stops.filter((s) => selectedStopIds.has(s.id));
+    if (chosen.length) setPendingRecycle(chosen);
+  }
+
+  function confirmRecycle() {
+    const ids = (pendingRecycle ?? []).map((s) => s.id);
+    setPendingRecycle(null);
     setSelectedStopIds(new Set());
-    void runStructural(async () => {
-      const batch = pb.createBatch();
-      for (const id of ids) batch.collection('stops').delete(id);
-      await batch.send();
-    });
+    if (!ids.length) return;
+    void runStructural(() =>
+      recycleStopsToWishlist(pb, routing, tripId, ids),
+    ).then(reloadWishlist);
   }
 
   function startPlacingAccessPoint(id: string, kind: 'stop' | 'poi' = 'stop') {
@@ -1105,22 +1117,8 @@ export function TripEditor({
     );
   }
 
-  // Delete a single stop with proper leg re-merge (row ✕ and inspector).
-  function deleteOneStop(stopId: string) {
-    const stop = records?.stops.find((s) => s.id === stopId);
-    if (!records || !stop) return;
-    void runStructural(() =>
-      deleteStop(
-        pb,
-        routing,
-        records.stops.filter((s) => s.day === stop.day),
-        records.legs,
-        stopId,
-      ),
-    );
-  }
-
-  // The mirror of promotion (WORK 14.2): the ♻ button on the stop card.
+  // The mirror of promotion (WORK 14.2): the ♻ button on the stop card, and
+  // now the only way a stop leaves a day (WORK 22 — no hard delete).
   function downgradeStop(stopId: string) {
     if (!records) return;
     void runStructural(() =>
@@ -1170,6 +1168,7 @@ export function TripEditor({
       }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape' && pendingRecycle) return setPendingRecycle(null);
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
         return setPendingPlacement(null);
@@ -1224,6 +1223,7 @@ export function TripEditor({
     timingConflict,
     pendingPlacement,
     mergeCheck,
+    pendingRecycle,
     wishCard,
     emptyCard,
     browsing,
@@ -1789,11 +1789,6 @@ export function TripEditor({
                 cardTarget.type === 'stop' && cardTarget.seq < cardTarget.total
               }
               onOpenDetails={() => setExpanded(true)}
-              onRemove={() => {
-                if (cardTarget.type === 'stop')
-                  deleteOneStop(cardTarget.stop.id);
-                closeCard();
-              }}
               onDowngrade={() => {
                 if (cardTarget.type === 'stop')
                   downgradeStop(cardTarget.stop.id);
@@ -2223,6 +2218,13 @@ export function TripEditor({
           onDismiss={() => setAccommodationAsk(null)}
         />
       )}
+      {pendingRecycle && (
+        <RecycleStopsPrompt
+          titles={pendingRecycle.map((s) => s.title)}
+          onConfirm={confirmRecycle}
+          onDismiss={() => setPendingRecycle(null)}
+        />
+      )}
       {expanded && !picking && cardTarget?.type === 'wish' && (
         <PinCardExpanded
           stop={cardTarget.item}
@@ -2300,7 +2302,8 @@ export function TripEditor({
           onClearAccessPoint={() => clearAccessPoint(cardTarget.stop.id)}
           onMoveToDay={(dayId) => moveStopToDay(cardTarget.stop.id, dayId)}
           onRemove={() => {
-            deleteOneStop(cardTarget.stop.id);
+            // No hard delete of a stop (WORK 22) — recycle it instead.
+            downgradeStop(cardTarget.stop.id);
             closeCard();
           }}
           onDowngrade={() => {

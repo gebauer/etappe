@@ -493,28 +493,30 @@ export function PinCardExpanded({
               </div>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {asStop && (
+              {asStop ? (
+                // A stop is never hard-deleted from the editor (WORK 22) — it
+                // goes back to the wishlist, keeping its notes and photos.
                 <button
                   onClick={onDowngrade}
-                  title="Move back to wishlist"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-strong text-[15px] text-text-2 hover:bg-control"
+                  className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border-strong px-3 text-[13px] text-text-2 hover:bg-control"
                 >
-                  ♻
+                  ♻ To wishlist
+                </button>
+              ) : (
+                <button
+                  onClick={() =>
+                    confirmingRemove ? onRemove() : setConfirmingRemove(true)
+                  }
+                  title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg border text-[15px] ${
+                    confirmingRemove
+                      ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
+                      : 'border-border-strong text-text-2 hover:bg-control'
+                  }`}
+                >
+                  🗑
                 </button>
               )}
-              <button
-                onClick={() =>
-                  confirmingRemove ? onRemove() : setConfirmingRemove(true)
-                }
-                title={confirmingRemove ? 'Click again to confirm' : 'Delete'}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-[15px] ${
-                  confirmingRemove
-                    ? 'border-danger-border bg-[oklch(0.30_0.08_25)] text-danger-text'
-                    : 'border-border-strong text-text-2 hover:bg-control'
-                }`}
-              >
-                🗑
-              </button>
             </div>
           </div>
         </div>
