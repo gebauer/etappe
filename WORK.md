@@ -2888,6 +2888,44 @@ rather than hidden.
 
 ---
 
+## Phase 26 — Star a wishlist idea; own imported ideas (2026-09-04, author request)
+
+Two things from one report.
+
+**The ★ toggle was stop-only.** `PinCard`'s cover star rendered only for
+`target.type === 'stop'`, so a wishlist idea's card (Edit / All details /
+Add to itinerary / delete) had no way to star it — even though the panel
+and carousel do. Now it renders for a wish too, reusing the card's
+existing `onUpdateStop` funnel, which already routes a wish patch through
+`updatePoi` (given a `starred?: boolean` field). Role-gated by the same
+`blockedByRole('wishlist')` check as every other wish edit.
+
+**The card held a stale snapshot.** `wishCard` was a `PoisResponse` copy
+taken when the card opened, so starring (or any refresh) updated the DB
+and the list but not the open card — the ★ looked dead until you reopened
+it. `wishCard` is now derived by id from the live `wishlist` array
+(`wishCardId` state), so it follows every refresh.
+
+**Imported ideas had no owner.** Every `pois` row from a Highlights
+import done before phase 15.1 (which added `creator`/`creator_name`/
+`creator_color`) — the whole first import of the author's Iceland trip,
+95 rows — carried an empty creator and showed no contributor mark
+anywhere. `addWishlistItem` has stamped the importer since 15.1, so new
+imports are already fine; migration `1788000022` backfills the legacy
+rows with their **trip owner** (id + nickname-or-email-local-part +
+colour), skipping any row that already has a creator. Irreversible (a
+backfilled stamp is indistinguishable from a real one), so no `down`.
+
+- Verified: `npm run check` (335 tests); a browser check — the wish card's
+  ★ appears, toggles live, and survives a reload; and the migration ran on
+  the dev DB (95 rows stamped, 0 left unattributed, Iceland ideas now show
+  "jan").
+- **Noticed:** the phone `PinCard` has no star at all, for stops or
+  wishes — unchanged here.
+- Commit: `phase 26: star a wishlist idea; backfill imported-idea owners`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

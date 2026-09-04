@@ -157,7 +157,15 @@ export function TripEditor({
   // The unified pin-click card (WORK 12.2). Three sources, one surface;
   // precedence when more than one is set is empty > wishlist > stop, which
   // matches the order they can be opened from.
-  const [wishCard, setWishCard] = useState<PoisResponse | null>(null);
+  //
+  // The wishlist card is held by *id*, not a snapshot: starring or editing
+  // an idea from the card refreshes `wishlist`, and the card has to follow
+  // that (a snapshot left the ★ toggle looking dead until the card was
+  // reopened).
+  const [wishCardId, setWishCardId] = useState<string | null>(null);
+  const wishCard = wishCardId
+    ? (wishlist.find((w) => w.id === wishCardId) ?? null)
+    : null;
   const [emptyCard, setEmptyCard] = useState<{
     lat: number;
     lon: number;
@@ -466,7 +474,7 @@ export function TripEditor({
    * region — pin, row and wishlist selection are one state, and the design
    * resets `editing` on every selection change. */
   function openCard(open: () => void) {
-    setWishCard(null);
+    setWishCardId(null);
     setEmptyCard(null);
     setSelectedStopIds(new Set());
     setEditing(false);
@@ -481,14 +489,14 @@ export function TripEditor({
    * without this, picking one from the list (or stepping to it with the
    * card's ‹/›) looks like nothing happened. */
   function showWishlistItem(item: PoisResponse) {
-    openCard(() => setWishCard(item));
+    openCard(() => setWishCardId(item.id));
     if (item.lat && item.lon) {
       setFlyTo({ lat: item.lat, lon: item.lon, nonce: Date.now() });
     }
   }
 
   function closeCard() {
-    setWishCard(null);
+    setWishCardId(null);
     setEmptyCard(null);
     setEditing(false);
     setExpanded(false);
@@ -496,7 +504,7 @@ export function TripEditor({
   }
 
   function toggleSelect(stopId: string, additive: boolean) {
-    setWishCard(null);
+    setWishCardId(null);
     setEmptyCard(null);
     setEditing(false);
     setExpanded(false);
@@ -589,7 +597,7 @@ export function TripEditor({
         await setPoiLocation(pb, id, lat, lon);
         const items = await reloadWishlist();
         const placed = items?.find((i) => i.id === id);
-        if (placed) openCard(() => setWishCard(placed));
+        if (placed) openCard(() => setWishCardId(placed.id));
       });
       return;
     }
@@ -1355,7 +1363,7 @@ export function TripEditor({
       if (next) {
         setEditing(false);
         setExpanded(false);
-        setWishCard(next);
+        setWishCardId(next.id);
         if (next.lat && next.lon) {
           setFlyTo({ lat: next.lat, lon: next.lon, nonce: Date.now() });
         }
@@ -1679,7 +1687,7 @@ export function TripEditor({
             markerResetSignal={markerReset}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
-            onSelectWishlist={(item) => openCard(() => setWishCard(item))}
+            onSelectWishlist={(item) => openCard(() => setWishCardId(item.id))}
             flyTo={flyTo}
             selectedWishlistId={wishCard?.id ?? null}
             hoveredWishlistId={hoveredWishId}

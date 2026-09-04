@@ -181,6 +181,15 @@ export function PinCard({
   // looks like a broken index rather than a missing location.
   const located =
     target.type !== 'wish' || (!!target.item.lat && !!target.item.lon);
+  // Starring works the same on a stop and a wishlist idea — the card's
+  // `onUpdateStop` already routes a wish patch through `updatePoi` — so the
+  // ★ toggle in the cover is offered for both.
+  const isStarred =
+    target.type === 'stop'
+      ? !!target.stop.starred
+      : target.type === 'wish'
+        ? !!target.item.starred
+        : false;
   const hasNav = target.type !== 'empty';
   const navLabel =
     target.type === 'stop'
@@ -503,12 +512,12 @@ export function PinCard({
           ✕
         </button>
 
-        {target.type === 'stop' && (
+        {(target.type === 'stop' || target.type === 'wish') && (
           <button
-            onClick={() => onUpdateStop({ starred: !target.stop.starred })}
-            aria-label={target.stop.starred ? 'Unstar' : 'Star'}
-            title={target.stop.starred ? 'Unstar' : 'Star'}
-            className={`${GLASS} absolute right-[46px] top-2.5 ${target.stop.starred ? 'text-wishlist' : ''}`}
+            onClick={() => onUpdateStop({ starred: !isStarred })}
+            aria-label={isStarred ? 'Unstar' : 'Star'}
+            title={isStarred ? 'Unstar' : 'Star'}
+            className={`${GLASS} absolute right-[46px] top-2.5 ${isStarred ? 'text-wishlist' : ''}`}
           >
             ★
           </button>

@@ -121,6 +121,7 @@ export async function updatePoi(
     access_lat?: number;
     access_lon?: number;
     address?: string;
+    starred?: boolean;
   },
 ): Promise<void> {
   await pb.collection('pois').update(poiId, patch);
