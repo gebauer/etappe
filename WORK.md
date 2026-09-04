@@ -112,10 +112,10 @@ below.**
 **Phase 15 (wishlist contributor attribution) also done 2026-09-02 —
 15.1 (schema + per-user colour, snapshotted onto each poi) and 15.2 (the
 chip + two pills on the panel, carousel and docked card).**
-**→ Next: the trip-selection redesign (Phase 21), from handoff revision
-11.** Phase 20 (sign-in redesign) shipped 2026-09-03 — the photo set is
-in `public/login-photos/`.
-`ToDo.md` may have loose ends worth a pass.
+**→ Next: nothing queued.** Phase 20 (sign-in) shipped 2026-09-03,
+Phase 21 (trip selection) and Phase 22 (contributor role, sharing
+emails, nickname) 2026-09-03/04. `ToDo.md` may have loose ends worth a
+pass; the top-of-file "Handoff" block below is stale.
 
 **Handoff folders consolidated 2026-09-03.** The numbered download copies
 `(9)/`, `(10)/` and `(11)/` have all been merged into the single in-repo
@@ -2608,14 +2608,35 @@ or a post-email load sequence, and a moderation path. Separate task.
 Source: `design_handoff_map_first_planner/README.md` **"Trip selection"**
 section + `Etappe Trips.dc.html`. The one net-new item in handoff
 revision 11; everything else in that revision was already built.
-**Not started.**
+**Done 2026-09-04.**
 
 Today's `TripList.tsx` is an always-open `TITLE` / `START DATE` form with
 bare title + ISO-date rows under it — a data-entry form before the user
 has anything to look at, and a week's planning reduced to one 13px line.
 The redesign makes each trip a **horizontal photo card**.
 
-**21.1 Trip cards** · Standard
+**Built as:** `lib/trip-card.ts` (`loadTripCards` — one `loadTripRecords`
++ a `pois` fetch per trip, all `requestKey: null` so parallel cards don't
+auto-cancel each other; pure `tripStatus` / `costBand` / `compareTripCards`
+with unit tests), `TripCard.tsx` (one card), a rewritten `TripList.tsx`.
+- **Draft** = a trip with zero days (`tripStatus`), not a separate flag.
+- **Contributors** are the distinct `creator_name`/`creator_color` off the
+  trip's `pois` — `users` is readable only by its own account, so a
+  members-list join can't get a colour; someone who's added a wishlist
+  idea is a good proxy for "on the trip", and it reuses the WORK 15
+  snapshot. A solo trip with no wishlist shows no pills.
+- **Cost band** is currency-naive (sum of raw `costs.amount`, tiered
+  `≤500 / ≤2000 / more`) — a hint, not the figure; the real converted
+  total is the budget popover's. Omitted when the trip has no costs.
+- The header keeps `App.tsx`'s existing brand + Account/Sign-out row; the
+  redesign's `Import` / `New trip` sit on the `Your trips` heading line.
+- Verified in a browser at 1280px: upcoming card (accent `In N days`
+  pill, `Open ›`), draft card (gold `Draft`, `Continue ›`), count line
+  `2 trips · 1 upcoming`, kind-tinted hero plate with the place caption,
+  contributor pill, `+ Plan a new trip` footer.
+- Commit: `phase 21: trip-selection redesign`.
+
+**21.1 Trip cards** · Standard · ✅
 - Header: brand dot + `Etappe`, and `Import a trip` (ghost) + `New trip`
   (accent) buttons move here. **New trip opens the title/date fields as a
   small on-demand form**, not the resting state of the page. Then
@@ -2640,7 +2661,7 @@ The redesign makes each trip a **horizontal photo card**.
 - **Ordering:** in-progress first, then upcoming by start date, then
   drafts by last-edited, then past newest-first.
 
-**21.2 Card photo source** · Standard
+**21.2 Card photo source** · Standard · ✅
 - Hero = the trip's first **starred** wishlist photo; strip = the next
   three. Fallback chain: starred → unstarred wishlist photo → a
   `kind`-tinted gradient plate carrying the place name. **Never a stock
