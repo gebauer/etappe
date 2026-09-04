@@ -597,6 +597,221 @@ export function compositeWishlistPin(
   if (replaced) map.triggerRepaint();
 }
 
+// --- stop photo pins (WORK 25) ------------------------------------------
+//
+// A promoted wishlist idea keeps its cover photo — its blocks re-parent
+// onto the new stop (`reparentBlocks`) — so a stop that has one renders as
+// the same rounded photo tile the wishlist uses, only with the accent
+// border instead of amber so a planned stop still reads as distinct from a
+// loose idea. The day-sequence number sits in a small disc in the
+// bottom-left corner. A stop with no photo keeps the plain numbered circle
+// (`compositeNumberBadge`) — this path is only the photo case.
+//
+// Three variants, composited in one pass like the wishlist pin:
+//   "s:<id>"      unselected, on the focused day
+//   "s:<id>:sel"  the bigger haloed selected variant
+//   "s:<id>:dim"  desaturated, number-less — the context pin drawn for
+//                 every day that isn't the focused one (before WORK 25
+//                 those stops were filtered off the map entirely)
+const STOP_TILE_UNSEL_D = 56; // -> 28px CSS
+const STOP_TILE_SEL_D = 72; // -> 36px CSS
+const STOP_TILE_DIM_D = 44; // -> 22px CSS
+const STOP_TILE_RADIUS_D = 16;
+const STOP_TILE_HALO_D = 12;
+const STOP_TILE_NUM_D = 26; // number disc on the unselected tile
+const STOP_TILE_NUM_SEL_D = 32;
+
+const STOP_TILE_DIM_BORDER = oklchToHex(0.42, 0.012, 250); // border-strong
+const STOP_TILE_DIM_WASH = 'rgba(18, 21, 27, 0.34)';
+
+function drawNumberDisc(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  d: number,
+  seq: string,
+  selected: boolean,
+) {
+  fillCircle(ctx, cx, cy, d / 2, selected ? BADGE_SEL_BG : BADGE_BG);
+  strokeCircle(
+    ctx,
+    cx,
+    cy,
+    d / 2 - BADGE_BORDER_D / 2,
+    selected ? BADGE_SEL_BORDER : BADGE_BORDER,
+    BADGE_BORDER_D,
+  );
+  drawBadgeNumber(
+    ctx,
+    cx,
+    cy,
+    seq,
+    selected ? BADGE_SEL_TEXT : BADGE_TEXT,
+    Math.round(d * 0.62),
+  );
+}
+
+/** Cover-fits `img` into a rounded square of side `size` at `(x,y)`;
+ * `desaturate` greys it and lays a dark wash over it (the dim context
+ * variant). No image → fills `fallback`. Then strokes `border`. */
+function drawStopTileSquare(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  border: string,
+  img: HTMLImageElement | null,
+  fallback: string,
+  desaturate: boolean,
+) {
+  roundedRectPath(ctx, x, y, size, size, STOP_TILE_RADIUS_D);
+  ctx.save();
+  ctx.clip();
+  if (img) {
+    const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
+    ctx.drawImage(img, x + (size - w) / 2, y + (size - h) / 2, w, h);
+    if (desaturate) {
+      // `saturation` takes the (zero) saturation of the grey source and
+      // keeps the backdrop's hue/luminance — a clean full desaturate — then
+      // a translucent wash pushes it back so it reads as inactive, not just
+      // black-and-white.
+      ctx.globalCompositeOperation = 'saturation';
+      ctx.fillStyle = 'hsl(0, 0%, 50%)';
+      ctx.fillRect(x, y, size, size);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = STOP_TILE_DIM_WASH;
+      ctx.fillRect(x, y, size, size);
+    }
+  } else {
+    ctx.fillStyle = fallback;
+    ctx.fillRect(x, y, size, size);
+  }
+  ctx.restore();
+  roundedRectPath(
+    ctx,
+    x + BADGE_BORDER_D / 2,
+    y + BADGE_BORDER_D / 2,
+    size - BADGE_BORDER_D,
+    size - BADGE_BORDER_D,
+    Math.max(0, STOP_TILE_RADIUS_D - BADGE_BORDER_D / 2),
+  );
+  ctx.lineWidth = BADGE_BORDER_D;
+  ctx.strokeStyle = border;
+  ctx.stroke();
+}
+
+function stopTileVariant(
+  kind: 'unsel' | 'sel' | 'dim',
+  img: HTMLImageElement | null,
+  seq: string,
+  starred: boolean,
+): ImageData | null {
+  const sizeD =
+    kind === 'sel'
+      ? STOP_TILE_SEL_D
+      : kind === 'dim'
+        ? STOP_TILE_DIM_D
+        : STOP_TILE_UNSEL_D;
+  const haloD = kind === 'sel' ? STOP_TILE_HALO_D : 0;
+  const total = sizeD + haloD * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = total;
+  canvas.height = total;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  if (haloD > 0) {
+    ctx.globalAlpha = 0.16;
+    roundedRectPath(ctx, 0, 0, total, total, STOP_TILE_RADIUS_D + haloD);
+    ctx.fillStyle = BADGE_HALO;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  const border =
+    kind === 'sel'
+      ? BADGE_SEL_BORDER
+      : kind === 'dim'
+        ? STOP_TILE_DIM_BORDER
+        : BADGE_BORDER;
+  drawStopTileSquare(
+    ctx,
+    haloD,
+    haloD,
+    sizeD,
+    border,
+    img,
+    BADGE_BG,
+    kind === 'dim',
+  );
+  if (kind !== 'dim') {
+    const numD = kind === 'sel' ? STOP_TILE_NUM_SEL_D : STOP_TILE_NUM_D;
+    drawNumberDisc(
+      ctx,
+      haloD + numD / 2 + 1,
+      haloD + sizeD - numD / 2 - 1,
+      numD,
+      seq,
+      kind === 'sel',
+    );
+    if (starred) {
+      const starD = kind === 'sel' ? STOP_STAR_D_SEL : STOP_STAR_D_UNSEL;
+      drawStarBadge(ctx, haloD + sizeD - starD / 2, haloD + starD / 2, starD);
+    }
+  }
+  return ctx.getImageData(0, 0, total, total);
+}
+
+/** Composites all three stop-photo variants for one stop. `img` is null
+ * until the cover photo loads — the caller draws the fallback tile first
+ * (via `styleimagemissing`) and re-calls this once it resolves, exactly
+ * like `compositeWishlistPin`. */
+export function compositeStopPin(
+  map: maplibregl.Map,
+  stopId: string,
+  img: HTMLImageElement | null,
+  seq: number,
+  starred: boolean,
+) {
+  let replaced = false;
+  const put = (id: string, data: ImageData | null) => {
+    if (!data) return;
+    if (map.hasImage(id)) {
+      map.updateImage(id, data);
+      replaced = true;
+    } else {
+      map.addImage(id, data, { pixelRatio: 2 });
+    }
+  };
+  const s = String(seq);
+  put(`s:${stopId}`, stopTileVariant('unsel', img, s, starred));
+  put(`s:${stopId}:sel`, stopTileVariant('sel', img, s, starred));
+  put(`s:${stopId}:dim`, stopTileVariant('dim', img, s, starred));
+  if (replaced) map.triggerRepaint(); // see compositeWishlistPin
+}
+
+/** The selected stop's draggable DOM twin as a photo tile — mirrors
+ * `buildNumberedPinElement`, which the caller uses instead when the stop
+ * has no cover photo. Same selected size/halo as the GL "s:<id>:sel"
+ * image so swapping between them doesn't shift the pin. */
+export function buildStopPinElement(
+  seq: number,
+  starred: boolean,
+  img: HTMLImageElement,
+): HTMLCanvasElement {
+  const total = STOP_TILE_SEL_D + STOP_TILE_HALO_D * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = total;
+  canvas.height = total;
+  canvas.style.width = `${total / 2}px`;
+  canvas.style.height = `${total / 2}px`;
+  canvas.style.cursor = 'grab';
+  const ctx = canvas.getContext('2d');
+  const data = stopTileVariant('sel', img, String(seq), starred);
+  if (ctx && data) ctx.putImageData(data, 0, 0);
+  return canvas;
+}
+
 // design_handoff_map_first_planner/README.md's stop pins are a fixed CSS
 // size regardless of zoom (unlike BUILD §5.3's zoom-scaling teardrop) — an
 // HTML-overlay-like presentation, matching the day pills/card/wishlist
@@ -631,11 +846,29 @@ export function addMarkerLayers(map: maplibregl.Map) {
       },
     });
   }
-  // One layer for every stop pin — no more accommodation/other split (that
-  // existed only to let one layer bypass the now-removed zoom fade) and no
-  // text-label layers: the number on the pin is the identifier, matching
-  // the itinerary column's own sequence badge (WORK 12.6) rather than
-  // repeating the title on the map.
+  // The other days' stops (WORK 25): drawn under the focused day's layer,
+  // desaturated and half-opaque via each feature's "s:<id>:dim" image, so a
+  // consumed wishlist place stays visible on the map instead of vanishing
+  // the moment its day loses focus. Photo-less stops fall back to their
+  // numbered circle here — `icon-opacity` alone dims those.
+  if (!map.getLayer('stops-dim')) {
+    map.addLayer({
+      id: 'stops-dim',
+      type: 'symbol',
+      source: 'stops',
+      layout: {
+        'icon-image': ['get', 'iconImageDim'],
+        'icon-anchor': 'center',
+        'icon-allow-overlap': true,
+      },
+      paint: { 'icon-opacity': 0.55 },
+    });
+  }
+  // One layer for the focused day's stop pins — no more accommodation/other
+  // split (that existed only to let one layer bypass the now-removed zoom
+  // fade) and no text-label layers: the number on the pin is the
+  // identifier, matching the itinerary column's own sequence badge (WORK
+  // 12.6) rather than repeating the title on the map.
   if (!map.getLayer('stops')) {
     map.addLayer({
       id: 'stops',

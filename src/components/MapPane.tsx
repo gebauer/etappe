@@ -20,6 +20,8 @@ import {
   compositeNumberBadge,
   compositeDayBadge,
   compositeWishlistPin,
+  compositeStopPin,
+  buildStopPinElement,
   compositePhotoCircle,
   loadAtlas,
   type Atlas,
@@ -34,14 +36,14 @@ import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { DayPills } from './DayPills';
 import { TILE_URL } from '../lib/map-config';
 
-const STOP_LAYERS = ['stops'];
+const STOP_LAYERS = ['stops', 'stops-dim'];
 
 // Hidden while the trip overview (WORK 17.6) is up: the per-stop pins, which
 // belong to a single focused day. The day routes stay — at whole-trip zoom the
 // route shape is the point of the view (BUILD §5), and the numbered day pins
 // sit on top of it. `legs-hover-halo` stays too, so hovering a day pill still
 // lifts that day's route.
-const OVERVIEW_HIDDEN_LAYERS = ['stops', 'stops-hover'];
+const OVERVIEW_HIDDEN_LAYERS = ['stops', 'stops-dim', 'stops-hover'];
 
 // Line width grows with zoom; shared by every leg layer.
 const WIDTH = [
@@ -249,6 +251,11 @@ export function MapPane({
   // whose star was toggled. Not state: it never drives a render, only how
   // much work the effect does.
   const wishlistPinStateRef = useRef<Map<string, string>>(new Map());
+  // Same idea for the stop photo tiles (WORK 25): the last-composited
+  // signature per stop, plus the decoded cover image kept around so the
+  // selected stop's draggable DOM twin can be a photo tile too.
+  const stopPinStateRef = useRef<Map<string, string>>(new Map());
+  const stopPhotoRef = useRef<Map<string, HTMLImageElement>>(new Map());
   // `loadedRef` alone can't drive the effects below: an effect that runs
   // before the style is up has to be re-run once it is, and a ref doesn't
   // re-render. With the query cache hydrated from IndexedDB, `records` and
@@ -275,6 +282,9 @@ export function MapPane({
   // MapPane reacts to it, and it must not touch `focusDayId`, which scopes
   // the stop pins and is a click, not a hover.
   const [hoveredDayId, setHoveredDayId] = useState<string | null>(null);
+  // Bumped when a stop's cover photo finishes decoding, so the selected
+  // stop's DOM twin can rebuild itself as a photo tile (WORK 25).
+  const [stopPhotoNonce, setStopPhotoNonce] = useState(0);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(5);
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([]);
@@ -291,6 +301,11 @@ export function MapPane({
   selectDayRef.current = onSelectDay;
   const overviewRef = useRef(overview ?? false);
   overviewRef.current = overview ?? false;
+  // The map-init effect wires the click handler once, so it can't close
+  // over the live `focusDayId` — a ref lets a click on a greyed other-day
+  // pin know which day to switch away from (WORK 25).
+  const focusDayIdRef = useRef(focusDayId);
+  focusDayIdRef.current = focusDayId;
 
   const fc = useMemo(
     () => buildLegFeatures(records, result),
@@ -581,6 +596,22 @@ export function MapPane({
             compositeNumberBadge(map, e.id);
             return;
           }
+          if (e.id.startsWith('s:')) {
+            // "s:<id>", ":sel" or ":dim" — composite all three now (the
+            // stopCoverEffect below swaps in the real photo once it loads).
+            const stopId = e.id.slice('s:'.length).split(':')[0] ?? '';
+            const f = stopFcRef.current.features.find(
+              (x) => x.properties.stopId === stopId,
+            );
+            compositeStopPin(
+              map,
+              stopId,
+              stopPhotoRef.current.get(stopId) ?? null,
+              f?.properties.seq ?? 1,
+              f?.properties.starred ?? false,
+            );
+            return;
+          }
           if (e.id.startsWith('w:')) {
             // "w:<poiId>" or "w:<poiId>:sel" — either way, composite both
             // variants now (idempotent — see compositeWishlistPin) so
@@ -666,8 +697,19 @@ export function MapPane({
         return;
       }
       const id = stopsUnder(ev.point);
-      if (id) selectRef.current?.(id);
-      else clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
+      if (id) {
+        // A greyed pin from another day (WORK 25): switch to its day as
+        // well as selecting it, so the itinerary column follows.
+        const f = stopFcRef.current.features.find(
+          (x) => x.properties.stopId === id,
+        );
+        const activeDay =
+          focusDayIdRef.current ?? recordsRef.current.days[0]?.id ?? null;
+        if (f && f.properties.dayId !== activeDay) {
+          selectDayRef.current?.(f.properties.dayId);
+        }
+        selectRef.current?.(id);
+      } else clickRef.current?.(ev.lngLat.lat, ev.lngLat.lng);
     });
 
     map.on('mousemove', (ev) => {
@@ -885,6 +927,63 @@ export function MapPane({
       img.src = url;
     }
   }, [wishlist, records.blocks, mapReady, wishlistPinMode, atlas]);
+
+  // Upgrade each photo-carrying stop pin from its dark fallback tile to its
+  // real cover photo (WORK 25) — the same mechanism as the wishlist cover
+  // effect above: read the cover the card way (`firstPhotoUrl`/`blocksFor`),
+  // composite via `updateImage` once it loads, and keep the decoded image
+  // so the selected stop's draggable DOM twin can use it too. A promoted
+  // wishlist idea's photo blocks have re-parented onto the stop by now, so
+  // this is where a "consumed" idea gets its thumbnail back.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    for (const f of stopFcRef.current.features) {
+      if (!f.properties.hasPhoto) continue;
+      const stopId = f.properties.stopId;
+      const { seq, starred } = f.properties;
+      const url = firstPhotoUrl(
+        pb,
+        blocksFor(recordsRef.current.blocks, 'stop', stopId),
+        '640x0',
+      );
+      const sig = `${starred ? 'S' : '-'}:${seq}:${url ?? ''}`;
+      if (stopPinStateRef.current.get(stopId) === sig) continue;
+      stopPinStateRef.current.set(stopId, sig);
+
+      if (!url) {
+        // A photo block that no longer resolves — redraw the plain tile.
+        try {
+          compositeStopPin(map, stopId, null, seq, starred);
+        } catch (err) {
+          console.error('stop pin composite failed for', stopId, err);
+        }
+        continue;
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // Same narrow guard as the wishlist effect: still the live map, and
+        // no later edit has changed what this pin should show.
+        if (mapRef.current !== map) return;
+        if (stopPinStateRef.current.get(stopId) !== sig) return;
+        stopPhotoRef.current.set(stopId, img);
+        try {
+          compositeStopPin(map, stopId, img, seq, starred);
+        } catch (err) {
+          console.error('stop photo composite failed for', stopId, err);
+        }
+        setStopPhotoNonce((n) => n + 1);
+      };
+      img.onerror = () => {
+        if (stopPinStateRef.current.get(stopId) === sig) {
+          stopPinStateRef.current.delete(stopId);
+        }
+      };
+      img.src = url;
+    }
+  }, [stopFc, records.blocks, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1112,12 +1211,25 @@ export function MapPane({
   // ever selected before then) rather than rendering no pins at all.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !map.getLayer('stops')) return;
+    if (
+      !map ||
+      !loadedRef.current ||
+      !map.getLayer('stops') ||
+      !map.getLayer('stops-dim')
+    )
+      return;
     const dayId = focusDayId ?? recordsRef.current.days[0]?.id ?? '';
     const selId = selectedStop?.id ?? '';
     map.setFilter('stops', [
       'all',
       ['==', ['get', 'dayId'], dayId],
+      ['!=', ['get', 'stopId'], selId],
+    ] as unknown as maplibregl.FilterSpecification);
+    // Every other day's stops, minus the selected one (its DOM twin stands
+    // in for it wherever it lives) — WORK 25.
+    map.setFilter('stops-dim', [
+      'all',
+      ['!=', ['get', 'dayId'], dayId],
       ['!=', ['get', 'stopId'], selId],
     ] as unknown as maplibregl.FilterSpecification);
   }, [focusDayId, selectedStop?.id, stopFc, mapReady]);
@@ -1139,18 +1251,20 @@ export function MapPane({
     if (draggingRef.current) return;
 
     if (selectedStop?.lat && selectedStop?.lon) {
-      if (
-        !poiMarkerRef.current ||
-        poiMarkerStopIdRef.current !== selectedStop.id
-      ) {
+      const photo = stopPhotoRef.current.get(selectedStop.id) ?? null;
+      // The twin rebuilds when the stop changes *or* when its cover photo
+      // arrives (circle -> photo tile), so the key carries both.
+      const wantKey = `${selectedStop.id}:${photo ? 'p' : 'n'}`;
+      if (!poiMarkerRef.current || poiMarkerStopIdRef.current !== wantKey) {
         poiMarkerRef.current?.remove();
         const feature = stopFcRef.current.features.find(
           (f) => f.properties.stopId === selectedStop.id,
         );
-        const element = buildNumberedPinElement(
-          feature?.properties.seq ?? 1,
-          feature?.properties.starred ?? false,
-        );
+        const seq = feature?.properties.seq ?? 1;
+        const starred = feature?.properties.starred ?? false;
+        const element = photo
+          ? buildStopPinElement(seq, starred, photo)
+          : buildNumberedPinElement(seq, starred);
         const marker = new maplibregl.Marker({
           element,
           anchor: 'center',
@@ -1168,7 +1282,7 @@ export function MapPane({
           if (id) dragStopRef.current?.(id, lat, lng);
         });
         poiMarkerRef.current = marker;
-        poiMarkerStopIdRef.current = selectedStop.id;
+        poiMarkerStopIdRef.current = wantKey;
       } else {
         poiMarkerRef.current.setLngLat([selectedStop.lon, selectedStop.lat]);
       }
@@ -1215,6 +1329,7 @@ export function MapPane({
     selectedStop?.access_lat,
     selectedStop?.access_lon,
     markerResetSignal,
+    stopPhotoNonce,
     mapReady,
   ]);
 

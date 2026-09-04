@@ -295,6 +295,52 @@ describe('buildStopFeatures', () => {
     expect(e.properties.seq).toBe(2); // second stop on day 2
     expect(e.properties.iconImage).toBe('n:2:star');
   });
+
+  it('a photo-less stop stays a numbered circle, dim key included (WORK 25)', () => {
+    const fc = buildStopFeatures(recs);
+    const a = fc.features.find((f) => f.properties.stopId === 'A')!;
+    expect(a.properties.hasPhoto).toBe(false);
+    expect(a.properties.iconImage).toBe('n:1');
+    expect(a.properties.iconImageDim).toBe('n:1');
+  });
+
+  it('a stop with a resolvable photo block renders as a photo tile (WORK 25)', () => {
+    const withPhoto = {
+      ...recs,
+      blocks: [
+        { parent_type: 'stop', parent_id: 'A', kind: 'photo', url: 'x.jpg' },
+        { parent_type: 'stop', parent_id: 'B', kind: 'note', body: 'hi' },
+        { parent_type: 'poi', parent_id: 'A', kind: 'photo', url: 'y.jpg' },
+      ],
+    } as unknown as TripRecords;
+    const fc = buildStopFeatures(withPhoto);
+    const a = fc.features.find((f) => f.properties.stopId === 'A')!;
+    const b = fc.features.find((f) => f.properties.stopId === 'B')!;
+    expect(a.properties.hasPhoto).toBe(true);
+    expect(a.properties.iconImage).toBe('s:A');
+    expect(a.properties.iconImageDim).toBe('s:A:dim');
+    // A note block is not a photo; a POI-parented photo isn't this stop's.
+    expect(b.properties.hasPhoto).toBe(false);
+    expect(b.properties.iconImage).toBe('n:2');
+  });
+
+  it('a waypoint never becomes a photo tile even with a photo block (WORK 25)', () => {
+    const wp = {
+      ...recs,
+      stops: [
+        { ...recs.stops[0], routing_kind: 'waypoint' },
+        ...recs.stops.slice(1),
+      ],
+      blocks: [
+        { parent_type: 'stop', parent_id: 'A', kind: 'photo', url: 'x.jpg' },
+      ],
+    } as unknown as TripRecords;
+    const fc = buildStopFeatures(wp);
+    const a = fc.features.find((f) => f.properties.stopId === 'A')!;
+    expect(a.properties.hasPhoto).toBe(false);
+    expect(a.properties.iconImage).toBe('n:wp:1');
+    expect(a.properties.iconImageDim).toBe('n:wp:1');
+  });
 });
 
 describe('buildWishlistFeatures', () => {

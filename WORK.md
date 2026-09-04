@@ -2847,6 +2847,47 @@ the WORK 23 "+ Add a stop" palette.
 
 ---
 
+## Phase 25 — Stop pins carry their photo; other days stay visible (2026-09-04, author request)
+
+A promoted wishlist idea's photo blocks re-parent onto the new stop, but
+the map threw that away: a stop pin was a plain numbered circle, and the
+`stops` layer was hard-filtered to the focused day, so every other day's
+stops — the "consumed" ideas — vanished from the map entirely. Author
+wanted the thumbnail back on the pin, and the other days shown greyed
+rather than hidden.
+
+- **Photo tiles.** `buildStopFeatures` now flags a stop that has a
+  resolvable photo block (`hasPhoto`) and points it at a per-stop image key
+  (`s:<id>` / `s:<id>:dim`) instead of the shared `n:<seq>` circle. A
+  photo-less stop is unchanged — still the numbered circle (author's call).
+  Waypoints never become tiles.
+- `map-markers.ts` `compositeStopPin` — the wishlist pin's rounded-square
+  machinery, but the **accent** border (not amber) so a planned stop still
+  reads as distinct from a loose idea, and the day-sequence number in a
+  small disc in the bottom-left corner. Three variants in one pass:
+  `s:<id>` (focused day), `:sel` (bigger, haloed, for the draggable DOM
+  twin), `:dim` (desaturated + a dark wash, **no number** — author's call).
+- `MapPane` resolves each photo the card way (`firstPhotoUrl` / `blocksFor`)
+  in a new effect that mirrors the wishlist cover effect exactly:
+  `styleimagemissing` draws a fallback tile, the effect swaps in the real
+  photo via `updateImage`, and the decoded image is kept so the selected
+  stop's draggable twin (`buildStopPinElement`) is a photo tile too.
+- **Other days: a new `stops-dim` GL layer** under `stops`, filtered to
+  every day *except* the focused one, `icon-opacity: 0.55`. Clicking one of
+  its pins switches to that day as well as selecting the stop (same feel as
+  the trip-overview day pins) — `STOP_LAYERS` and the click handler learned
+  about it; `focusDayIdRef` lets the once-wired handler know which day to
+  leave. Hidden in the trip overview like the other stop layers.
+- Verified in a browser: a stop with a photo renders as a tile + "1" disc
+  on its day and a greyed number-less thumbnail on another day (before this
+  it disappeared); a photo-less stop stays a circle; no compositing
+  errors. `npm run check` — 335 tests (3 new in `map-features.test.ts`).
+- **Noticed:** on a long trip `stops-dim` draws every other day's stops at
+  once (`icon-allow-overlap`, no declutter). Fine at typical sizes; if it
+  ever feels busy, the lever is to scope it to the focused day ± 1.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

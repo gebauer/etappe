@@ -215,6 +215,16 @@ export interface StopFeature {
      * matching the itinerary column's sequence badge (WORK 12.6). */
     seq: number;
     iconImage: string;
+    /** The image key the `stops-dim` layer uses for this stop when its day
+     * isn't focused (WORK 25): "s:<id>:dim" for a photo stop (a greyed,
+     * number-less thumbnail), otherwise the same numbered-circle key as
+     * `iconImage` — the layer's own opacity dims that one. */
+    iconImageDim: string;
+    /** WORK 25 — the stop carries a resolvable photo block (a cover photo
+     * of its own, or one that came across when a wishlist idea was
+     * promoted). The pin is a photo tile rather than a numbered circle;
+     * `MapPane` resolves the URL and composites it. */
+    hasPhoto: boolean;
     /** WORK 14.3 — baked into `iconImage` (a starred stop gets its own
      * "n:<seq>:star" image), kept as its own property too since `StopRow`
      * needs it without decoding the image key. */
@@ -254,14 +264,29 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
       seq += 1;
       const starred = !!s.starred;
       const isWaypoint = s.routing_kind === 'waypoint';
-      // A waypoint's icon key never carries the star suffix — the numbered
-      // destination badge and the "starred" affordance are both about a
-      // place worth remembering, which a pure routing point isn't.
+      // A waypoint stays the neutral diamond — never a photo tile, never a
+      // star suffix: the numbered badge and both those affordances are
+      // about a place worth remembering, which a pure routing point isn't.
+      const hasPhoto =
+        !isWaypoint &&
+        (records.blocks ?? []).some(
+          (b) =>
+            b.parent_type === 'stop' &&
+            b.parent_id === s.id &&
+            b.kind === 'photo' &&
+            (b.file || b.url),
+        );
+      const circleKey = starred ? `n:${seq}:star` : `n:${seq}`;
       const iconImage = isWaypoint
         ? `n:wp:${seq}`
-        : starred
-          ? `n:${seq}:star`
-          : `n:${seq}`;
+        : hasPhoto
+          ? `s:${s.id}`
+          : circleKey;
+      const iconImageDim = isWaypoint
+        ? `n:wp:${seq}`
+        : hasPhoto
+          ? `s:${s.id}:dim`
+          : circleKey;
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
@@ -271,6 +296,8 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
           dayId: day.id,
           seq,
           iconImage,
+          iconImageDim,
+          hasPhoto,
           starred,
           routingKind: isWaypoint ? 'waypoint' : 'stop',
         },
