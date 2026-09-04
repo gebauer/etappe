@@ -11,6 +11,7 @@ import {
   buildLegRecord,
   type LegLike,
   type LegMode,
+  type NewLeg,
   type Surface,
 } from './pb-legs';
 import { isRoutable, type LatLon, type RoutingProvider } from './routing';
@@ -219,6 +220,96 @@ export async function recycleStopsToWishlist(
     const records = await loadTripRecords(pb, tripId);
     await downgradeStopToWishlist(pb, provider, records, id);
   }
+}
+
+/**
+ * Run the whole trip the other way round (WORK 23 — trip settings): the day
+ * order reverses and each day's stops reverse, so a clockwise ring becomes
+ * the same ring counter-clockwise. Every leg is deleted and rebuilt (routed
+ * afresh), and each day's start-point pointer is recomputed to the previous
+ * day's new last stop. Dates are derived, so a day keeps its identity and
+ * just lands on a different date.
+ *
+ * A leg's mode/surface is carried over by its unordered stop pair — a
+ * ferry stays a ferry when you cross it the other way.
+ */
+export async function invertTripRoute(
+  pb: TypedPocketBase,
+  provider: RoutingProvider,
+  tripId: string,
+): Promise<void> {
+  const records = await loadTripRecords(pb, tripId);
+  const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
+  if (days.length === 0) return;
+
+  const origStops = new Map<string, StopsResponse[]>(
+    days.map((d) => [
+      d.id,
+      records.stops
+        .filter((s) => s.day === d.id)
+        .sort((a, b) => a.order_index - b.order_index),
+    ]),
+  );
+  const newDays = [...days].reverse();
+  const pairKey = (a: string, b: string) => [a, b].sort().join('|');
+  const carried = new Map<string, { mode: LegMode; surface: Surface | null }>();
+  for (const l of records.legs) {
+    carried.set(pairKey(l.from_stop, l.to_stop), {
+      mode: l.mode as LegMode,
+      surface: (l.surface as Surface) || null,
+    });
+  }
+  const leg = (from: string, to: string): NewLeg => {
+    const hit = carried.get(pairKey(from, to));
+    return {
+      from_stop: from,
+      to_stop: to,
+      mode: hit?.mode ?? 'car',
+      surface: hit?.surface ?? 'paved',
+    };
+  };
+
+  // 1. Reverse stop order per day, reverse day order, repoint start_stop.
+  const batch = pb.createBatch();
+  for (const d of days) {
+    [...origStops.get(d.id)!].reverse().forEach((s, i) => {
+      if (s.order_index !== i) {
+        batch.collection('stops').update(s.id, { order_index: i });
+      }
+    });
+  }
+  // The previous new-order day is reversed too, so its new last stop is its
+  // original first — that's what the next day leaves from.
+  const prevFirstOf = (k: number): StopsResponse | undefined => {
+    const prev = k > 0 ? newDays[k - 1] : undefined;
+    return prev ? origStops.get(prev.id)?.[0] : undefined;
+  };
+
+  newDays.forEach((d, k) => {
+    const prevFirst = prevFirstOf(k);
+    batch.collection('days').update(d.id, {
+      order_index: k,
+      start_stop: prevFirst ? prevFirst.id : null,
+    });
+  });
+  await batch.send();
+
+  // 2. Rebuild every leg from the reversed arrangement.
+  const create: NewLeg[] = [];
+  newDays.forEach((d, k) => {
+    const seq = [...(origStops.get(d.id) ?? [])].reverse();
+    const prevFirst = prevFirstOf(k);
+    if (prevFirst && seq[0]) create.push(leg(prevFirst.id, seq[0].id));
+    for (let i = 0; i < seq.length - 1; i++) {
+      create.push(leg(seq[i]!.id, seq[i + 1]!.id));
+    }
+  });
+  await applyLegPlan(
+    pb,
+    provider,
+    { deleteLegIds: records.legs.map((l) => l.id), create },
+    coordsOf(records.stops),
+  );
 }
 
 /** Move a stop within a day or to another day, reindexing and re-routing the

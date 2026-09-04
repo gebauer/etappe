@@ -415,6 +415,7 @@ export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown
 	created: IsoAutoDateString
 	currency: string
 	default_dwell: null | Tdefault_dwell
+	hero_poi?: RecordIdString
 	id: string
 	owner: RecordIdString
 	share_enabled?: boolean

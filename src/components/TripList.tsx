@@ -3,6 +3,7 @@ import { createTrip } from '../lib/pb-trips';
 import { pb, isAbortError } from '../lib/pb';
 import { loadTripCards, type TripCard } from '../lib/trip-card';
 import { TripCardView } from './TripCard';
+import { TripSettingsDialog } from './TripSettingsDialog';
 import { ImportTripDialog } from './ImportTripDialog';
 
 /**
@@ -15,6 +16,7 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [settingsCard, setSettingsCard] = useState<TripCard | null>(null);
 
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -137,6 +139,15 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
         />
       )}
 
+      {settingsCard && (
+        <TripSettingsDialog
+          trip={settingsCard.trip}
+          dayCount={settingsCard.days}
+          onClose={() => setSettingsCard(null)}
+          onChanged={() => void refresh()}
+        />
+      )}
+
       <div className="flex flex-col gap-3">
         {cards === null ? (
           <p className="py-10 text-center text-[13px] text-text-4">
@@ -154,6 +165,7 @@ export function TripList({ onOpen }: { onOpen: (id: string) => void }) {
               key={card.trip.id}
               card={card}
               onOpen={() => onOpen(card.trip.id)}
+              onSettings={() => setSettingsCard(card)}
             />
           ))
         )}

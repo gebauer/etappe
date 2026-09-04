@@ -2734,6 +2734,41 @@ itinerary (no promote-to-stop, no stops/days/legs/costs/settings/members).
 
 ---
 
+## Phase 23 — "+ Stop" search & trip settings (2026-09-04, author requests)
+
+**23.1 "+ Stop" opens the search palette** · ✅
+The day's "+ Stop" (and the `n` shortcut) dropped a blank "New stop" with
+no location. It now opens the same `SearchPalette` as ⌘K — Photon search,
+pasted coordinates, a Google/Apple Maps link, or a pick from the wishlist
+— and whatever's chosen lands at the end of that day.
+- Button relabelled `+ Add a stop…`. `SearchPalette` gains `heading`
+  ("Add a stop to Day N — …") and `wishlistWhenEmpty` (show the first
+  saved ideas before anything is typed).
+- `placeCandidate(candidate, { dayId, nextStopId? })` extracted from
+  `commitPlacement` as the shared tail (create at slot, promote a wishlist
+  idea's blocks, keep a pasted link). `addStopAtEnd` is now unused.
+- `n` and "+ Stop" both route through `addStopDay` state → the palette.
+
+**23.2 Trip settings dialog** · ✅
+A ⚙ on each trip card (hover-revealed, over the card, outside its button)
+opens `TripSettingsDialog`:
+- **Move the trip** — a date field → `setTripStartDate`. Dates are
+  derived, so it's one field write.
+- **Reverse the route** — a confirm step, then `invertTripRoute`
+  (`pb-stops.ts`): day order reverses and each day's stops reverse, so a
+  clockwise ring runs counter-clockwise. Every leg is deleted and rebuilt
+  routed afresh (`applyLegPlan`), a leg's mode/surface carried over by its
+  unordered stop pair; each day's `start_stop` is recomputed to the new
+  previous day's new last stop. Verified in a browser: `[A,B,C,D]` on one
+  day → `[D,C,B,A]`, day order flipped, start points repointed.
+- **Card photo** — a grid of the trip's wishlist ideas + an "Auto" tile,
+  writing `trips.hero_poi` (migration `1788000021`, relation, no cascade —
+  a deleted idea just clears it). `trip-card.ts` puts that idea's photo
+  first when set, else the old "first starred with a photo" default.
+- Commit: `phase 23: + Stop search, trip settings dialog`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

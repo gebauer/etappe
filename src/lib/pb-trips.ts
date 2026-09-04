@@ -126,6 +126,16 @@ export async function setTripStartDate(
     .update(tripId, { start_date: `${date} 00:00:00.000Z` });
 }
 
+/** Which wishlist idea's photo represents the trip on the selection screen
+ * (WORK 23). `null` clears it — the card falls back to the first starred
+ * idea with a photo. */
+export async function setTripHeroPoi(
+  tripId: string,
+  poiId: string | null,
+): Promise<void> {
+  await pb.collection('trips').update(tripId, { hero_poi: poiId ?? '' });
+}
+
 /**
  * The trip's cascade assumptions and locale (WORK 11.2) — car buffer,
  * surface multipliers, per-kind default dwells, timezone and currency.

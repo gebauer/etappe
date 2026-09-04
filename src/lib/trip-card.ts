@@ -145,24 +145,28 @@ async function buildCard(
 
   // Photo priority: a starred idea with a photo, then any idea with a photo,
   // then ideas without one (rendered as a plate). Never a blank slot beyond
-  // the number of ideas the trip actually has.
-  const withPhoto: TripPhoto[] = [];
-  const platesOnly: TripPhoto[] = [];
-  for (const poi of [...pois].sort(
-    (a, b) => Number(b.starred) - Number(a.starred),
-  )) {
-    const photo = blocksFor(records.blocks, 'poi', poi.id).find(
-      (b) => b.kind === 'photo',
-    );
-    const url = photo ? blockFileUrl(pb, photo, '640x0') : null;
-    const tile: TripPhoto = {
-      url,
-      place: poi.title,
-      color: categoryColor(poi.kind),
-    };
-    (url ? withPhoto : platesOnly).push(tile);
+  // the number of ideas the trip actually has. The author's own hero pick
+  // (`trips.hero_poi`, WORK 23) jumps the queue.
+  const heroPoiId = trip.hero_poi || null;
+  const ranked = [...pois]
+    .sort((a, b) => Number(b.starred) - Number(a.starred))
+    .map((poi) => {
+      const photo = blocksFor(records.blocks, 'poi', poi.id).find(
+        (b) => b.kind === 'photo',
+      );
+      const url = photo ? blockFileUrl(pb, photo, '640x0') : null;
+      return {
+        poiId: poi.id,
+        url,
+        tile: { url, place: poi.title, color: categoryColor(poi.kind) },
+      };
+    });
+  ranked.sort((a, b) => Number(!!b.url) - Number(!!a.url));
+  if (heroPoiId) {
+    const i = ranked.findIndex((r) => r.poiId === heroPoiId);
+    if (i > 0) ranked.unshift(ranked.splice(i, 1)[0]!);
   }
-  const tiles = [...withPhoto, ...platesOnly].slice(0, 4);
+  const tiles = ranked.slice(0, 4).map((r) => r.tile);
 
   const contributors: { name: string; color: string }[] = [];
   const seen = new Set<string>();
