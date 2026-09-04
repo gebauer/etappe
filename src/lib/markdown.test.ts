@@ -21,8 +21,18 @@ describe('renderMarkdown', () => {
   });
 
   it('drops javascript: link hrefs, keeping the text', () => {
-    // eslint-disable-next-line no-script-url
     expect(renderMarkdown('[x](javascript:alert)')).toBe('<p>x</p>');
+  });
+
+  it('strips the placeholder sentinels so a note cannot forge one', () => {
+    // U+E000/U+E001 wrap held-token indices while inline spans are built. A
+    // note containing them could otherwise point at someone else's token.
+    expect(renderMarkdown('plain \u{E000}0\u{E001} text')).toBe(
+      '<p>plain 0 text</p>',
+    );
+    expect(renderMarkdown('`code` and \u{E000}0\u{E001}')).toBe(
+      '<p><code>code</code> and 0</p>',
+    );
   });
 
   it('escapes HTML so raw tags cannot inject markup', () => {

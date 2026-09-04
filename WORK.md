@@ -2769,6 +2769,55 @@ opens `TripSettingsDialog`:
 
 ---
 
+## Codebase audit — 2026-09-04
+
+A sweep for unsafe code, leftovers and inefficiency (author request).
+
+**Security: clean.** No `eval`, no `any`, no `@ts-ignore`, no TODO/FIXME.
+- The three `dangerouslySetInnerHTML` sites all render `renderMarkdown`,
+  which escapes first and only emits its own tags; hrefs are restricted to
+  `http(s)`/`mailto` and fail closed. Hardened anyway: the U+E000/E001
+  placeholder sentinels are now stripped from input so a note can't forge
+  one and pull another token into its text (2 new tests).
+- Every custom route carries `$apis.requireAuth()` except `/api/share`,
+  which is public by design and whitelists fields explicitly — no members,
+  invites, tokens, costs, creator ids, and only `visibility = 'public'`
+  blocks. A disabled link is indistinguishable from a wrong one.
+- `/api/routing-credentials` acts only on `e.auth`'s own record, validates
+  the provider against a strict regex and never echoes a key back.
+  `/api/route` checks trip membership before spending the owner's key.
+- Every PocketBase filter is parameterised through `pb.filter`.
+
+**Removed — leftovers, all with zero references (confirmed by ts-prune):**
+`auth.ts` `isLoggedIn`/`onAuthChange` (`useAuth` talks to `pb.authStore`
+directly) · `leg-buffer.ts` `describeBuffer` · `pb-capture.ts`
+`addNoteBlock` · `pb-days.ts` `listDays` · `taxonomy.ts` `iconFor` ·
+`pb-stops.ts` `addStopAtEnd` (orphaned by WORK 23.1) · and the whole
+retired BUILD §5.3 teardrop-pin cluster in `map-markers.ts`
+(`buildPinElement`, `drawEmojiGlyph`, `drawPinBase`, `drawWhiteGlyph`,
+`PIN_*`, `BADGE_CSS_*`, `DAY_BADGE_CSS`) — WORK 12.4 replaced it with the
+numbered badge and left the DOM-marker code behind.
+
+**Kept deliberately** (author's call; both now carry a comment saying so):
+`pb-costs.ts`'s four CRUD functions (WORK 16.10 kept the multi-item
+backend shape for a future budget breakdown) and `pb-days.ts` `moveDay`
+(day reordering, dropped with the Phase 12 day rail).
+
+**Noted, not changed:** `/api/share/{token}` issues one query per day, per
+stop and per leg — ~225 round-trips for a 14-day trip on the one public
+endpoint. Author chose to leave it; three scoped queries + in-memory
+grouping (as `loadTripRecords` already does) is the fix if it ever bites.
+`pb-legs.ts` `planInsertBetween` is now exercised only by its tests — the
+symmetric counterpart to `planDeleteStop`, kept as leg-lifecycle
+infrastructure.
+
+Verified after removal: `npm run check` (332 tests), `npm run build`, and
+the `roles-22-check` editor smoke (map pins, wishlist, role gating). That
+driver was itself stale — updated for the WORK 21 on-demand trip form and
+the WORK 23 "+ Add a stop" palette.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

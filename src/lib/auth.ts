@@ -5,10 +5,6 @@ export function currentUser(): UsersResponse | null {
   return (pb.authStore.record as unknown as UsersResponse | null) ?? null;
 }
 
-export function isLoggedIn(): boolean {
-  return pb.authStore.isValid;
-}
-
 export async function login(email: string, password: string): Promise<void> {
   await pb.collection('users').authWithPassword(email, password);
 }
@@ -39,9 +35,4 @@ export function logout(): void {
  * the caller surfaces the error. */
 export async function requestPasswordReset(email: string): Promise<void> {
   await pb.collection('users').requestPasswordReset(email);
-}
-
-/** Subscribe to auth state changes; returns an unsubscribe function. */
-export function onAuthChange(cb: () => void): () => void {
-  return pb.authStore.onChange(() => cb());
 }

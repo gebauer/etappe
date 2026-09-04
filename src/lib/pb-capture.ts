@@ -45,30 +45,6 @@ export async function addLinkBlock(
   });
 }
 
-/** Adds a note block carrying `body` text — the home for a wishlist idea's
- * free-text notes now that `pois.notes` is gone (WORK 14), same as a stop's
- * description has always been a note block. */
-export async function addNoteBlock(
-  pb: TypedPocketBase,
-  tripId: string,
-  parent: BlockParent,
-  body: string,
-  title = '',
-): Promise<void> {
-  const user = pb.authStore.record;
-  if (!user) return;
-  await pb.collection('blocks').create({
-    trip: tripId,
-    parent_type: parent.type,
-    parent_id: parent.id,
-    kind: 'note',
-    visibility: 'trip',
-    body,
-    title,
-    creator: user.id,
-  });
-}
-
 /** Looks up a Wikidata id's Commons image and, if it has one, adds it as an
  * attributed photo block on the new stop (BUILD §2's attribution_author/
  * attribution_licence/attribution_url). Silent no-op on any lookup miss —

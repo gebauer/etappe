@@ -27,18 +27,6 @@ export interface NewDayInput {
   notes?: string;
 }
 
-/** All of a trip's days, ordered. */
-export async function listDays(
-  pb: TypedPocketBase,
-  tripId: string,
-): Promise<DaysResponse[]> {
-  return pb.collection('days').getFullList({
-    filter: pb.filter('trip = {:trip}', { trip: tripId }),
-    sort: 'order_index',
-    requestKey: null,
-  });
-}
-
 async function fetchDayOrders(
   pb: TypedPocketBase,
   tripId: string,
@@ -122,7 +110,11 @@ export async function deleteDay(
   return blocksOnChangedDays(pb, plan.changedDayIds);
 }
 
-/** Move a day to `toIndex`, reindexing the days it passes over. */
+/** Move a day to `toIndex`, reindexing the days it passes over.
+ *
+ * **Intentionally unused right now** (audit, 2026-09-04): the Phase 12
+ * redesign dropped the draggable day rail, so nothing calls this. Kept so
+ * day reordering can come back without rewriting the reindex logic. */
 export async function moveDay(
   pb: TypedPocketBase,
   tripId: string,

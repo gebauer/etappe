@@ -51,14 +51,22 @@ try {
   // Owner: make a trip with a day and a stop.
   const o = await ctx();
   await register(o.p, owner);
+  await o.p.click('button:has-text("New trip")'); // WORK 21: form opens on demand
   await o.p.fill('label:has-text("Title") input', `Roles ${stamp}`);
   await o.p.fill('label:has-text("Start date") input', '2027-06-10');
-  await o.p.click('button:has-text("New trip")');
+  await o.p.click('button:has-text("Create")');
   await o.p.click(`button:has-text("Roles ${stamp}")`);
   await o.p.waitForSelector('button[aria-label="Add day"]', { timeout: 15000 });
   await o.p.click('button[aria-label="Add day"]');
-  await o.p.click('button:has-text("+ Stop")');
-  await o.p.waitForSelector('text=New stop', { timeout: 10000 });
+  // WORK 23: "+ Add a stop" opens the search palette; pick a real place.
+  await o.p.click('button:has-text("Add a stop")');
+  await o.p.waitForSelector('input[placeholder*="Search a place"]', {
+    timeout: 10000,
+  });
+  await o.p.locator('input[placeholder*="Search a place"]').fill('Gullfoss');
+  await o.p.waitForTimeout(2500);
+  await o.p.locator('.max-h-80 button').first().click();
+  await o.p.waitForTimeout(1500);
   await o.p.keyboard.press('Escape');
 
   // Share with both.
@@ -86,7 +94,7 @@ try {
   await cc.p.click(`button:has-text("Roles ${stamp}")`);
   await cc.p.waitForSelector('text=/wishlist places/', { timeout: 15000 });
   await cc.p.screenshot({ path: path.join(SHOTS, 'roles-contributor.png') });
-  if (await cc.p.locator('button:has-text("+ Stop")').count())
+  if (await cc.p.locator('button:has-text("Add a stop")').count())
     fail('contributor sees + Stop');
   if (await cc.p.locator('button[aria-label="Add day"]').count())
     fail('contributor sees Add day');
@@ -103,7 +111,7 @@ try {
   await v.p.click(`button:has-text("Roles ${stamp}")`);
   await v.p.waitForSelector('text=/View only/', { timeout: 15000 });
   await v.p.screenshot({ path: path.join(SHOTS, 'roles-viewer.png') });
-  if (await v.p.locator('button:has-text("+ Stop")').count())
+  if (await v.p.locator('button:has-text("Add a stop")').count())
     fail('viewer sees + Stop');
   if (await v.p.locator('button:has-text("+ Idea")').count())
     fail('viewer sees + Idea');

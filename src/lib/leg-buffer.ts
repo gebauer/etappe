@@ -38,9 +38,3 @@ export function formatBufferOverride(o: BufferOverride | null): string {
   if (!o) return '';
   return o.unit === 'pct' ? `${o.value}%` : String(o.value);
 }
-
-/** How the row labels a buffer that is in force — `+ 7 min` reads as
- * arithmetic beside the routed time, which is the point. */
-export function describeBuffer(minutes: number): string {
-  return minutes > 0 ? `+ ${minutes} min` : '';
-}

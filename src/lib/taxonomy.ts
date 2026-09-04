@@ -80,10 +80,6 @@ export function isAccommodationKind(kind: Kind): boolean {
   return TAXONOMY[kind].dwell === null;
 }
 
-export function iconFor(kind: Kind): string {
-  return TAXONOMY[kind].icon;
-}
-
 /**
  * Seed for `trips.default_dwell` (BUILD §2): the taxonomy default minutes per
  * kind. Accommodation kinds (null dwell) are omitted — their dwell comes from

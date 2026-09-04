@@ -1,7 +1,7 @@
 /**
  * Marker rendering: the sprite atlas loader (still used by `KindIcon` for
- * the kind picker), the pin drawing routines shared by the GL symbol layer
- * and the draggable DOM markers, and the layers that put them on the map.
+ * the kind picker), the badge compositing for the GL symbol layers, and the
+ * layers that put them on the map.
  * Split out of MapPane (WORK 6.4) once the file passed ~800 lines — no
  * behaviour change, just giving the map-click/nearby/labels concerns in
  * MapPane room to grow without this drawing code buried in the middle of it.
@@ -53,55 +53,6 @@ export function loadAtlas(): Promise<Atlas> {
   return atlasPromise;
 }
 
-// Pin geometry, shared by the GL symbol images (compositeMarker) and the DOM
-// drag markers (buildPinElement) so both read as the same shape. Device px at
-// pixelRatio 2. The tip — not the centre — is the exact coordinate, which is
-// the point of a pin over a badge: dragging has an unambiguous anchor pixel.
-const PIN_W = 44;
-const PIN_H = 60;
-const HEAD_R = 15;
-const HEAD_CY = 17;
-const GLYPH_SIZE = 19;
-export const PIN_CSS_W = PIN_W / 2;
-export const PIN_CSS_H = PIN_H / 2;
-
-/** Draws the pin silhouette — solid hue fill, tail and head as one shape —
- * with no glyph. */
-function drawPinBase(ctx: CanvasRenderingContext2D, hue: string) {
-  const cx = PIN_W / 2;
-  ctx.fillStyle = hue;
-  ctx.beginPath();
-  ctx.moveTo(cx - HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
-  ctx.lineTo(cx + HEAD_R * 0.8, HEAD_CY + HEAD_R * 0.55);
-  ctx.lineTo(cx, PIN_H - 1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, HEAD_CY, HEAD_R, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-/** Recolours whatever is drawn by `draw` to solid white, keeping its alpha
- * shape — done on an isolated scratch canvas (globalCompositeOperation
- * 'source-in' would otherwise erase the pin body already on `ctx`), then
- * composited onto the pin at the head centre. Gives every glyph — sprite icon
- * or emoji — the same white-cutout look regardless of its native colours. */
-function drawWhiteGlyph(
-  ctx: CanvasRenderingContext2D,
-  draw: (scratch: CanvasRenderingContext2D) => void,
-) {
-  const scratch = document.createElement('canvas');
-  scratch.width = GLYPH_SIZE;
-  scratch.height = GLYPH_SIZE;
-  const sctx = scratch.getContext('2d');
-  if (!sctx) return;
-  draw(sctx);
-  sctx.globalCompositeOperation = 'source-in';
-  sctx.fillStyle = '#ffffff';
-  sctx.fillRect(0, 0, GLYPH_SIZE, GLYPH_SIZE);
-  ctx.drawImage(scratch, PIN_W / 2 - GLYPH_SIZE / 2, HEAD_CY - GLYPH_SIZE / 2);
-}
-
 /** Blits one sprite-atlas glyph, recoloured to solid white, centred at
  * `(cx, cy)` on `ctx` at `size` device px. The sheet's glyphs are black
  * with the shape in the alpha channel (same as `KindIcon`'s mask), so a
@@ -130,39 +81,6 @@ export function drawAtlasGlyphWhite(
   ctx.drawImage(scratch, cx - size / 2, cy - size / 2);
 }
 
-/** Draws a plain glyph (e.g. an emoji), recoloured white, centred in the
- * pin's head — used for markers that aren't a taxonomy kind, like the
- * access-point car. */
-export function drawEmojiGlyph(ctx: CanvasRenderingContext2D, emoji: string) {
-  drawWhiteGlyph(ctx, (sctx) => {
-    sctx.font = `${GLYPH_SIZE}px sans-serif`;
-    sctx.textAlign = 'center';
-    sctx.textBaseline = 'middle';
-    sctx.fillText(emoji, GLYPH_SIZE / 2, GLYPH_SIZE / 2 + 1);
-  });
-}
-
-/** Builds a standalone pin canvas for a draggable DOM marker — same shape as
- * the GL-rendered pins, so dragging the selected stop's marker looks like
- * dragging its real icon rather than a generic overlay. */
-export function buildPinElement(
-  hue: string,
-  drawGlyph: (ctx: CanvasRenderingContext2D) => void,
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = PIN_W;
-  canvas.height = PIN_H;
-  canvas.style.width = `${PIN_CSS_W}px`;
-  canvas.style.height = `${PIN_CSS_H}px`;
-  canvas.style.cursor = 'grab';
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    drawPinBase(ctx, hue);
-    drawGlyph(ctx);
-  }
-  return canvas;
-}
-
 // --- numbered stop pins (design_handoff_map_first_planner, WORK 12.4) -----
 //
 // Device px at pixelRatio 2, matching the rest of this file's convention
@@ -175,8 +93,6 @@ const BADGE_UNSEL_D = 52; // -> 26px CSS
 const BADGE_SEL_D = 68; // -> 34px CSS
 const BADGE_BORDER_D = 4; // -> 2px CSS
 const BADGE_HALO_D = 16; // -> 8px CSS halo width
-export const BADGE_CSS_UNSEL = BADGE_UNSEL_D / 2;
-export const BADGE_CSS_SEL = BADGE_SEL_D / 2;
 
 const BADGE_BG = oklchToHex(0.24, 0.013, 250); // control
 const BADGE_BORDER = oklchToHex(0.72, 0.13, 215); // accent
@@ -192,7 +108,6 @@ const BADGE_HALO = oklchToHex(0.72, 0.13, 215); // accent, alpha applied separat
 // ring; a day with no stops of its own renders on `control` with a dim ring
 // so an unplanned day is visible rather than missing.
 const DAY_BADGE_D = 60; // -> 30px CSS
-export const DAY_BADGE_CSS = DAY_BADGE_D / 2;
 const DAY_ACCENT_BG = oklchToHex(0.72, 0.13, 215); // accent
 const DAY_ACCENT_RING = oklchToHex(0.9, 0.05, 235);
 const DAY_ACCENT_TEXT = oklchToHex(0.16, 0.02, 240); // on-accent

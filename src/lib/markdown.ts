@@ -9,11 +9,17 @@
  */
 
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return (
+    s
+      // Strip the private-use sentinels below before anything else, so a note
+      // can never forge a placeholder and pull a different held token into
+      // its own text.
+      .replace(/[\u{E000}\u{E001}]/gu, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  );
 }
 
 function safeHref(url: string): string | null {

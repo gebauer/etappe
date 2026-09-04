@@ -4,6 +4,11 @@
  * conversion, which is out of scope for v1.
  *
  * Members-only by rule: the share payload never reads this collection.
+ *
+ * **Intentionally unused right now** (audit, 2026-09-04): WORK 16.10 replaced
+ * the list-of-costs UI with one estimated cost per stop, but kept the
+ * multi-item backend shape. These four are the door back to a real
+ * breakdown — keep them; nothing calling them is not a bug.
  */
 
 import type { CostsResponse, TypedPocketBase } from '../types/pb';
