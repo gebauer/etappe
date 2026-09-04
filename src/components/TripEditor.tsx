@@ -22,7 +22,6 @@ import {
   updateTripSettings,
 } from '../lib/pb-trips';
 import {
-  addStopAtEnd,
   addStopAt,
   downgradeStopToWishlist,
   recycleStopsToWishlist,
@@ -149,6 +148,9 @@ export function TripEditor({
   const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
     null,
   );
+  // "+ Stop" (and `n`) open the same search as ⌘K, but scoped: a pick lands
+  // at the end of this day. Null = the search isn't the add-stop flow.
+  const [addStopDay, setAddStopDay] = useState<string | null>(null);
   const [shareQuery, setShareQuery] = useState<string | null>(null);
   const [wishlist, setWishlist] = useState<PoisResponse[]>([]);
   // The unified pin-click card (WORK 12.2). Three sources, one surface;
@@ -510,17 +512,45 @@ export function TripEditor({
   }
 
   function doAddStopToFocus() {
+    if (blockedByRole('itinerary')) return;
     const dayId = focusDayId();
     if (!records || !dayId) return;
-    setTripOverview(false);
-    setDayFolded(false);
-    void runStructural(() =>
-      addStopAtEnd(
-        pb,
-        routing,
-        dayId,
-        records.stops.filter((s) => s.day === dayId),
-      ),
+    setAddStopDay(dayId);
+  }
+
+  /** A pick from the "+ Stop" search — a geocoded place, pasted coordinates
+   * or a Maps link — becomes a stop at the end of the day it was opened on. */
+  function addStopFromSearch(place: PlaceResult, sourceUrl?: string) {
+    const dayId = addStopDay;
+    setAddStopDay(null);
+    if (!dayId) return;
+    placeCandidate(
+      {
+        name: place.name,
+        lat: place.lat,
+        lon: place.lon,
+        kind: place.kind ?? 'uncategorized',
+        sourceUrl,
+      },
+      { dayId },
+    );
+  }
+
+  /** A saved idea picked from the "+ Stop" search is promoted onto the end
+   * of the day (its blocks come across, the idea is removed). */
+  function addStopFromWishlist(item: PoisResponse) {
+    const dayId = addStopDay;
+    setAddStopDay(null);
+    if (!dayId) return;
+    placeCandidate(
+      {
+        name: item.title,
+        lat: item.lat,
+        lon: item.lon,
+        kind: item.kind,
+        wishlistId: item.id,
+      },
+      { dayId },
     );
   }
 
@@ -574,21 +604,35 @@ export function TripEditor({
   function commitPlacement(option: PlacementOption) {
     const candidate = pendingPlacement;
     setPendingPlacement(null);
-    if (!records || !candidate) return;
+    if (!candidate) return;
+    placeCandidate(candidate, {
+      dayId: option.dayId,
+      nextStopId: option.nextStopId,
+    });
+  }
+
+  /** Turn a captured place (or a promoted wishlist idea) into a stop at a
+   * given slot — the shared tail of the ranked placement picker and the
+   * day's own "+ Stop" search. */
+  function placeCandidate(
+    candidate: CaptureCandidate,
+    slot: { dayId: string; nextStopId?: string | null },
+  ) {
+    if (!records) return;
     setTripOverview(false);
     setDayFolded(false);
     const dayStops = records.stops
-      .filter((s) => s.day === option.dayId)
+      .filter((s) => s.day === slot.dayId)
       .sort((a, b) => a.order_index - b.order_index);
-    const targetIndex = option.nextStopId
-      ? dayStops.findIndex((s) => s.id === option.nextStopId)
+    const targetIndex = slot.nextStopId
+      ? dayStops.findIndex((s) => s.id === slot.nextStopId)
       : dayStops.length;
     void runStructural(async () => {
       const stopId = await addStopAt(
         pb,
         routing,
         records,
-        option.dayId,
+        slot.dayId,
         targetIndex,
         {
           title: candidate.name,
@@ -598,12 +642,7 @@ export function TripEditor({
           kind_confirmed: false,
         },
       );
-      maybeAskAccommodation(
-        stopId,
-        candidate.kind,
-        candidate.name,
-        option.dayId,
-      );
+      maybeAskAccommodation(stopId, candidate.kind, candidate.name, slot.dayId);
       // Promoting a wishlist idea (WORK 14): its blocks — photos,
       // description, links — move onto the new stop wholesale, then the
       // idea itself is deleted rather than left as a hidden tombstone.
@@ -1979,16 +2018,7 @@ export function TripEditor({
               activeDay && setStartPoint(activeDay.id, null)
             }
             onDeleteDay={doDeleteDay}
-            onAddStop={(dayId) =>
-              runStructural(() =>
-                addStopAtEnd(
-                  pb,
-                  routing,
-                  dayId,
-                  stops.filter((s) => s.day === dayId),
-                ),
-              )
-            }
+            onAddStop={(dayId) => setAddStopDay(dayId)}
             onUpdateLeg={(legId, patch: LegPatch) =>
               !blockedByRole('itinerary') &&
               run(() => updateLeg(pb, legId, patch))
@@ -2025,12 +2055,22 @@ export function TripEditor({
         </aside>
       </div>
 
-      {searchMode && (
+      {(searchMode || addStopDay) && (
         <SearchPalette
           initialQuery={
             searchMode === 'wishlist' ? (shareQuery ?? undefined) : undefined
           }
+          heading={
+            addStopDay
+              ? `Add a stop to Day ${days.findIndex((d) => d.id === addStopDay) + 1} — search a place, paste a Maps link or coordinates, or pick a saved place below.`
+              : undefined
+          }
+          wishlistWhenEmpty={!!addStopDay}
           onPick={(place, sourceUrl) => {
+            if (addStopDay) {
+              addStopFromSearch(place, sourceUrl);
+              return;
+            }
             const mode = searchMode;
             setSearchMode(null);
             setShareQuery(null);
@@ -2061,12 +2101,17 @@ export function TripEditor({
           // itinerary" button runs the ranked placement, so the promotion
           // still happens, just after a look rather than before it.
           onPickWishlist={(item) => {
+            if (addStopDay) {
+              addStopFromWishlist(item);
+              return;
+            }
             setSearchMode(null);
             setShareQuery(null);
             showWishlistItem(item);
           }}
           onClose={() => {
             setSearchMode(null);
+            setAddStopDay(null);
             setShareQuery(null);
           }}
         />

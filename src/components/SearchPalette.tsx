@@ -17,6 +17,12 @@ interface Props {
    * the panel or the carousel. */
   wishlist?: PoisResponse[];
   onPickWishlist?: (item: PoisResponse) => void;
+  /** A line above the input saying what this search is for — used by
+   * "+ Stop", where the palette *is* the add-stop flow (WORK 22). */
+  heading?: ReactNode;
+  /** Show the first few saved ideas before anything is typed, so "+ Stop"
+   * opens straight onto the wishlist. */
+  wishlistWhenEmpty?: boolean;
 }
 
 /** How many saved ideas to offer before the new-places section — enough to
@@ -47,6 +53,8 @@ export function SearchPalette({
   initialQuery,
   wishlist,
   onPickWishlist,
+  heading,
+  wishlistWhenEmpty = false,
 }: Props) {
   const [q, setQ] = useState(initialQuery ?? '');
   const [results, setResults] = useState<PlaceResult[]>([]);
@@ -61,7 +69,9 @@ export function SearchPalette({
   // then the kind's label, so "waterfall" finds every saved waterfall.
   const wishlistMatches = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle || isPaste || !wishlist || !onPickWishlist) return [];
+    if (isPaste || !wishlist || !onPickWishlist) return [];
+    if (!needle)
+      return wishlistWhenEmpty ? wishlist.slice(0, WISHLIST_LIMIT) : [];
     return wishlist
       .filter(
         (item) =>
@@ -69,7 +79,7 @@ export function SearchPalette({
           kindLabel(item.kind).toLowerCase().includes(needle),
       )
       .slice(0, WISHLIST_LIMIT);
-  }, [q, isPaste, wishlist, onPickWishlist]);
+  }, [q, isPaste, wishlist, onPickWishlist, wishlistWhenEmpty]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -123,6 +133,11 @@ export function SearchPalette({
         className="w-full max-w-lg overflow-hidden rounded-xl border border-border-strong bg-surface-2 text-text shadow-[0_24px_60px_oklch(0.10_0.01_250/0.55)]"
         onClick={(e) => e.stopPropagation()}
       >
+        {heading && (
+          <div className="border-b border-border bg-surface-3 px-4 py-2 text-[12px] text-text-3">
+            {heading}
+          </div>
+        )}
         {/* Transparent on the panel, not an inner white field — the reported
             contrast failure was a light-grey placeholder on white, and the
             typed query must never read lighter than the placeholder. */}

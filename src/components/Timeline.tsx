@@ -410,7 +410,8 @@ export function Timeline({
               {canEditItinerary && (
                 <>
                   <br />
-                  Click the map or a wishlist pin to add one.
+                  Use <strong className="text-text-2">+ Add a stop</strong>, the
+                  map, or a wishlist pin.
                 </>
               )}
             </div>
@@ -506,9 +507,10 @@ export function Timeline({
                 if (dragId) onMoveStop(dragId, day.id, indexInDay());
                 setDragId(null);
               }}
+              title="Search a place, paste a Maps link, or pick from the wishlist"
               className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
             >
-              + Stop
+              + Add a stop…
             </button>
           )}
         </div>
