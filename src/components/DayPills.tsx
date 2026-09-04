@@ -17,8 +17,9 @@ interface Props {
    * `legs-hover-halo`. Fires with null when the pointer leaves. */
   onHoverDay?: (dayId: string | null) => void;
   onAddDay: () => void;
-  /** Insert a new day *before* the day at this index. The trailing `+`
-   * appends; these are the gaps between pills. */
+  /** Insert a new day *before* the day at this index — including index 0,
+   * which is the only way to put a day ahead of day 1. The trailing `+`
+   * appends; these are the gaps before and between the pills. */
   onInsertDay: (atIndex: number) => void;
   onFitTrip: () => void;
   /** False for a `contributor`/`viewer` (WORK 22): no `+` / insert-day. */
@@ -276,7 +277,7 @@ export function DayPills({
               const active = day.id === activeDayId;
               return (
                 <Fragment key={day.id}>
-                  {i > 0 && canAddDay && (
+                  {canAddDay && (
                     <button
                       onClick={() => onInsertDay(i)}
                       aria-label={`Insert a day before Day ${i + 1}`}
@@ -285,7 +286,12 @@ export function DayPills({
                       // gaps between pills are dead space otherwise, and a
                       // day is inserted rarely enough that a permanent
                       // control for every gap would read as clutter.
-                      className="group relative -mx-[3px] h-7 w-[11px] flex-none"
+                      // Rendered before *every* pill, the first included —
+                      // without the i > 0 guard there was no way to put a
+                      // day ahead of day 1 at all.
+                      className={`group relative h-7 w-[11px] flex-none ${
+                        i === 0 ? '-mr-[3px]' : '-mx-[3px]'
+                      }`}
                     >
                       <span className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-transparent group-hover:bg-accent group-focus-visible:bg-accent" />
                       <span className="absolute inset-0 hidden items-center justify-center text-[13px] leading-none text-accent group-hover:flex group-focus-visible:flex">
