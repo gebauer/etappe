@@ -4,7 +4,7 @@ import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
 import { categoryColor } from '../lib/map-colors';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import type { BlocksResponse, PoisResponse } from '../types/pb';
-import { ContributorPill } from './ContributorMark';
+import { ContributorDot } from './ContributorMark';
 
 interface Props {
   items: PoisResponse[];
@@ -170,7 +170,7 @@ export function WishlistCarousel({
                   />
                 )}
                 <span className="absolute inset-x-0 bottom-0 h-[58%] bg-[linear-gradient(to_top,oklch(0.13_0.015_250/0.88),transparent)]" />
-                <span className="absolute bottom-2 left-2.5 right-[74px]">
+                <span className="absolute bottom-2 left-2.5 right-7">
                   <span className="block truncate text-[13px] font-semibold text-[oklch(0.97_0.004_250)]">
                     {item.title}
                   </span>
@@ -178,11 +178,8 @@ export function WishlistCarousel({
                     {TAXONOMY[item.kind as Kind]?.label ?? item.kind}
                   </span>
                 </span>
-                <span className="absolute bottom-2 right-2.5 flex max-w-[64px]">
-                  <ContributorPill
-                    poi={item}
-                    variant={phone ? 'carousel-phone' : 'carousel'}
-                  />
+                <span className="absolute bottom-2 right-2.5 flex">
+                  <ContributorDot poi={item} size={phone ? 8 : 9} />
                 </span>
                 {(canStar || item.starred) && (
                   <span

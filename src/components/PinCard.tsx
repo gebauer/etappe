@@ -554,7 +554,7 @@ export function PinCard({
           </h2>
           {target.type === 'wish' && (
             <span className="self-center">
-              <ContributorPill poi={target.item} variant="card" />
+              <ContributorPill poi={target.item} />
             </span>
           )}
         </div>

@@ -25,6 +25,7 @@ import { timingCells } from '../lib/timing-cells';
 import type { TimingCell } from '../lib/timing-edit';
 import { KindPicker } from './KindPicker';
 import { BlockEditor } from './BlockEditor';
+import { ContributorPill } from './ContributorMark';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Enter') e.currentTarget.blur();
@@ -252,8 +253,9 @@ export function PinCardExpanded({
               <h2 className="m-0 text-2xl font-semibold tracking-[-0.015em]">
                 {stop.title}
               </h2>
-              <div className="mt-1.5 text-[13px] text-text-3">
-                {TAXONOMY[stop.kind as Kind]?.label ?? stop.kind}
+              <div className="mt-1.5 flex items-center gap-2 text-[13px] text-text-3">
+                <span>{TAXONOMY[stop.kind as Kind]?.label ?? stop.kind}</span>
+                {isWish && <ContributorPill poi={stop as PoisResponse} />}
               </div>
             </div>
             <button

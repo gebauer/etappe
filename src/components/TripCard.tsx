@@ -1,4 +1,5 @@
 import type { TripCard, TripPhoto } from '../lib/trip-card';
+import { NamePill } from './ContributorMark';
 
 const STATUS_STYLE: Record<string, string> = {
   upcoming: 'bg-accent text-on-accent',
@@ -117,16 +118,7 @@ export function TripCardView({
         {card.contributors.length > 0 && (
           <span className="flex flex-wrap items-center gap-1.5">
             {card.contributors.slice(0, 4).map((c) => (
-              <span
-                key={c.name}
-                className="flex items-center gap-1.5 rounded-[11px] border border-border-strong bg-[oklch(0.25_0.012_250)] px-2 text-[11px] text-text-2"
-              >
-                <span
-                  className="h-[7px] w-[7px] flex-none rounded-full"
-                  style={{ backgroundColor: c.color }}
-                />
-                {c.name}
-              </span>
+              <NamePill key={c.name} name={c.name} color={c.color} />
             ))}
           </span>
         )}
