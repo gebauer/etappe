@@ -2769,6 +2769,35 @@ opens `TripSettingsDialog`:
 
 ---
 
+## Phase 24 — Confirm a dragged move (2026-09-04, author request)
+
+Dragging a marker used to write straight through: one nudge rewrote a
+stop's real coordinates and re-routed both legs, with no undo because the
+old lat/lon was gone. Both map drags now ask first.
+
+- `MoveStopPrompt.tsx` — a modal in the same shape as the recycle prompt.
+  Names the place, says what changes (the pin *is* the place, so its legs
+  re-route; the access point only changes where routing enters), and shows
+  the dropped coordinates. The map stays visible behind it with the marker
+  at the drop point, so you can see where it landed before deciding.
+- `TripEditor` — `dragStop` / `dragAccessPoint` no longer commit; they park
+  the drop in `pendingMove` and the modal's `confirmMove` runs the original
+  `updateStopAndReroute`. Escape cancels. Role-gated like every other
+  structural write.
+- Cancelling has to put the marker back — MapLibre left it where it was
+  dropped while the record never changed. `markerReset` is a counter in the
+  new `markerResetSignal` prop on `MapPane`, added to the marker-sync
+  effect's deps so it re-runs and `setLngLat`s both markers to the stored
+  coordinates.
+- **Not gated, deliberately:** the timeline reorder drag (trivially undone
+  by dragging back) and the explicit `Move to day…` / phone `↑↓` controls,
+  which are already single deliberate clicks.
+- Verified in a browser: drag → modal; Cancel → coordinates unchanged *and*
+  the marker returns to its exact pixel (0.0px drift); Move it → written.
+- Commit: `feat: confirm a dragged stop or access-point move`.
+
+---
+
 ## Codebase audit — 2026-09-04
 
 A sweep for unsafe code, leftovers and inefficiency (author request).

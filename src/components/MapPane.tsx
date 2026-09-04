@@ -135,6 +135,7 @@ export function MapPane({
   selectedStop,
   onDragStop,
   onDragAccessPoint,
+  markerResetSignal,
   onSelectNearby,
   wishlist,
   onSelectWishlist,
@@ -163,6 +164,10 @@ export function MapPane({
   selectedStop?: StopsResponse | null;
   onDragStop?: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint?: (stopId: string, lat: number, lon: number) => void;
+  /** Bumped when a drag was cancelled (WORK 24): the marker is sitting where
+   * it was dropped but the record never changed, so re-sync both markers to
+   * the stored coordinates. */
+  markerResetSignal?: number;
   onSelectNearby?: (poi: NearbyPoi) => void;
   /** Wishlist ideas (WORK 8.1 follow-up) — hand-curated, so shown plainly,
    * unlike Nearby's raw Overpass results which are gated behind a toggle. */
@@ -1209,6 +1214,7 @@ export function MapPane({
     selectedStop?.lon,
     selectedStop?.access_lat,
     selectedStop?.access_lon,
+    markerResetSignal,
     mapReady,
   ]);
 

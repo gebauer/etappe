@@ -83,6 +83,7 @@ import { MergePrompt } from './MergePrompt';
 import { AccommodationPrompt } from './AccommodationPrompt';
 import { TimingConflictPrompt } from './TimingConflictPrompt';
 import { RecycleStopsPrompt } from './RecycleStopsPrompt';
+import { MoveStopPrompt } from './MoveStopPrompt';
 import {
   planTimingEdit,
   type TimingCell,
@@ -194,6 +195,16 @@ export function TripEditor({
   const [pendingRecycle, setPendingRecycle] = useState<StopsResponse[] | null>(
     null,
   );
+  // A marker drag waiting on its OK/Cancel (WORK 24); `markerReset` snaps the
+  // markers back when it's cancelled.
+  const [pendingMove, setPendingMove] = useState<{
+    kind: 'stop' | 'access';
+    stopId: string;
+    title: string;
+    lat: number;
+    lon: number;
+  } | null>(null);
+  const [markerReset, setMarkerReset] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   // Repairing a wishlist idea the importer couldn't geocode: the next map
   // click is its location. Separate from access-point `picking`, which zooms
@@ -953,23 +964,41 @@ export function TripEditor({
     );
   }
 
+  // Dragging a marker asks before it writes (WORK 24). A drag is a
+  // one-finger gesture with no undo — the old coordinates are gone the
+  // moment it commits — so the drop parks the new point here and the modal
+  // decides. Cancelling bumps `markerReset`, which re-syncs both markers to
+  // the coordinates the record still holds.
   function dragStop(stopId: string, lat: number, lon: number) {
-    if (!records) return;
-    void runStructural(
-      () => updateStopAndReroute(pb, routing, records, stopId, { lat, lon }),
-      [stopId],
-    );
+    if (!records || blockedByRole('itinerary')) return cancelMove();
+    const stop = records.stops.find((s) => s.id === stopId);
+    if (!stop) return cancelMove();
+    setPendingMove({ kind: 'stop', stopId, title: stop.title, lat, lon });
   }
 
   function dragAccessPoint(stopId: string, lat: number, lon: number) {
-    if (!records) return;
+    if (!records || blockedByRole('itinerary')) return cancelMove();
+    const stop = records.stops.find((s) => s.id === stopId);
+    if (!stop) return cancelMove();
+    setPendingMove({ kind: 'access', stopId, title: stop.title, lat, lon });
+  }
+
+  function cancelMove() {
+    setPendingMove(null);
+    setMarkerReset((n) => n + 1);
+  }
+
+  function confirmMove() {
+    const m = pendingMove;
+    setPendingMove(null);
+    if (!m || !records) return;
+    const patch =
+      m.kind === 'stop'
+        ? { lat: m.lat, lon: m.lon }
+        : { access_lat: m.lat, access_lon: m.lon };
     void runStructural(
-      () =>
-        updateStopAndReroute(pb, routing, records, stopId, {
-          access_lat: lat,
-          access_lon: lon,
-        }),
-      [stopId],
+      () => updateStopAndReroute(pb, routing, records, m.stopId, patch),
+      [m.stopId],
     );
   }
 
@@ -1207,6 +1236,7 @@ export function TripEditor({
       }
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === 'Escape' && pendingMove) return cancelMove();
       if (e.key === 'Escape' && pendingRecycle) return setPendingRecycle(null);
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
@@ -1263,6 +1293,7 @@ export function TripEditor({
     pendingPlacement,
     mergeCheck,
     pendingRecycle,
+    pendingMove,
     wishCard,
     emptyCard,
     browsing,
@@ -1645,6 +1676,7 @@ export function TripEditor({
             selectedStop={selectedStop}
             onDragStop={dragStop}
             onDragAccessPoint={dragAccessPoint}
+            markerResetSignal={markerReset}
             onSelectNearby={selectNearby}
             wishlist={wishlist}
             onSelectWishlist={(item) => openCard(() => setWishCard(item))}
@@ -2268,6 +2300,16 @@ export function TripEditor({
           titles={pendingRecycle.map((s) => s.title)}
           onConfirm={confirmRecycle}
           onDismiss={() => setPendingRecycle(null)}
+        />
+      )}
+      {pendingMove && (
+        <MoveStopPrompt
+          title={pendingMove.title}
+          kind={pendingMove.kind}
+          lat={pendingMove.lat}
+          lon={pendingMove.lon}
+          onConfirm={confirmMove}
+          onCancel={cancelMove}
         />
       )}
       {expanded && !picking && cardTarget?.type === 'wish' && (
