@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatDayDate } from '../lib/format';
 import { formatClock, type CascadeResult } from '../lib/cascade';
 import { warningText } from '../lib/warnings';
-import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { costsFor } from '../lib/costs';
 import { pb } from '../lib/pb';
 import type {
@@ -206,12 +206,7 @@ export function Timeline({
   const departFrom =
     first && dayResult?.leadingLeg ? first.arrival - leadMin : null;
   const startThumb = startPointStop
-    ? (() => {
-        const p = blocksFor(blocks, 'stop', startPointStop.id).find(
-          (b) => b.kind === 'photo',
-        );
-        return p ? blockFileUrl(pb, p, '80x80') : null;
-      })()
+    ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', startPointStop.id))
     : null;
 
   function indexInDay(beforeStopId?: string): number {
@@ -423,8 +418,9 @@ export function Timeline({
                     (l) => l.from_stop === stop.id && l.to_stop === next.id,
                   )
                 : undefined;
-              const cover = blocksFor(blocks, 'stop', stop.id).find(
-                (b) => b.kind === 'photo',
+              const photoUrl = firstPhotoUrl(
+                pb,
+                blocksFor(blocks, 'stop', stop.id),
               );
               const stopWarnings = dayWarnings.filter(
                 (w) => w.stopId === stop.id,
@@ -453,7 +449,7 @@ export function Timeline({
                       stop={stop}
                       seq={i + 1}
                       timing={timingByStop.get(stop.id)}
-                      photoUrl={cover ? blockFileUrl(pb, cover, '80x80') : null}
+                      photoUrl={photoUrl}
                       cost={costsFor(costs, 'stop', stop.id)[0] ?? null}
                       selected={selectedStopIds.has(stop.id)}
                       hovered={hoveredStopId === stop.id}

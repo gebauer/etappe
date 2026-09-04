@@ -1,5 +1,5 @@
 import { pb } from '../lib/pb';
-import { firstPhotoUrl } from '../lib/pb-blocks';
+import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import type { BlocksResponse, PoisResponse } from '../types/pb';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { ContributorChip } from './ContributorMark';
@@ -93,10 +93,7 @@ export function WishlistPanel({
             </p>
           )}
           {shown.map((item) => {
-            const itemBlocks = blocks.filter(
-              (b) => b.parent_type === 'poi' && b.parent_id === item.id,
-            );
-            const thumb = firstPhotoUrl(pb, itemBlocks);
+            const thumb = firstPhotoUrl(pb, blocksFor(blocks, 'poi', item.id));
             const hovered = hoveredId === item.id;
             return (
               <button
@@ -123,6 +120,9 @@ export function WishlistPanel({
                       alt=""
                       className="h-full w-full object-cover"
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   )}
                 </span>

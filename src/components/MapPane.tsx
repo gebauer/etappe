@@ -30,7 +30,7 @@ import { categoryColor } from '../lib/map-colors';
 import { formatMeters } from '../lib/format';
 import { loadThumbnailUrl } from '../lib/wikimedia';
 import { pb } from '../lib/pb';
-import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { DayPills } from './DayPills';
 import { TILE_URL } from '../lib/map-config';
 
@@ -786,10 +786,12 @@ export function MapPane({
     const iconMode = wishlistPinMode === 'icon' && !!atlas;
     for (const item of wishlist ?? []) {
       if (!item.lat || !item.lon) continue;
-      const cover = blocksFor(recordsRef.current.blocks, 'poi', item.id).find(
-        (b) => b.kind === 'photo',
-      );
-      const url = !iconMode && cover ? blockFileUrl(pb, cover, '80x80') : null;
+      const url = iconMode
+        ? null
+        : firstPhotoUrl(
+            pb,
+            blocksFor(recordsRef.current.blocks, 'poi', item.id),
+          );
       const fallback = categoryColor(item.kind ?? 'uncategorized');
       const glyph = iconMode
         ? {

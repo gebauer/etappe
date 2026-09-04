@@ -11,7 +11,7 @@
 import type { TypedPocketBase, TripsResponse, PoisResponse } from '../types/pb';
 import { loadTripRecords } from './pb-trip-doc';
 import { listMyTrips } from './pb-trips';
-import { blocksFor, blockFileUrl } from './pb-blocks';
+import { blocksFor, firstPhotoUrl } from './pb-blocks';
 import { categoryColor } from './map-colors';
 import { formatDayDate, relativeTime } from './format';
 
@@ -151,10 +151,11 @@ async function buildCard(
   const ranked = [...pois]
     .sort((a, b) => Number(b.starred) - Number(a.starred))
     .map((poi) => {
-      const photo = blocksFor(records.blocks, 'poi', poi.id).find(
-        (b) => b.kind === 'photo',
+      const url = firstPhotoUrl(
+        pb,
+        blocksFor(records.blocks, 'poi', poi.id),
+        '640x0',
       );
-      const url = photo ? blockFileUrl(pb, photo, '640x0') : null;
       return {
         poiId: poi.id,
         url,

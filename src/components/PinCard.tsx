@@ -161,7 +161,9 @@ export function PinCard({
   useEffect(() => setConfirmingRemove(false), [identity]);
 
   const photos = blocks.filter((b) => b.kind === 'photo');
-  const cover = photos[0];
+  // The first photo that actually resolves — skip an upload that never
+  // finished so a good photo further down still shows.
+  const cover = photos.find((p) => blockFileUrl(pb, p)) ?? photos[0];
   const coverSrc = cover ? blockFileUrl(pb, cover, '640x0') : null;
   const allNotes = blocks.filter((b) => b.kind === 'note' && b.body?.trim());
   // A private note is only ever returned to the person who wrote it (the

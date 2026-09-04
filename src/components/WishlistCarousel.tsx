@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { pb } from '../lib/pb';
-import { blocksFor, blockFileUrl } from '../lib/pb-blocks';
+import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { categoryColor } from '../lib/map-colors';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import type { BlocksResponse, PoisResponse } from '../types/pb';
@@ -137,10 +137,11 @@ export function WishlistCarousel({
             </p>
           )}
           {ordered.map((item) => {
-            const cover = blocksFor(blocks, 'poi', item.id).find(
-              (b) => b.kind === 'photo',
+            const url = firstPhotoUrl(
+              pb,
+              blocksFor(blocks, 'poi', item.id),
+              '640x0',
             );
-            const url = cover ? blockFileUrl(pb, cover, '640x0') : null;
             const hovered = hoveredId === item.id;
             return (
               <button

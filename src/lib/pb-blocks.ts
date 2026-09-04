@@ -55,14 +55,24 @@ export function blockFileUrl(
   return null;
 }
 
-/** The first photo block's displayable URL, for a row thumbnail — `null`
- * when there isn't one, same "nothing to show" case as no blocks at all. */
+/** The first *displayable* photo block's URL — for a row thumbnail, a card
+ * cover or a map pin. Skips photo blocks that resolve to nothing (an upload
+ * that never finished, a placeholder), so a good photo further down the
+ * list still shows rather than the surface going blank while another
+ * surface (using a different pick) shows the image. `null` when none of the
+ * photo blocks resolve. Pass `blocksFor(...)` so every surface agrees on
+ * the order. */
 export function firstPhotoUrl(
   pb: TypedPocketBase,
   blocks: BlocksResponse[],
+  thumb: '80x80' | '640x0' = '80x80',
 ): string | null {
-  const photo = blocks.find((b) => b.kind === 'photo');
-  return photo ? blockFileUrl(pb, photo, '80x80') : null;
+  for (const b of blocks) {
+    if (b.kind !== 'photo') continue;
+    const url = blockFileUrl(pb, b, thumb);
+    if (url) return url;
+  }
+  return null;
 }
 
 /** Uploads a photo/file block's file, extracting EXIF GPS/date first (BUILD

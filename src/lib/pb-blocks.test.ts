@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { blocksFor, reorderBlock } from './pb-blocks';
-import type { BlocksResponse } from '../types/pb';
+import { blocksFor, reorderBlock, firstPhotoUrl } from './pb-blocks';
+import type { BlocksResponse, TypedPocketBase } from '../types/pb';
+
+const fakePb = {
+  files: {
+    getURL: (_rec: unknown, file: string, o?: { thumb?: string }) =>
+      `/f/${file}${o?.thumb ? `?thumb=${o.thumb}` : ''}`,
+  },
+} as unknown as TypedPocketBase;
 
 /** A partial `BlocksResponse` — loosely typed so a test can pass a plain
  * `created` string past the branded `IsoAutoDateString`. */
@@ -117,5 +124,37 @@ describe('reorderBlock', () => {
     const { pb, writes } = fakeBatch();
     await reorderBlock(pb, siblings, 'a', 99); // -> b,c,d,a
     expect(writes.map((w) => w.id)).toEqual(['b', 'c', 'd', 'a']);
+  });
+});
+
+describe('firstPhotoUrl', () => {
+  it('returns null with no photo blocks', () => {
+    expect(
+      firstPhotoUrl(fakePb, [block({ kind: 'note', body: 'hi' })]),
+    ).toBeNull();
+  });
+
+  it('skips a photo block that resolves to nothing', () => {
+    // The first photo has no file and no url — an upload that never
+    // finished; the second is real. The surface must not go blank.
+    const url = firstPhotoUrl(fakePb, [
+      block({ kind: 'photo', file: '', url: '' }),
+      block({ kind: 'photo', file: 'good.jpg' }),
+    ]);
+    expect(url).toBe('/f/good.jpg?thumb=80x80');
+  });
+
+  it('honours the requested thumb size', () => {
+    expect(
+      firstPhotoUrl(fakePb, [block({ kind: 'photo', file: 'a.jpg' })], '640x0'),
+    ).toBe('/f/a.jpg?thumb=640x0');
+  });
+
+  it('falls back to a plain url block', () => {
+    expect(
+      firstPhotoUrl(fakePb, [
+        block({ kind: 'photo', file: '', url: 'https://x/p.jpg' }),
+      ]),
+    ).toBe('https://x/p.jpg');
   });
 });

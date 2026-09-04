@@ -87,6 +87,9 @@ export function StopRow({
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
         )}
       </span>
