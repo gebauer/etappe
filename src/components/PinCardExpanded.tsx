@@ -51,6 +51,40 @@ function makeCoordPaste(onUpdate: (patch: StopPatch) => void) {
   };
 }
 
+/** Commit a coordinate only if it is actually on Earth.
+ *
+ * These fields took anything: pasting an address into Latitude stored a
+ * number like 1000, and the next `fitBounds` threw `Invalid LngLat
+ * latitude value`, which unmounts the whole app. Out of range, the input
+ * snaps back to the stored value and says why. An empty field still means
+ * "unplaced" (0), which is what the rest of the app reads.
+ */
+function commitCoord(
+  axis: 'lat' | 'lon',
+  input: HTMLInputElement,
+  stored: number | undefined,
+  onUpdate: (patch: StopPatch) => void,
+  onReject: (message: string | null) => void,
+): void {
+  const raw = input.value.trim();
+  if (raw === '') {
+    onReject(null);
+    onUpdate(axis === 'lat' ? { lat: 0 } : { lon: 0 });
+    return;
+  }
+  const limit = axis === 'lat' ? 90 : 180;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || Math.abs(value) > limit) {
+    input.value = stored ? String(stored) : '';
+    onReject(
+      `${axis === 'lat' ? 'Latitude' : 'Longitude'} has to be between -${limit} and ${limit}.`,
+    );
+    return;
+  }
+  onReject(null);
+  onUpdate(axis === 'lat' ? { lat: value } : { lon: value });
+}
+
 const FIELD_LABEL = 'mb-1.5 block text-[11px] text-text-3';
 const FIELD =
   'h-[38px] w-full rounded-[9px] border border-border-strong bg-field px-[11px] text-text outline-none focus:border-accent';
@@ -140,6 +174,7 @@ export function PinCardExpanded({
   // stop-only sections render off this instead.
   const asStop = isWish ? null : (stop as StopsResponse);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [coordError, setCoordError] = useState<string | null>(null);
 
   // Cleared as soon as it is honoured (`onKindPickerOpened`) — the signal
   // is a one-shot request, and a value left standing would reopen the
@@ -369,8 +404,18 @@ export function PinCardExpanded({
                   step="any"
                   inputMode="decimal"
                   defaultValue={stop.lat || ''}
+                  min={-90}
+                  max={90}
                   onPaste={coordPaste}
-                  onBlur={(e) => onUpdate({ lat: Number(e.target.value) || 0 })}
+                  onBlur={(e) =>
+                    commitCoord(
+                      'lat',
+                      e.target,
+                      stop.lat,
+                      onUpdate,
+                      setCoordError,
+                    )
+                  }
                   onKeyDown={commitOnEnter}
                   className={`${FIELD} font-mono text-[13.5px]`}
                 />
@@ -383,12 +428,27 @@ export function PinCardExpanded({
                   step="any"
                   inputMode="decimal"
                   defaultValue={stop.lon || ''}
+                  min={-180}
+                  max={180}
                   onPaste={coordPaste}
-                  onBlur={(e) => onUpdate({ lon: Number(e.target.value) || 0 })}
+                  onBlur={(e) =>
+                    commitCoord(
+                      'lon',
+                      e.target,
+                      stop.lon,
+                      onUpdate,
+                      setCoordError,
+                    )
+                  }
                   onKeyDown={commitOnEnter}
                   className={`${FIELD} font-mono text-[13.5px]`}
                 />
               </label>
+              {coordError && (
+                <p className="col-span-2 -mt-1 text-[11.5px] text-danger-text">
+                  {coordError}
+                </p>
+              )}
               <div className="col-span-2 flex items-center justify-between gap-3 rounded-[10px] border border-[oklch(0.29_0.012_250)] bg-surface-2 px-3.5 py-2.5">
                 <div className="min-w-0">
                   <div className="text-[12.5px] font-medium">Access point</div>

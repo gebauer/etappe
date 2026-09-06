@@ -10,6 +10,7 @@
 import type { CascadeResult } from './cascade';
 import type { TripRecords } from './pb-trip-doc';
 import { dayHue, flatColor, legColor } from './map-colors';
+import { isValidLatLon } from './geo';
 
 export interface LegFeature {
   type: 'Feature';
@@ -144,7 +145,7 @@ export function buildLegFeatures(
       // No route geometry: connect the two stops with a straight line rather
       // than drawing nothing, but flag it so the map styles it as a manual
       // connector, not a computed route.
-      if (from.lat && from.lon && to.lat && to.lon) {
+      if (isValidLatLon(from.lat, from.lon) && isValidLatLon(to.lat, to.lon)) {
         features.push({
           type: 'Feature',
           geometry: {
@@ -185,15 +186,16 @@ export function boundsForDay(
   let east = -Infinity;
   let north = -Infinity;
   const add = (lon: number | undefined, lat: number | undefined) => {
-    if (typeof lon !== 'number' || !Number.isFinite(lon)) return;
-    if (typeof lat !== 'number' || !Number.isFinite(lat)) return;
+    if (typeof lon !== 'number' || typeof lat !== 'number') return;
+    if (!isValidLatLon(lat, lon)) return;
     if (lon < west) west = lon;
     if (lon > east) east = lon;
     if (lat < south) south = lat;
     if (lat > north) north = lat;
   };
   for (const stop of records.stops) {
-    if (stop.day === dayId && stop.lat && stop.lon) add(stop.lon, stop.lat);
+    if (stop.day === dayId && isValidLatLon(stop.lat, stop.lon))
+      add(stop.lon, stop.lat);
   }
   for (const f of legFeatures.features) {
     if (f.properties.dayId !== dayId) continue;
@@ -260,7 +262,7 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
       .sort((a, b) => a.order_index - b.order_index);
     let seq = 0;
     for (const s of dayStops) {
-      if (!s.lat || !s.lon) continue;
+      if (!isValidLatLon(s.lat, s.lon)) continue;
       seq += 1;
       const starred = !!s.starred;
       const isWaypoint = s.routing_kind === 'waypoint';
@@ -349,7 +351,7 @@ export function buildDayStartFeatures(
   const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
   const stopsOf = (dayId: string) =>
     records.stops
-      .filter((s) => s.day === dayId && s.lat && s.lon)
+      .filter((s) => s.day === dayId && isValidLatLon(s.lat, s.lon))
       .sort((a, b) => a.order_index - b.order_index);
 
   const features: DayStartFeature[] = [];
@@ -437,7 +439,7 @@ export function buildWishlistFeatures(
   }>,
 ): WishlistFeatureCollection {
   const features: WishlistFeature[] = wishlist
-    .filter((p) => p.lat && p.lon)
+    .filter((p) => isValidLatLon(p.lat, p.lon))
     .map((p) => ({
       type: 'Feature' as const,
       geometry: {

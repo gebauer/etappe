@@ -9,6 +9,7 @@ import {
   boundsForDay,
   type StopFeatureCollection,
 } from '../lib/map-features';
+import { isValidLatLon } from '../lib/geo';
 import type { TripRecords } from '../lib/pb-trip-doc';
 import type { CascadeResult } from '../lib/cascade';
 import type { StopsResponse, PoisResponse } from '../types/pb';
@@ -1050,14 +1051,14 @@ export function MapPane({
       return;
     }
     const dayStops = recordsRef.current.stops
-      .filter((s) => s.day === focusDayId && s.lat && s.lon)
+      .filter((s) => s.day === focusDayId && isValidLatLon(s.lat, s.lon))
       .map((s) => ({ lat: s.lat, lon: s.lon }));
     if (dayStops.length === 0) {
       setNearbyPois([]);
       return;
     }
     const existing = recordsRef.current.stops
-      .filter((s) => s.lat && s.lon)
+      .filter((s) => isValidLatLon(s.lat, s.lon))
       .map((s) => ({ lat: s.lat, lon: s.lon }));
     let cancelled = false;
     queryNearby(dayStops, nearbyRadiusKm * 1000, existing)
@@ -1203,6 +1204,7 @@ export function MapPane({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !flyTo) return;
+    if (!isValidLatLon(flyTo.lat, flyTo.lon)) return;
     map.flyTo({
       center: [flyTo.lon, flyTo.lat],
       zoom: flyTo.zoom ? Math.max(map.getZoom(), flyTo.zoom) : undefined,
@@ -1261,7 +1263,10 @@ export function MapPane({
 
     if (draggingRef.current) return;
 
-    if (selectedStop?.lat && selectedStop?.lon) {
+    // `selectedStop?.id` rather than a bare `selectedStop`: the effect's
+    // deps are member accesses, and referencing the object itself pulls it
+    // into the dependency list.
+    if (selectedStop?.id && isValidLatLon(selectedStop.lat, selectedStop.lon)) {
       const photo = stopPhotoRef.current.get(selectedStop.id) ?? null;
       // The twin rebuilds when the stop changes *or* when its cover photo
       // arrives (circle -> photo tile), so the key carries both.
@@ -1409,13 +1414,13 @@ function computeBounds(
   const bounds = new maplibregl.LngLatBounds();
   for (const f of legFc.features) {
     for (const [lon, lat] of f.geometry.coordinates) {
-      if (typeof lon === 'number' && typeof lat === 'number') {
-        bounds.extend([lon, lat]);
-      }
+      if (typeof lon !== 'number' || typeof lat !== 'number') continue;
+      if (isValidLatLon(lat, lon)) bounds.extend([lon, lat]);
     }
   }
   for (const f of stopFc.features) {
-    bounds.extend(f.geometry.coordinates);
+    const [lon, lat] = f.geometry.coordinates;
+    if (isValidLatLon(lat, lon)) bounds.extend([lon, lat]);
   }
   return bounds;
 }
