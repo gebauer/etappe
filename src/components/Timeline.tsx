@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatDayDate } from '../lib/format';
 import { formatClock, type CascadeResult } from '../lib/cascade';
 import { warningText } from '../lib/warnings';
+import { dayTotals } from '../lib/day-totals';
 import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { costsFor } from '../lib/costs';
 import { pb } from '../lib/pb';
@@ -16,6 +17,7 @@ import type { TripsResponse } from '../types/pb';
 import type { LegPatch } from '../lib/pb-stops';
 import { StopRow } from './StopRow';
 import { LegRow } from './LegRow';
+import { DayTotalsChips } from './DayTotalsChips';
 import { TripOverview } from './TripOverview';
 import { routeUrl, type LinkOut } from '../lib/geo-links';
 import { routingPoint } from '../lib/routing';
@@ -182,12 +184,12 @@ export function Timeline({
     (w) => w.dayId === day.id,
   );
 
+  // How the day divides between driving and being somewhere — the same
+  // minutes the leg rows and cards show, summed.
+  const totals = dayTotals(dayResult);
+
   const first = dayResult?.stops[0];
   const last = dayResult?.stops[dayResult.stops.length - 1];
-  const span =
-    first && last
-      ? `${formatClock(first.arrival)} – ${formatClock(last.departure)}`
-      : '';
 
   // The whole day as one route (WORK 19.4). The start point leads, since
   // that is where the day actually begins; stops with no coordinates yet
@@ -205,6 +207,16 @@ export function Timeline({
   const leadMin = dayResult?.leadingLeg?.effectiveDuration ?? 0;
   const departFrom =
     first && dayResult?.leadingLeg ? first.arrival - leadMin : null;
+
+  // The day starts when you leave, not when you arrive somewhere: with a
+  // start point the morning drive is already part of the day, so the span
+  // opens at the departure the ghost row shows rather than at stop 1.
+  const span =
+    first && last
+      ? `${formatClock(departFrom ?? first.arrival)} – ${formatClock(
+          last.departure,
+        )}`
+      : '';
   const startThumb = startPointStop
     ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', startPointStop.id))
     : null;
@@ -246,9 +258,10 @@ export function Timeline({
             Day {dayIndex + 1}
             {day.title ? ` · ${day.title}` : ''}
           </div>
-          <div className="mt-0.5 font-mono text-[11.5px] text-text-4">
-            {formatDayDate(trip.start_date, day.order_index)} · {day.kind}
+          <div className="mt-0.5 truncate font-mono text-[11.5px] text-text-4">
+            {formatDayDate(trip.start_date, day.order_index)}
           </div>
+          <DayTotalsChips totals={totals} />
         </div>
         <div className="flex flex-none items-center gap-2.5">
           {span && (

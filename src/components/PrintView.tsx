@@ -210,7 +210,7 @@ export function PrintView({
                   {day.title ? ` · ${day.title}` : ''}
                 </span>
                 <span className="pv-day-date">
-                  {formatDayDate(trip.start_date, day.order_index)} · {day.kind}
+                  {formatDayDate(trip.start_date, day.order_index)}
                 </span>
               </h2>
 

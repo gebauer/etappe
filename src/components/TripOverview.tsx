@@ -65,9 +65,17 @@ export function TripOverview({
             const dayResult = result?.days.find((r) => r.dayId === d.id);
             const rFirst = dayResult?.stops[0];
             const rLast = dayResult?.stops[dayResult.stops.length - 1];
+            // Same as the day header: a day with a start point begins
+            // when you leave it, so the span opens at that departure.
+            const departFrom =
+              rFirst && dayResult?.leadingLeg
+                ? rFirst.arrival - dayResult.leadingLeg.effectiveDuration
+                : null;
             const span =
               rFirst && rLast
-                ? `${formatClock(rFirst.arrival)} – ${formatClock(rLast.departure)}`
+                ? `${formatClock(departFrom ?? rFirst.arrival)} – ${formatClock(
+                    rLast.departure,
+                  )}`
                 : '';
             return (
               <button
