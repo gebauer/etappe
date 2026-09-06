@@ -162,7 +162,10 @@ export function MapPane({
   onHoverStop?: (stopId: string | null) => void;
   hoveredStopId?: string | null;
   focusDayId?: string | null;
-  flyTo?: { lat: number; lon: number; nonce: number } | null;
+  /** `zoom` is a floor, not a set: a search result must be visible from a
+   * country-scale view, but must not pull the map *out* when you are
+   * already looking at the street. */
+  flyTo?: { lat: number; lon: number; nonce: number; zoom?: number } | null;
   selectedStop?: StopsResponse | null;
   onDragStop?: (stopId: string, lat: number, lon: number) => void;
   onDragAccessPoint?: (stopId: string, lat: number, lon: number) => void;
@@ -1129,18 +1132,6 @@ export function MapPane({
     ]);
   }, [hoveredStopId, mapReady]);
 
-  // Centre on a point on demand (selecting a wishlist idea, WORK 12.6).
-  // Pan only — the zoom stays wherever the user put it. This used to force
-  // a minimum zoom of 13, which was right for its old caller (the
-  // inspector's "zoom to this stop" button) but wrong here: bringing an
-  // off-screen idea into view shouldn't also throw away the zoom level you
-  // were working at.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loadedRef.current || !flyTo) return;
-    map.flyTo({ center: [flyTo.lon, flyTo.lat], duration: 600 });
-  }, [flyTo, mapReady]);
-
   // Access-point picking (WORK 12.9): zoom in on the stop so a car park is
   // actually findable — you cannot aim at a country-scale view. `picking` is
   // memoised by the caller, so this only fires on entry / target change.
@@ -1198,6 +1189,26 @@ export function MapPane({
       );
     }
   }, [focusDayId, mapReady]);
+
+  // Centre on a point on demand (selecting a wishlist idea, WORK 12.6; a
+  // stop or idea picked in Search). `zoom` is a floor when the caller sets
+  // one, otherwise pan only — bringing an off-screen idea into view
+  // shouldn't throw away the zoom level you were working at.
+  //
+  // Declared *after* the day fit above on purpose: reaching a stop on
+  // another day changes `focusDayId` and asks for this fly in the same
+  // commit, and effects run in order, so the explicit destination is the
+  // one the camera ends on. Moving this block above that one would leave
+  // the map framing the whole day instead of the place you searched for.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !flyTo) return;
+    map.flyTo({
+      center: [flyTo.lon, flyTo.lat],
+      zoom: flyTo.zoom ? Math.max(map.getZoom(), flyTo.zoom) : undefined,
+      duration: 600,
+    });
+  }, [flyTo, mapReady]);
 
   // Day-scope the stop pins to whichever day is focused (design handoff,
   // "Day switching": "swaps ... the map's numbered pins to that day") and,

@@ -3,8 +3,17 @@ import { photonSearch, type PlaceResult } from '../lib/photon';
 import { sniffPaste } from '../lib/paste-sniff';
 import { resolveLink } from '../lib/pb-capture';
 import { pb } from '../lib/pb';
-import { TAXONOMY, type Kind } from '../lib/taxonomy';
+import { kindLabel, matchByNameOrKind } from '../lib/search-match';
 import type { PoisResponse } from '../types/pb';
+
+/** A stop already in the itinerary, flattened for the palette: it needs the
+ * day it sits on, which only the editor can work out. */
+export interface ItineraryMatch {
+  id: string;
+  title: string;
+  kind: string;
+  dayLabel: string;
+}
 
 interface Props {
   onPick: (place: PlaceResult, sourceUrl?: string) => void;
@@ -17,6 +26,13 @@ interface Props {
    * the panel or the carousel. */
   wishlist?: PoisResponse[];
   onPickWishlist?: (item: PoisResponse) => void;
+  /** Stops already planned, searched alongside the wishlist. Picking one
+   * navigates to it rather than capturing anything — the palette is the
+   * fastest way to reach a place you know is somewhere in the trip.
+   * Undefined in the "+ Stop" flow, where landing on an existing stop
+   * would be a dead end. */
+  stops?: ItineraryMatch[];
+  onPickStop?: (stopId: string) => void;
   /** A line above the input saying what this search is for — used by
    * "+ Stop", where the palette *is* the add-stop flow (WORK 22). */
   heading?: ReactNode;
@@ -29,23 +45,26 @@ interface Props {
  * find the one you meant, few enough that the geocoder stays on screen. */
 const WISHLIST_LIMIT = 6;
 
+/** Fewer than the wishlist's: the itinerary is the smaller, more specific
+ * set, and it sits above everything else. */
+const STOP_LIMIT = 5;
+
 function coordPlace(lat: number, lon: number): PlaceResult {
   return { name: 'Pasted location', lat, lon, kind: 'uncategorized' };
 }
 
-function kindLabel(kind: string | undefined): string {
-  return TAXONOMY[kind as Kind]?.label ?? kind ?? 'uncategorized';
-}
-
 /**
- * ⌘K capture: the trip's own wishlist first, then Photon typeahead for new
- * places, plus a paste sniffer for pasted coordinates / Google Maps or
- * Komoot URLs (BUILD §6).
+ * ⌘K capture and navigation: what the trip already holds first — planned
+ * stops, then saved ideas — and only then Photon typeahead for new places,
+ * plus a paste sniffer for pasted coordinates / Google Maps or Komoot URLs
+ * (BUILD §6).
  *
  * The wishlist section (WORK 18.9) is what makes a saved idea reachable by
  * name at all — before it, search only ever spoke to external services, so
  * the hundred places imported from Highlights could only be found by
- * hunting pins or scrolling the panel.
+ * hunting pins or scrolling the panel. The itinerary section is the same
+ * argument for stops: on a long trip, finding the day a place ended up on
+ * otherwise means stepping through the day pills.
  */
 export function SearchPalette({
   onPick,
@@ -53,6 +72,8 @@ export function SearchPalette({
   initialQuery,
   wishlist,
   onPickWishlist,
+  stops,
+  onPickStop,
   heading,
   wishlistWhenEmpty = false,
 }: Props) {
@@ -65,21 +86,23 @@ export function SearchPalette({
   const sniff = useMemo(() => (q.trim() ? sniffPaste(q) : null), [q]);
   const isPaste = sniff !== null && sniff.kind !== 'address';
 
-  // Matched locally and instantly — no debounce, no request. Title first,
-  // then the kind's label, so "waterfall" finds every saved waterfall.
+  // Both local sections are matched instantly — no debounce, no request.
+  const stopMatches = useMemo(() => {
+    if (isPaste || !stops || !onPickStop) return [];
+    return matchByNameOrKind(stops, q, STOP_LIMIT);
+  }, [q, isPaste, stops, onPickStop]);
+
   const wishlistMatches = useMemo(() => {
-    const needle = q.trim().toLowerCase();
     if (isPaste || !wishlist || !onPickWishlist) return [];
-    if (!needle)
+    if (!q.trim())
       return wishlistWhenEmpty ? wishlist.slice(0, WISHLIST_LIMIT) : [];
-    return wishlist
-      .filter(
-        (item) =>
-          item.title.toLowerCase().includes(needle) ||
-          kindLabel(item.kind).toLowerCase().includes(needle),
-      )
-      .slice(0, WISHLIST_LIMIT);
+    return matchByNameOrKind(wishlist, q, WISHLIST_LIMIT);
   }, [q, isPaste, wishlist, onPickWishlist, wishlistWhenEmpty]);
+
+  /** What the trip itself already answers — the sections above "New
+   * places", and what decides whether that separator has anything to
+   * separate from. */
+  const localMatches = stopMatches.length + wishlistMatches.length;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -180,9 +203,32 @@ export function SearchPalette({
             </li>
           )}
 
+          {stopMatches.length > 0 && (
+            <>
+              <SectionLabel>In the itinerary</SectionLabel>
+              {stopMatches.map((stop) => (
+                <li key={stop.id}>
+                  <button
+                    onClick={() => onPickStop?.(stop.id)}
+                    className="flex h-11 w-full items-center justify-between gap-2 border-l-2 border-transparent px-4 text-left text-text-2 outline-none hover:bg-control hover:text-text focus-visible:border-accent focus-visible:bg-control focus-visible:text-text"
+                  >
+                    <span className="min-w-0 truncate text-[15px] font-medium">
+                      {stop.title}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-field px-2 py-0.5 text-[11px] text-text-4">
+                      {stop.dayLabel} · {kindLabel(stop.kind)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+
           {wishlistMatches.length > 0 && (
             <>
-              <SectionLabel>From the wishlist</SectionLabel>
+              <SectionLabel divided={stopMatches.length > 0}>
+                From the wishlist
+              </SectionLabel>
               {wishlistMatches.map((item) => (
                 <li key={item.id}>
                   <button
@@ -208,7 +254,7 @@ export function SearchPalette({
 
           {/* The separator only earns its place once there is something
               above it to separate from. */}
-          {wishlistMatches.length > 0 && !isPaste && (
+          {localMatches > 0 && !isPaste && (
             <SectionLabel divided>New places</SectionLabel>
           )}
 
@@ -221,7 +267,7 @@ export function SearchPalette({
             results.length === 0 &&
             !error && (
               <li className="px-4 py-3 text-[13px] text-text-4">
-                {wishlistMatches.length > 0 ? 'No new places.' : 'No results.'}
+                {localMatches > 0 ? 'No new places.' : 'No results.'}
               </li>
             )}
           {!isPaste &&

@@ -74,7 +74,7 @@ import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
 import { reconcileLeadingLegs, setDayStartStop } from '../lib/pb-leading-leg';
 import { UncategorizedReview } from './UncategorizedReview';
-import { SearchPalette } from './SearchPalette';
+import { SearchPalette, type ItineraryMatch } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
 import { Timeline } from './Timeline';
 import { MapPane } from './MapPane';
@@ -113,6 +113,11 @@ type CaptureCandidate = PlacementCandidate & {
  * purpose: this is "the car park for this stop", not a corridor scan. */
 const PARKING_RADIUS_M = 600;
 
+/** Where the map lands on a search result: close enough to see the place in
+ * its surroundings, wide enough to still recognise where in the trip it is.
+ * A floor — an already-closer view is left alone. */
+const SEARCH_ZOOM = 12;
+
 export function TripEditor({
   tripId,
   onBack,
@@ -144,6 +149,7 @@ export function TripEditor({
     lat: number;
     lon: number;
     nonce: number;
+    zoom?: number;
   } | null>(null);
   const [showHighlightsImport, setShowHighlightsImport] = useState(false);
   const [searchMode, setSearchMode] = useState<'placement' | 'wishlist' | null>(
@@ -488,10 +494,27 @@ export function TripEditor({
    * anywhere in the trip's country, routinely outside the current view, so
    * without this, picking one from the list (or stepping to it with the
    * card's ‹/›) looks like nothing happened. */
-  function showWishlistItem(item: PoisResponse) {
+  function showWishlistItem(item: PoisResponse, zoom?: number) {
     openCard(() => setWishCardId(item.id));
     if (item.lat && item.lon) {
-      setFlyTo({ lat: item.lat, lon: item.lon, nonce: Date.now() });
+      setFlyTo({ lat: item.lat, lon: item.lon, nonce: Date.now(), zoom });
+    }
+  }
+
+  /** Reach a stop from anywhere (currently: Search). Lands on its day so
+   * the itinerary column shows it in context, selects it — which is what
+   * puts the docked card on screen — and zooms the map in far enough that
+   * the pin is actually findable from a whole-trip view. */
+  function showStop(stop: StopsResponse) {
+    selectDay(stop.day);
+    openCard(() => setSelectedStopIds(new Set([stop.id])));
+    if (stop.lat && stop.lon) {
+      setFlyTo({
+        lat: stop.lat,
+        lon: stop.lon,
+        nonce: Date.now(),
+        zoom: SEARCH_ZOOM,
+      });
     }
   }
 
@@ -1327,6 +1350,16 @@ export function TripEditor({
       .filter((s) => s.day === dayId)
       .sort((a, b) => a.order_index - b.order_index);
 
+  /** The itinerary flattened for Search. Each stop carries the day it sits
+   * on, which the palette cannot work out on its own. Cheap enough to rebuild per render — it is a map over the
+   * trip's stops, and the palette only filters it once a query is typed. */
+  const stopMatches: ItineraryMatch[] = stops.map((stop) => ({
+    id: stop.id,
+    title: stop.title,
+    kind: stop.kind,
+    dayLabel: `Day ${days.findIndex((d) => d.id === stop.day) + 1}`,
+  }));
+
   let cardTarget: CardTarget | null = null;
   if (emptyCard) {
     cardTarget = { type: 'empty', ...emptyCard };
@@ -2133,7 +2166,12 @@ export function TripEditor({
                 sourceUrl,
               }),
             );
-            setFlyTo({ lat: place.lat, lon: place.lon, nonce: Date.now() });
+            setFlyTo({
+              lat: place.lat,
+              lon: place.lon,
+              nonce: Date.now(),
+              zoom: SEARCH_ZOOM,
+            });
           }}
           wishlist={wishlist}
           // Picking a saved idea (WORK 18.9) always opens its card — from
@@ -2147,7 +2185,17 @@ export function TripEditor({
             }
             setSearchMode(null);
             setShareQuery(null);
-            showWishlistItem(item);
+            showWishlistItem(item, SEARCH_ZOOM);
+          }}
+          // Not offered while adding a stop: there, landing on a place
+          // already in the itinerary would be a dead end.
+          stops={addStopDay ? undefined : stopMatches}
+          onPickStop={(stopId) => {
+            const stop = stops.find((s) => s.id === stopId);
+            if (!stop) return;
+            setSearchMode(null);
+            setShareQuery(null);
+            showStop(stop);
           }}
           onClose={() => {
             setSearchMode(null);
