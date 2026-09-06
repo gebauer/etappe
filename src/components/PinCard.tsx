@@ -89,6 +89,7 @@ interface Props {
   costs: CostsResponse[];
   onChangeCost: (amount: number | null, currency: CurrencyCode) => void;
   openKindPickerSignal?: number;
+  onKindPickerOpened?: () => void;
   /** WORK 12.7 — the compact bottom-sheet strip instead of the docked card.
    * A prop, not an internal media query: `TripEditor` already knows the
    * breakpoint (it decides whether to mount `PinCard` or nothing at all
@@ -143,6 +144,7 @@ export function PinCard({
   costs,
   onChangeCost,
   openKindPickerSignal,
+  onKindPickerOpened,
   phone = false,
   canEditItinerary = true,
   canEditWishlist = true,
@@ -476,6 +478,7 @@ export function PinCard({
               onAddBlock={onAddBlock}
               onAddPrivateNote={onAddPrivateNote}
               openKindPickerSignal={openKindPickerSignal}
+              onKindPickerOpened={onKindPickerOpened}
             />
           </div>
         )}
@@ -670,6 +673,7 @@ export function PinCard({
             onAddBlock={onAddBlock}
             onAddPrivateNote={onAddPrivateNote}
             openKindPickerSignal={openKindPickerSignal}
+            onKindPickerOpened={onKindPickerOpened}
           />
         )}
       </div>

@@ -7,6 +7,7 @@ import { useLinkOut } from '../hooks/useLinkOut';
 import { insertDay, deleteDay } from '../lib/pb-days';
 import { setSingleCost } from '../lib/pb-costs';
 import { costsFor } from '../lib/costs';
+import type { CurrencyCode } from '../lib/currency';
 import { exportTrip, exportWishlist, exportFilename } from '../lib/export-trip';
 import { SharePanel } from './SharePanel';
 import { BudgetPopover } from './BudgetPopover';
@@ -182,6 +183,11 @@ export function TripEditor({
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [kindPickerSignal, setKindPickerSignal] = useState(0);
+  /** The card clears the signal once it has honoured it — otherwise the
+   * value stands forever and every card opened afterwards comes up with
+   * the kind grid already open. Stable so the card's effect doesn't re-run
+   * on every render of this component. */
+  const clearKindPickerSignal = useCallback(() => setKindPickerSignal(0), []);
   const [showUncategorized, setShowUncategorized] = useState(false);
   // Access-point picking (WORK 12.9): a real mode, not just a banner. While
   // set, the docked card, the expanded modal and the wishlist panel all hide
@@ -1307,7 +1313,12 @@ export function TripEditor({
         const stop =
           ids.length === 1 ? records.stops.find((s) => s.id === ids[0]) : null;
         if (stop) {
-          return void (e.preventDefault(), setKindPickerSignal((n) => n + 1));
+          // The grid lives in the card's edit region, so open that as well —
+          // otherwise the shortcut has nowhere to show itself and does
+          // nothing until the card is opened by hand.
+          return void (e.preventDefault(),
+          setEditing(true),
+          setKindPickerSignal((n) => n + 1));
         }
       }
     }
@@ -1359,6 +1370,20 @@ export function TripEditor({
     kind: stop.kind,
     dayLabel: `Day ${days.findIndex((d) => d.id === stop.day) + 1}`,
   }));
+
+  /** Set (or clear, with a null amount) the single price on a stop or a
+   * saved idea. One helper rather than a closure per card: the docked card
+   * and "All details" both offer the field. */
+  const changeCost = (
+    parent: { type: 'stop' | 'poi'; id: string },
+    amount: number | null,
+    currency: CurrencyCode,
+  ) => {
+    const existing = costsFor(records.costs, parent.type, parent.id)[0];
+    void run(() =>
+      setSingleCost(pb, tripId, parent, existing?.id ?? null, amount, currency),
+    );
+  };
 
   let cardTarget: CardTarget | null = null;
   if (emptyCard) {
@@ -1996,29 +2021,18 @@ export function TripEditor({
                     : []
               }
               onChangeCost={(amount, currency) => {
-                const parent =
-                  cardTarget.type === 'stop'
-                    ? ({ type: 'stop', id: cardTarget.stop.id } as const)
-                    : cardTarget.type === 'wish'
-                      ? ({ type: 'poi', id: cardTarget.item.id } as const)
-                      : null;
-                if (!parent) return;
-                const existing =
-                  cardTarget.type === 'stop'
-                    ? costsFor(records.costs, 'stop', cardTarget.stop.id)[0]
-                    : cardTarget.type === 'wish'
-                      ? costsFor(records.costs, 'poi', cardTarget.item.id)[0]
-                      : undefined;
-                void run(() =>
-                  setSingleCost(
-                    pb,
-                    tripId,
-                    parent,
-                    existing?.id ?? null,
+                if (cardTarget.type === 'stop')
+                  changeCost(
+                    { type: 'stop', id: cardTarget.stop.id },
                     amount,
                     currency,
-                  ),
-                );
+                  );
+                else if (cardTarget.type === 'wish')
+                  changeCost(
+                    { type: 'poi', id: cardTarget.item.id },
+                    amount,
+                    currency,
+                  );
               }}
               onAddPrivateNote={() => {
                 if (cardTarget.type === 'stop')
@@ -2037,6 +2051,7 @@ export function TripEditor({
                   );
               }}
               openKindPickerSignal={kindPickerSignal}
+              onKindPickerOpened={clearKindPickerSignal}
             />
           )}
         </div>
@@ -2373,6 +2388,14 @@ export function TripEditor({
           stop={cardTarget.item}
           isWish
           blocks={blocksFor(records.blocks, 'poi', cardTarget.item.id)}
+          costs={costsFor(records.costs, 'poi', cardTarget.item.id)}
+          onChangeCost={(amount, currency) =>
+            changeCost(
+              { type: 'poi', id: cardTarget.item.id },
+              amount,
+              currency,
+            )
+          }
           days={days}
           tripStartDate={trip.start_date}
           onEditTiming={() => {}}
@@ -2426,12 +2449,21 @@ export function TripEditor({
           }
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
+          onKindPickerOpened={clearKindPickerSignal}
         />
       )}
       {expanded && !picking && cardTarget?.type === 'stop' && (
         <PinCardExpanded
           stop={cardTarget.stop}
           blocks={blocksFor(records.blocks, 'stop', cardTarget.stop.id)}
+          costs={costsFor(records.costs, 'stop', cardTarget.stop.id)}
+          onChangeCost={(amount, currency) =>
+            changeCost(
+              { type: 'stop', id: cardTarget.stop.id },
+              amount,
+              currency,
+            )
+          }
           days={days}
           tripStartDate={trip.start_date}
           onEditTiming={(cell, value) =>
@@ -2474,6 +2506,7 @@ export function TripEditor({
           }
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
+          onKindPickerOpened={clearKindPickerSignal}
         />
       )}
       {showUncategorized && records && (

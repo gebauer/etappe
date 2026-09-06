@@ -14,10 +14,12 @@ import { sniffPaste } from '../lib/paste-sniff';
 import { formatDayDate } from '../lib/format';
 import type {
   BlocksResponse,
+  CostsResponse,
   DaysResponse,
   PoisResponse,
   StopsResponse,
 } from '../types/pb';
+import type { CurrencyCode } from '../lib/currency';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
 import { TimingCells } from './TimingCells';
@@ -25,6 +27,7 @@ import { timingCells } from '../lib/timing-cells';
 import type { TimingCell } from '../lib/timing-edit';
 import { KindPicker } from './KindPicker';
 import { BlockEditor } from './BlockEditor';
+import { CostField } from './CostField';
 import { ContributorPill } from './ContributorMark';
 
 function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
@@ -60,6 +63,9 @@ interface Props {
   stop: StopsResponse | PoisResponse;
   isWish?: boolean;
   blocks: BlocksResponse[];
+  /** Every cost row on this stop/idea; only the first is edited — see
+   * `CostField`. */
+  costs: CostsResponse[];
   days: DaysResponse[];
   tripStartDate: string;
   timing?: StopTiming;
@@ -81,7 +87,12 @@ interface Props {
   /** Drop a dragged block at an arbitrary position (WORK 18.2). */
   onReorderBlock?: (blockId: string, targetIndex: number) => void;
   onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
+  /** `null` clears the price. */
+  onChangeCost: (amount: number | null, currency: CurrencyCode) => void;
   openKindPickerSignal?: number;
+  /** Called when the signal above has been honoured, so the sender can
+   * clear it. */
+  onKindPickerOpened?: () => void;
 }
 
 /**
@@ -99,6 +110,7 @@ export function PinCardExpanded({
   stop,
   isWish = false,
   blocks,
+  costs,
   days,
   tripStartDate,
   timing,
@@ -118,7 +130,9 @@ export function PinCardExpanded({
   onMoveBlock,
   onReorderBlock,
   onUploadBlockFile,
+  onChangeCost,
   openKindPickerSignal,
+  onKindPickerOpened,
 }: Props) {
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
@@ -127,9 +141,14 @@ export function PinCardExpanded({
   const asStop = isWish ? null : (stop as StopsResponse);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
+  // Cleared as soon as it is honoured (`onKindPickerOpened`) — the signal
+  // is a one-shot request, and a value left standing would reopen the
+  // picker on every later mount of this component.
   useEffect(() => {
-    if (openKindPickerSignal) setKindPickerOpen(true);
-  }, [openKindPickerSignal]);
+    if (!openKindPickerSignal) return;
+    setKindPickerOpen(true);
+    onKindPickerOpened?.();
+  }, [openKindPickerSignal, onKindPickerOpened]);
 
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
   const coordPaste = makeCoordPaste(onUpdate);
@@ -433,6 +452,14 @@ export function PinCardExpanded({
                 )}
               </div>
             </div>
+
+            {/* The docked card only offers this while its inline edit
+                region is open, so "All details" was the one view of a place
+                that could not put a price on it. No section label of its
+                own: the field already carries one in both its states, and
+                "Cost" above a box headed "Estimated cost" just reads as a
+                stutter. */}
+            <CostField cost={costs[0]} onChange={onChangeCost} />
 
             <div className="mt-5 flex items-baseline justify-between gap-2.5">
               <span className={SECTION_LABEL}>Blocks</span>

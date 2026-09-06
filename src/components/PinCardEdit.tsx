@@ -45,6 +45,7 @@ export function PinCardEdit({
   onAddBlock,
   onAddPrivateNote,
   openKindPickerSignal,
+  onKindPickerOpened,
 }: {
   /** A stop, or a wishlist idea — since WORK 14 the two share every field
    * this region edits (WORK 16.5). */
@@ -60,6 +61,9 @@ export function PinCardEdit({
   /** Bumped by the bare `k` shortcut — a changing number, not a boolean,
    * since the same request can fire again while the picker is open. */
   openKindPickerSignal?: number;
+  /** Called when the signal above has been honoured, so the sender can
+   * clear it. */
+  onKindPickerOpened?: () => void;
 }) {
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const hasAccessPoint = !!stop.access_lat && !!stop.access_lon;
@@ -68,9 +72,14 @@ export function PinCardEdit({
   // TypeScript what that guard already guarantees.
   const asStop = isWish ? null : (stop as StopsResponse);
 
+  // Cleared as soon as it is honoured (`onKindPickerOpened`) — the signal
+  // is a one-shot request, and a value left standing would reopen the
+  // picker on every later mount of this component.
   useEffect(() => {
-    if (openKindPickerSignal) setKindPickerOpen(true);
-  }, [openKindPickerSignal]);
+    if (!openKindPickerSignal) return;
+    setKindPickerOpen(true);
+    onKindPickerOpened?.();
+  }, [openKindPickerSignal, onKindPickerOpened]);
 
   return (
     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[oklch(0.28_0.012_250)] pt-3.5">
