@@ -6,6 +6,7 @@ import {
   defaultDwell,
   defaultDwellSeed,
   isAccommodationKind,
+  needsKind,
 } from './taxonomy';
 
 describe('taxonomy', () => {
@@ -67,5 +68,25 @@ describe('isAccommodationKind', () => {
     for (const kind of KINDS) {
       expect(kind in seed).toBe(!isAccommodationKind(kind));
     }
+  });
+});
+
+describe('needsKind', () => {
+  it('is true only for a real, un-picked kind', () => {
+    expect(needsKind({ kind: 'uncategorized' })).toBe(true);
+    expect(needsKind({ kind: 'waterfall' })).toBe(false);
+    expect(needsKind({})).toBe(false);
+  });
+
+  it('never nags a waypoint — there is no kind to pick', () => {
+    expect(needsKind({ kind: 'uncategorized', routing_kind: 'waypoint' })).toBe(
+      false,
+    );
+    expect(needsKind({ kind: 'uncategorized', routing_kind: 'stop' })).toBe(
+      true,
+    );
+    // PocketBase stores "" for an unset select, not null.
+    expect(needsKind({ kind: 'uncategorized', routing_kind: '' })).toBe(true);
+    expect(needsKind({ kind: 'uncategorized', routing_kind: null })).toBe(true);
   });
 });

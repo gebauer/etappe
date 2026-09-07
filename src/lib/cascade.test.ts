@@ -316,6 +316,36 @@ describe('warning codes', () => {
       stopId: 'a',
     });
   });
+
+  // A waypoint steers the route through a point and is explicitly not a place
+  // worth spending time at, so there is no kind to pick — the warning was
+  // noise the planner could not clear (author, 2026-09-07).
+  it('no UNCATEGORIZED for a waypoint, whatever its kind says', () => {
+    const t = oneDay(
+      [
+        stop('wp', { kind: 'uncategorized', routing_kind: 'waypoint' }),
+        stop('b', { is_accommodation: true }),
+      ],
+      [leg({ duration_min: 10 })],
+    );
+    expect(
+      cascade(t, noDaylight).warnings.some((w) => w.code === 'UNCATEGORIZED'),
+    ).toBe(false);
+  });
+
+  it('still warns for an uncategorized stop sitting beside a waypoint', () => {
+    const t = oneDay(
+      [
+        stop('wp', { kind: 'uncategorized', routing_kind: 'waypoint' }),
+        stop('a', { kind: 'uncategorized' }),
+        stop('b', { is_accommodation: true }),
+      ],
+      [leg({ duration_min: 10 }), leg({ duration_min: 10 })],
+    );
+    expect(
+      cascade(t, noDaylight).warnings.filter((w) => w.code === 'UNCATEGORIZED'),
+    ).toEqual([{ code: 'UNCATEGORIZED', dayId: 'd', stopId: 'a' }]);
+  });
 });
 
 // --- edge cases ------------------------------------------------------------

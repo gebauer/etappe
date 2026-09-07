@@ -96,7 +96,7 @@ import {
   type TimingEditPlan,
   type TimingStop,
 } from '../lib/timing-edit';
-import { isAccommodationKind, isKind } from '../lib/taxonomy';
+import { isAccommodationKind, isKind, needsKind } from '../lib/taxonomy';
 import { findNearbyStop } from '../lib/merge';
 import type { StopsResponse } from '../types/pb';
 
@@ -1535,10 +1535,8 @@ export function TripEditor({
 
   // BUILD §7: "the trip header shows an uncategorized counter" — real kind
   // uncategorized specifically, not the kind_confirmed "auto-detected"
-  // flag.
-  const uncategorizedCount = stops.filter(
-    (s) => s.kind === 'uncategorized',
-  ).length;
+  // flag, and never a waypoint (`needsKind`).
+  const uncategorizedCount = stops.filter(needsKind).length;
   const activeDay = days.find((d) => d.id === selectedDayId) ?? days[0] ?? null;
   const activeDayIndex = activeDay
     ? days.findIndex((d) => d.id === activeDay.id)
@@ -2567,7 +2565,7 @@ export function TripEditor({
       )}
       {showUncategorized && records && (
         <UncategorizedReview
-          stops={records.stops.filter((s) => s.kind === 'uncategorized')}
+          stops={records.stops.filter(needsKind)}
           onUpdateKind={(stopId, kind) =>
             handleUpdateStop(stopId, { kind, kind_confirmed: true })
           }

@@ -9,6 +9,7 @@ import {
   type TripImportProgress,
 } from '../lib/import-trip-commit';
 import { createPocketBaseRouting } from '../lib/routing';
+import { needsKind } from '../lib/taxonomy';
 import { pb } from '../lib/pb';
 
 interface Props {
@@ -292,7 +293,7 @@ function TripPreview({
   );
   const stops = doc.days.flatMap((d) => d.stops);
   const legs = doc.days.flatMap((d) => d.legs);
-  const uncategorized = stops.filter((s) => s.kind === 'uncategorized').length;
+  const uncategorized = stops.filter(needsKind).length;
   const needsGeocode = stops.filter(
     (s) => s.lat === undefined && s.place_hint,
   ).length;

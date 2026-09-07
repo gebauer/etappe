@@ -7,7 +7,12 @@
  * All clock arithmetic is in integer minutes from local midnight, so two
  * callers cannot drift by a minute on the same input. Daylight is injected (see
  * DaylightProvider) rather than computed here, so tests are deterministic.
+ *
+ * The one import is `taxonomy.ts`, itself pure and import-free — the rule this
+ * file lives by is no React, no PocketBase, no network, not no dependencies.
  */
+
+import { needsKind } from './taxonomy';
 
 // ---------------------------------------------------------------------------
 // Input types (normalised; not PocketBase records, so import preview can use it)
@@ -500,7 +505,7 @@ function collectDayWarnings(
   warnings: Warning[],
 ): void {
   for (const stop of day.stops) {
-    if (stop.kind === 'uncategorized') {
+    if (needsKind(stop)) {
       warnings.push({ code: 'UNCATEGORIZED', dayId: day.id, stopId: stop.id });
     }
   }

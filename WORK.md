@@ -3091,6 +3091,35 @@ the existing `stops-hover` layer.
 
 ---
 
+## Phase 31 — A waypoint is never "uncategorized" (2026-09-07, author report)
+
+Routing points showed `UNCATEGORIZED — stop has no kind yet` under every one
+of them. A waypoint exists only to force the route through a point — a pass,
+a junction, a dropped pin — and the cascade already calls it "not a place
+worth spending time at" (its dwell is hard-zeroed). There is no kind to pick,
+so the warning was noise the planner could not clear.
+
+**Ignored rather than given a `routing` kind**, which was the other option on
+the table. The taxonomy enum is closed (CLAUDE.md rule 6 — a new kind means a
+sprite and a default dwell), and `routing_kind` is already the orthogonal
+axis: a `routing` *kind* could contradict it (`kind: 'routing'` on a
+`routing_kind: 'stop'` row), which this cannot.
+
+One predicate, `needsKind(stop)` in `taxonomy.ts`, now answers this for all
+four surfaces that asked it separately: the cascade's `UNCATEGORIZED`
+warning, the header's ⚠ counter, `UncategorizedReview`, and the import
+preview's "N stops uncategorized" line. Structural parameter, so `CascadeStop`
+and `StopsResponse` both fit.
+
+`cascade.ts` gains its first import. It is `taxonomy.ts`, itself pure and
+import-free — the rule the file lives by is no React, no PocketBase, no
+network, not no dependencies.
+
+- Verified: `npm run check` — 384 tests, 0 errors.
+- Commit: `phase 31: a waypoint is never uncategorized`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

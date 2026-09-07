@@ -81,6 +81,32 @@ export function isAccommodationKind(kind: Kind): boolean {
 }
 
 /**
+ * Is this stop still waiting for the planner to say what it is? Every
+ * "uncategorized" surface asks this — the cascade's warning, the header's ⚠
+ * counter, the review screen, the import preview — so they answer it the
+ * same way.
+ *
+ * A **waypoint is never uncategorized**, however its `kind` reads. It exists
+ * only to force the route through a point — a pass, a junction, a dropped pin
+ * — and is explicitly "not a place worth spending time at", so there is no
+ * kind to pick and nagging for one is noise the planner cannot clear
+ * (author, 2026-09-07).
+ *
+ * Deliberately not solved by adding a `routing` kind to the taxonomy: the
+ * enum is closed (CLAUDE.md), and `routing_kind` is already the orthogonal
+ * axis — a `routing` kind could contradict it (`kind: 'routing'` on a
+ * `routing_kind: 'stop'` row), which this cannot.
+ *
+ * Structural on purpose, so `CascadeStop` and `StopsResponse` both fit.
+ */
+export function needsKind(stop: {
+  kind?: string;
+  routing_kind?: string | null;
+}): boolean {
+  return stop.kind === 'uncategorized' && stop.routing_kind !== 'waypoint';
+}
+
+/**
  * Seed for `trips.default_dwell` (BUILD §2): the taxonomy default minutes per
  * kind. Accommodation kinds (null dwell) are omitted — their dwell comes from
  * activities, not a fixed default.
