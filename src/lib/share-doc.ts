@@ -62,6 +62,9 @@ export interface ShareDay {
   title?: string;
   kind: 'travel' | 'rest';
   start_stop?: string;
+  /** WORK 29: where the day comes back to at night, when that is not its own
+   * last stop. Carried so the share view's warnings match the planner's. */
+  end_stop?: string;
   stops: ShareStop[];
   legs: ShareLeg[];
   blocks: ShareBlock[];
@@ -126,6 +129,8 @@ export function shareToCascade(doc: ShareDoc): CascadeTrip {
 
     const startStopId = emptyToUndefined(day.start_stop);
     const startStop = startStopId ? (stopById.get(startStopId) ?? null) : null;
+    const endStopId = emptyToUndefined(day.end_stop);
+    const endStop = endStopId ? (stopById.get(endStopId) ?? null) : null;
 
     return {
       id: day.id,
@@ -138,6 +143,14 @@ export function shareToCascade(doc: ShareDoc): CascadeTrip {
             id: startStop.id,
             lat: startStop.lat ?? null,
             lon: startStop.lon ?? null,
+          }
+        : null,
+      endPoint: endStop
+        ? {
+            id: endStop.id,
+            lat: endStop.lat ?? null,
+            lon: endStop.lon ?? null,
+            is_accommodation: !!endStop.is_accommodation,
           }
         : null,
     };

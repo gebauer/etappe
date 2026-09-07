@@ -73,7 +73,11 @@ import { WishlistCarousel } from './WishlistCarousel';
 import { PinCard, type CardTarget } from './PinCard';
 import { PinCardExpanded } from './PinCardExpanded';
 import { buildProximityChain, stepInChain } from '../lib/wish-order';
-import { reconcileLeadingLegs, setDayStartStop } from '../lib/pb-leading-leg';
+import {
+  reconcileCrossDayLegs,
+  setDayEndStop,
+  setDayStartStop,
+} from '../lib/pb-cross-day-legs';
 import { UncategorizedReview } from './UncategorizedReview';
 import { SearchPalette, type ItineraryMatch } from './SearchPalette';
 import { HighlightsImportDialog } from './HighlightsImportDialog';
@@ -455,12 +459,12 @@ export function TripEditor({
     }
   }
 
-  /** `run` plus a cross-day leading-leg reconcile (WORK 13.2): a structural
-   * edit — adding/removing/reordering/moving a stop, or moving a start-point /
-   * first-stop's coordinates — can leave a day's leading leg pointing at the
-   * wrong stop or needing a re-route. Skipped entirely until some day has a
-   * start point, so it's free for trips that don't use the feature.
-   * `rerouteStopIds` names stops whose coordinates just moved. */
+  /** `run` plus a cross-day leg reconcile (WORK 13.2, WORK 29): a structural
+   * edit — adding/removing/reordering/moving a stop, or moving a start/end
+   * point's or first/last stop's coordinates — can leave a day's leading or
+   * trailing leg pointing at the wrong stop or needing a re-route. Skipped
+   * entirely until some day has a pointer, so it's free for trips that don't
+   * use the feature. `rerouteStopIds` names stops whose coordinates moved. */
   async function runStructural(
     fn: () => Promise<unknown>,
     rerouteStopIds?: Iterable<string>,
@@ -468,8 +472,8 @@ export function TripEditor({
     if (blockedOffline() || blockedByRole('itinerary')) return;
     try {
       await fn();
-      if (records?.days.some((d) => d.start_stop)) {
-        await reconcileLeadingLegs(
+      if (records?.days.some((d) => d.start_stop || d.end_stop)) {
+        await reconcileCrossDayLegs(
           pb,
           routing,
           tripId,
@@ -1190,20 +1194,26 @@ export function TripEditor({
     }
   }
 
-  // Day-start continuity (WORK 13.3): point a day at (or clear) the stop it
-  // leaves from in the morning, then reconcile its leading leg. Not routed
-  // through `runStructural` — that skips the reconcile until some day
-  // already has a start point, which is exactly the case this creates.
-  function setStartPoint(dayId: string, stopId: string | null) {
+  // Day-start/-end continuity (WORK 13.3, WORK 29): point a day at (or clear)
+  // the stop it leaves from in the morning, or the one it comes back to at
+  // night, then reconcile its cross-day legs. Not routed through
+  // `runStructural` — that skips the reconcile until some day already has a
+  // pointer, which is exactly the case this creates.
+  function setDayPoint(
+    which: 'start' | 'end',
+    dayId: string,
+    stopId: string | null,
+  ) {
     if (blockedOffline() || blockedByRole('itinerary')) return;
     void (async () => {
       try {
-        await setDayStartStop(pb, dayId, stopId);
-        await reconcileLeadingLegs(pb, routing, tripId);
+        if (which === 'start') await setDayStartStop(pb, dayId, stopId);
+        else await setDayEndStop(pb, dayId, stopId);
+        await reconcileCrossDayLegs(pb, routing, tripId);
         await reload();
       } catch (err) {
         setActionError(
-          err instanceof Error ? err.message : 'Failed to set start point.',
+          err instanceof Error ? err.message : `Failed to set ${which} point.`,
         );
       }
     })();
@@ -1560,6 +1570,26 @@ export function TripEditor({
     startPointCandidate =
       [...ds].reverse().find((s) => s.is_accommodation) ?? ds[ds.length - 1]!;
   }
+
+  // Day-end continuity (WORK 29). The same three pieces for the evening drive
+  // back. The candidate is the day's own start point when it has one — a base
+  // camp is "leave the hotel, come back to it", so one click each way — and
+  // otherwise the same nearest-earlier-accommodation scan.
+  const endPointStop = activeDay?.end_stop
+    ? (stops.find((s) => s.id === activeDay.end_stop) ?? null)
+    : null;
+  const activeDayLastStop = activeDay
+    ? dayStopsOf(activeDay.id).slice(-1)[0]
+    : undefined;
+  const endPointLeg =
+    endPointStop && activeDayLastStop
+      ? legs.find(
+          (l) =>
+            l.from_stop === activeDayLastStop.id &&
+            l.to_stop === endPointStop.id,
+        )
+      : undefined;
+  const endPointCandidate = startPointStop ?? startPointCandidate;
 
   const cardOpen = !!cardTarget;
   const pickingStop = picking
@@ -2111,10 +2141,21 @@ export function TripEditor({
             onSetStartPoint={() =>
               activeDay &&
               startPointCandidate &&
-              setStartPoint(activeDay.id, startPointCandidate.id)
+              setDayPoint('start', activeDay.id, startPointCandidate.id)
             }
             onClearStartPoint={() =>
-              activeDay && setStartPoint(activeDay.id, null)
+              activeDay && setDayPoint('start', activeDay.id, null)
+            }
+            endPointStop={endPointStop}
+            endPointLeg={endPointLeg}
+            endPointCandidate={endPointCandidate}
+            onSetEndPoint={() =>
+              activeDay &&
+              endPointCandidate &&
+              setDayPoint('end', activeDay.id, endPointCandidate.id)
+            }
+            onClearEndPoint={() =>
+              activeDay && setDayPoint('end', activeDay.id, null)
             }
             onDeleteDay={doDeleteDay}
             onAddStop={(dayId) => setAddStopDay(dayId)}
@@ -2462,6 +2503,7 @@ export function TripEditor({
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
           onKindPickerOpened={clearKindPickerSignal}
+          linkOut={linkOut}
         />
       )}
       {expanded && !picking && cardTarget?.type === 'stop' && (
@@ -2520,6 +2562,7 @@ export function TripEditor({
           onUploadBlockFile={blockHandlers.onUploadBlockFile}
           openKindPickerSignal={kindPickerSignal}
           onKindPickerOpened={clearKindPickerSignal}
+          linkOut={linkOut}
         />
       )}
       {showUncategorized && records && (

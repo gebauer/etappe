@@ -617,3 +617,122 @@ describe('leading leg', () => {
     expect(cascade(t, noDaylight).days[0]!.leadingLeg).toBeNull();
   });
 });
+
+// --- day-end continuity: base camps (WORK 29) ------------------------------
+
+describe('day-end continuity', () => {
+  const hotel = {
+    id: 'hotel',
+    lat: 64,
+    lon: -18,
+    is_accommodation: true,
+  };
+
+  /** A day trip: leave at 09:00, one stop with a 30-minute dwell, drive back. */
+  function dayTrip(over: Partial<CascadeDay> = {}) {
+    const day: CascadeDay = {
+      id: 'd',
+      order_index: 0,
+      kind: 'travel',
+      stops: [stop('falls', { dwell_override: 30 })],
+      legs: [],
+      ...over,
+    };
+    return trip({ days: [day] });
+  }
+
+  it('adds the evening drive after the last stop’s departure', () => {
+    const t = dayTrip({
+      endPoint: hotel,
+      trailingLeg: leg({ duration_min: 60 }), // 60 + 5% = 63
+    });
+    const d = cascade(t, noDaylight).days[0]!;
+    expect(formatClock(d.stops[0]!.arrival)).toBe('09:00');
+    expect(formatClock(d.stops[0]!.departure)).toBe('09:30');
+    expect(formatClock(d.endArrival!)).toBe('10:33');
+    expect(d.trailingLeg).toMatchObject({ effectiveDuration: 63 });
+  });
+
+  it('shifts no stop’s clock — unlike the leading leg', () => {
+    const island = cascade(dayTrip(), noDaylight).days[0]!;
+    const based = cascade(
+      dayTrip({ endPoint: hotel, trailingLeg: leg({ duration_min: 90 }) }),
+      noDaylight,
+    ).days[0]!;
+    expect(based.stops.map((s) => s.arrival)).toEqual(
+      island.stops.map((s) => s.arrival),
+    );
+  });
+
+  it('an end point with no routed leg gets you back the moment you leave', () => {
+    const d = cascade(dayTrip({ endPoint: hotel }), noDaylight).days[0]!;
+    expect(d.trailingLeg).toBeNull();
+    expect(d.endArrival).toBe(d.stops[0]!.departure);
+  });
+
+  it('sleeping at the end point silences NO_ACCOMMODATION', () => {
+    const withoutBase = cascade(dayTrip(), noDaylight).warnings;
+    expect(withoutBase).toContainEqual({
+      code: 'NO_ACCOMMODATION',
+      dayId: 'd',
+      stopId: 'falls',
+    });
+
+    const based = cascade(
+      dayTrip({ endPoint: hotel, trailingLeg: leg({ duration_min: 60 }) }),
+      noDaylight,
+    ).warnings;
+    expect(based.some((w) => w.code === 'NO_ACCOMMODATION')).toBe(false);
+  });
+
+  it('still warns when the end point is not somewhere you sleep', () => {
+    const t = dayTrip({
+      endPoint: { ...hotel, is_accommodation: false },
+      trailingLeg: leg({ duration_min: 60 }),
+    });
+    expect(cascade(t, noDaylight).warnings).toContainEqual({
+      code: 'NO_ACCOMMODATION',
+      dayId: 'd',
+      stopId: 'falls',
+    });
+  });
+
+  it('AFTER_DARK measures the drive home, not the last stop', () => {
+    // Arrive 09:00, leave 09:30, 3h drive back -> home 12:39. Sunset 12:00.
+    // Daylight needs the first stop's coordinates, so this day trip has them.
+    const t = dayTrip({
+      stops: [stop('falls', { dwell_override: 30, lat: 64, lon: -20 })],
+      endPoint: hotel,
+      trailingLeg: leg({ duration_min: 180 }), // 189
+    });
+    const { warnings } = cascade(t, sunsetAt(AT('12:00')));
+    expect(warnings).toContainEqual({
+      code: 'AFTER_DARK',
+      dayId: 'd',
+      stopId: 'falls',
+      deficitMin: AT('12:39') - AT('12:00'),
+    });
+  });
+
+  it('counts both transfers towards a long day', () => {
+    const t = dayTrip({
+      startPoint: { id: 'hotel', lat: 64, lon: -18 },
+      leadingLeg: leg({ duration_min: 360 }), // 378
+      endPoint: hotel,
+      trailingLeg: leg({ duration_min: 360 }), // 378
+    });
+    const { days, warnings } = cascade(t, noDaylight);
+    // 30 min of dwell between two 378-minute transfers — 13h06 on the road.
+    expect(days[0]!.elapsedMin).toBe(378 + 30 + 378);
+    expect(warnings).toContainEqual({ code: 'LONG_DAY', dayId: 'd' });
+  });
+
+  it('carries trailingLeg and endArrival as null on an empty day', () => {
+    const t = trip({
+      days: [{ id: 'd', order_index: 0, kind: 'travel', stops: [], legs: [] }],
+    });
+    const d = cascade(t, noDaylight).days[0]!;
+    expect(d.trailingLeg).toBeNull();
+    expect(d.endArrival).toBeNull();
+  });
+});

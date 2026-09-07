@@ -74,6 +74,11 @@ export function PrintView({
       const startId = day.start_stop;
       const start = startId ? stops.find((s) => s.id === startId) : null;
       if (start?.lat && start?.lon) points.push([start.lon, start.lat]);
+      const endId = day.end_stop;
+      const end = endId ? stops.find((s) => s.id === endId) : null;
+      if (end?.lat && end?.lon && end.id !== start?.id) {
+        points.push([end.lon, end.lat]);
+      }
 
       const routes: number[][][] = [];
       for (let i = 0; i < ds.length - 1; i++) {
@@ -105,6 +110,21 @@ export function PrintView({
           routes.push([
             [start.lon, start.lat],
             [ds[0].lon, ds[0].lat],
+          ]);
+        }
+      }
+      // The evening drive back to a base camp (WORK 29), same treatment.
+      const lastOfDay = ds[ds.length - 1];
+      if (end && lastOfDay && end.id !== lastOfDay.id) {
+        const trail = legs.find(
+          (l) => l.from_stop === lastOfDay.id && l.to_stop === end.id,
+        );
+        const line = asLineString(trail?.geometry);
+        if (line) routes.push(line.coordinates);
+        else if (lastOfDay.lat && lastOfDay.lon && end.lat && end.lon) {
+          routes.push([
+            [lastOfDay.lon, lastOfDay.lat],
+            [end.lon, end.lat],
           ]);
         }
       }
@@ -200,6 +220,10 @@ export function PrintView({
           const startStop = day.start_stop
             ? stops.find((s) => s.id === day.start_stop)
             : null;
+          const trailMin = dayResult?.trailingLeg?.effectiveDuration ?? 0;
+          const endStop = day.end_stop
+            ? stops.find((s) => s.id === day.end_stop)
+            : null;
           const png = maps[day.id];
 
           return (
@@ -286,6 +310,16 @@ export function PrintView({
                     );
                   })}
                 </ol>
+              )}
+
+              {endStop && ds.length > 0 && (
+                <p className="pv-lead">
+                  Back to <strong>{endStop.title}</strong>
+                  {trailMin ? ` — ${formatDuration(trailMin)} drive` : ''}
+                  {dayResult?.endArrival != null
+                    ? `, ${formatClock(dayResult.endArrival)}`
+                    : ''}
+                </p>
               )}
 
               <PrintBlocks blocks={visibleBlocks('day', day.id)} />

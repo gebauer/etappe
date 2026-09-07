@@ -34,17 +34,29 @@ function travelmode(mode?: string): string {
         : 'driving';
 }
 
-/** A single point — "show me this place", not a route. */
-export function placeUrl(app: LinkOut, p: Point): string {
+/**
+ * A single point — "show me this place", not a route. `label` (an address or
+ * a title) rides along where the app has a slot for a named pin; the
+ * coordinates stay the authority so the pin still lands exactly where the
+ * stop is, even when the address is vague or stale.
+ */
+export function placeUrl(app: LinkOut, p: Point, label?: string): string {
+  const q = label?.trim();
   switch (app) {
     case 'apple':
-      return `https://maps.apple.com/?ll=${ll(p)}&q=${ll(p)}`;
+      return `https://maps.apple.com/?ll=${ll(p)}&q=${
+        q ? encodeURIComponent(q) : ll(p)
+      }`;
     case 'here':
-      return `https://wego.here.com/?map=${p.lat},${p.lon},15`;
+      return q
+        ? `https://wego.here.com/search/${encodeURIComponent(q)}?map=${p.lat},${p.lon},15`
+        : `https://wego.here.com/?map=${p.lat},${p.lon},15`;
     case 'osm':
       return `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=15/${p.lat}/${p.lon}`;
     default:
-      return `https://www.google.com/maps/search/?api=1&query=${ll(p)}`;
+      return `https://www.google.com/maps/search/?api=1&query=${
+        q ? encodeURIComponent(q) : ll(p)
+      }`;
   }
 }
 
@@ -116,29 +128,6 @@ export function routeUrl(
       .join(';')}`,
     truncated: 0,
   };
-}
-
-/**
- * Directions to a point from wherever the user is standing — the card's
- * "take me there", as opposed to a planned leg between two known stops.
- *
- * Only Google and OSM let you leave the origin open; Apple accepts a bare
- * `daddr`. HERE WeGo has no documented "from my location" URL form, so it
- * gets the place instead of a route rather than a link that half-works.
- */
-export function directionsUrl(app: LinkOut, to: Point, mode?: string): string {
-  switch (app) {
-    case 'apple':
-      return `https://maps.apple.com/?daddr=${ll(to)}&dirflg=${
-        mode === 'walk' ? 'w' : mode === 'bike' ? 'b' : 'd'
-      }`;
-    case 'here':
-      return placeUrl('here', to);
-    case 'osm':
-      return `https://www.openstreetmap.org/directions?route=;${ll(to)}`;
-    default:
-      return `https://www.google.com/maps/dir/?api=1&destination=${ll(to)}&travelmode=${travelmode(mode)}`;
-  }
 }
 
 /** Convenience for the common two-point case (a leg). */

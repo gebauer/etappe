@@ -2960,10 +2960,133 @@ exactly as before.
 
 ---
 
+## Phase 28 — Map link-out points at the place, not a route (2026-09-07, author request)
+
+**The docked card's `↗ Maps` opened turn-by-turn directions** (`directionsUrl`,
+"take me there from where I'm standing"). For a planner at a desk that's the
+wrong thing — you want to *look at* the place. It now calls `placeUrl`, and
+passes the stop's address so the map app shows a named pin rather than a bare
+coordinate. `directionsUrl` had no other caller and is deleted.
+
+**"All details" had no map link at all**, even though it's the card that
+holds the address and raw lat/lon. Added a small `↗ Open in maps` button in
+the Place section, same `placeUrl` + address. `PinCardExpanded` takes a
+`linkOut` prop now (defaulting to Google), wired from `useLinkOut()` in
+`TripEditor` for both the stop and the wish instance.
+
+**`placeUrl(app, point, label?)`** — the optional `label` (an address or
+title) rides along where the URL scheme has a slot for a named pin: Google's
+`query`, Apple's `q` (point stays exact in `ll`), HERE's `/search/` (still
+centred on the point). OSM has no label form, so the marker is unchanged. A
+blank label is ignored — coordinates as before.
+
+- Verify: `npm run check` (355 tests); a browser check that both buttons open
+  the place (not directions) in the configured app.
+- Commit: `phase 28: map link-out points at the place, not a route`.
+
+---
+
+## Phase 29 — Base camps: a day can end where it started (2026-09-07, author request)
+
+**The problem.** A stop row *is* an itinerary slot: `stops.day` is required
+and `order_index` orders it within that day, so a place can exist in exactly
+one day, once. Four nights in one hotel with day trips out and back had no
+representation — you either duplicated the hotel row per night (edits stop
+propagating, blocks and costs split across copies) or left every day warning
+`NO_ACCOMMODATION` because it ends at a waterfall.
+
+**The fix, and why this one.** `days.start_stop` (migration 1788000008,
+WORK 13.1) already let a day *reference* a stop belonging to another day —
+"a pointer, not a copy". Migration `1788000024` adds its mirror,
+`days.end_stop`: the place you come back to at night. A base camp is then
+the hotel as a real stop on the arrival day, and each following day pointing
+at it both ways — two clicks, one hotel row.
+
+Considered and rejected for now: splitting `places` from visits (the
+normalised model that would also allow the same stop twice in one day). It
+is the right shape long-term but a rewrite — 77 `stop.title`/`.kind`/`.lat`
+reads, 13 files filtering stops by day, and a migration backfilling a place
+per stop *and* per poi. Written up as a feature request instead — see
+**Noticed** and [issue #2](https://github.com/gebauer/etappe/issues/2).
+
+**One planner owns all cross-day legs.** `leading-leg.ts` →
+`cross-day-legs.ts`, `pb-leading-leg.ts` → `pb-cross-day-legs.ts`. This is
+not cosmetic: a day's trailing leg *lands in* another day, which is exactly
+the shape the old leading-leg detector looked for, so planned separately each
+direction would delete the other's legs forever. `planCrossDayLegs` diffs the
+whole cross-day set at once — a leg is cross-day iff both ends resolve to
+stops in different days, and every desired leg is built to satisfy that. The
+round trip and its idempotency are the tests that matter.
+
+This also fixed a latent bug: the old planner *desired* a leg for a
+`start_stop` pointing at another stop in the same day, but its detector could
+never match one, so it would have been recreated on every reconcile forever.
+The new "must be another day" rule closes that. The UI never offered such a
+pointer, so nothing in the wild hit it.
+
+**Cascade.** `CascadeDay` gains `endPoint` (with `is_accommodation`, which is
+what silences the warning) and `trailingLeg`; `DayResult` gains `trailingLeg`
+and `endArrival`. The trailing leg hangs off the last stop's *departure*, so
+unlike the leading leg it shifts no stop's clock. `elapsedMin` counts both
+transfers. `AFTER_DARK` now measures the arrival home — getting back after
+dark is the thing worth warning about — while still hanging the warning on
+the day's own last stop, since the end point belongs to another day and that
+is the row this day can show a banner on.
+
+**Surfaces.** Timeline gets a trailing `LegRow` + a greyed "end point" ghost
+row and a `↓ End at …` button (candidate: the day's own start point, so a
+base camp is one click each way); the day span now closes at `endArrival`.
+Map draws the evening line in the day's own hue. Print shows "Back to X".
+The share hook carries `end_stop` for the same reason it carries
+`start_stop` — without it a shared base camp warns "no accommodation" on
+every day of the stay; ShareView renders neither pointer, unchanged.
+`invertTripRoute` keeps `end_stop` as it stands and rebuilds its trailing leg
+from the day's new last stop.
+
+- Verified: `npm run check` — 371 tests, 0 errors. Migration applied to the
+  dev DB and `src/types/pb.ts` regenerated from it.
+- **Not** browser-verified: the `run-etappe` driver is too stale to build a
+  fixture (see **Noticed**), so the UI wiring — the two buttons, the ghost
+  row, the reconcile loop against a real backend — is unexercised. Worth a
+  manual pass before trusting it on a real trip.
+- Commit: `phase 29: a day can end where it started`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the
 current task. Do not act on it in the same commit.
+
+- **Split `places` from visits, so one place can appear on many days.**
+  The remodel `days.end_stop` (phase 29) deliberately stopped short of. A
+  `places` collection (trip, title, kind, lat/lon, address, access point,
+  starred, creator) and `stops` reduced to an occurrence — `place` +
+  `day` + `order_index` + the per-visit fields (`anchor_time`,
+  `anchor_type`, `dwell_override`, `routing_kind`, `is_accommodation`).
+  Makes BUILD's *"a poi is a stop without a day"* literally true instead
+  of conceptually true, and is the only shape that allows the same place
+  **twice in one day** (lunch at the hotel, then back at night), which
+  phase 29 cannot express. Cost measured 2026-09-07: 77 `stop.title` /
+  `.kind` / `.lat` reads to reroute, 13 files filtering stops by day, and
+  a migration backfilling one place per existing stop *and* per poi. Legs
+  survive unchanged — they would key on occurrence ids, still unique.
+  Open design call: whether `costs`/`blocks` hang off the place (a booking
+  confirmation) or the occurrence (a per-day admission fee) — probably
+  both, via `parent_type`. **Not scheduled.** Written up as
+  [issue #2](https://github.com/gebauer/etappe/issues/2); do not start it
+  without a decision on that call.
+
+- **The `run-etappe` driver can no longer build a fixture.** Confirmed
+  2026-09-07 while trying to browser-verify phase 29: its
+  `createAndOpenTrip` predates the phase 21 trip-list redesign (creation is
+  now an inline form behind a **New trip** button, opened via the card's
+  **Continue ›**), `addDay` looks for a `+ Day` label that is now a bare
+  `button[title="Add day"]`, and `addStop`/`setStopLatLon` predate the
+  palette — a stop is added by typing coordinates and clicking the
+  **Add at &lt;lat&gt;, &lt;lon&gt;** row (Enter does not commit). The
+  access-point flow it does drive still passes, which is why this went
+  unnoticed. Worth a rewrite: without it, no UI change can be smoke-tested.
 
 - ~~Stop deletion via the **Delete/Backspace keyboard shortcut** has no
   confirmation~~ — done 2026-09-04 (author request). The shortcut now opens

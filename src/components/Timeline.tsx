@@ -60,6 +60,16 @@ interface Props {
   startPointCandidate?: StopsResponse | null;
   onSetStartPoint?: () => void;
   onClearStartPoint?: () => void;
+  /** Day-end continuity (WORK 29): the mirror — the stop this day comes back
+   * to at night (`days.end_stop`) and its routed trailing leg, so a base camp
+   * needs one hotel row rather than one per night. `endPointCandidate` is
+   * what the "↓ End at …" button would point at, normally the day's own
+   * start point. */
+  endPointStop?: StopsResponse | null;
+  endPointLeg?: LegsResponse;
+  endPointCandidate?: StopsResponse | null;
+  onSetEndPoint?: () => void;
+  onClearEndPoint?: () => void;
   /** Phone only (WORK 17.2): folds the column down to its header line so the
    * map takes the freed height. `onToggleCollapse` is undefined on desktop,
    * where the column is always open and the chevron is not rendered. */
@@ -119,6 +129,11 @@ export function Timeline({
   startPointStop,
   startPointLeg,
   startPointCandidate,
+  endPointStop,
+  endPointLeg,
+  endPointCandidate,
+  onSetEndPoint,
+  onClearEndPoint,
   onSetStartPoint,
   onClearStartPoint,
   collapsed = false,
@@ -196,7 +211,7 @@ export function Timeline({
   // are skipped rather than sent as 0,0.
   const dayRoute = routeUrl(
     linkOut,
-    [startPointStop, ...dayStops]
+    [startPointStop, ...dayStops, endPointStop]
       .map(routingPoint)
       .filter((p): p is NonNullable<typeof p> => p !== null),
   );
@@ -210,15 +225,19 @@ export function Timeline({
 
   // The day starts when you leave, not when you arrive somewhere: with a
   // start point the morning drive is already part of the day, so the span
-  // opens at the departure the ghost row shows rather than at stop 1.
+  // opens at the departure the ghost row shows rather than at stop 1. It
+  // closes, symmetrically, when you get back to the end point (WORK 29).
   const span =
     first && last
       ? `${formatClock(departFrom ?? first.arrival)} – ${formatClock(
-          last.departure,
+          dayResult?.endArrival ?? last.departure,
         )}`
       : '';
   const startThumb = startPointStop
     ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', startPointStop.id))
+    : null;
+  const endThumb = endPointStop
+    ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', endPointStop.id))
     : null;
 
   function indexInDay(beforeStopId?: string): number {
@@ -507,6 +526,77 @@ export function Timeline({
               );
             })
           )}
+
+          {/* Day-end continuity (WORK 29): the evening drive back, then a
+            greyed ghost row for the bed you return to — the mirror of the
+            start-point pair above. */}
+          {dayStops.length > 0 && endPointStop && (
+            <>
+              <LegRow
+                leg={endPointLeg}
+                from={dayStops[dayStops.length - 1]}
+                to={endPointStop}
+                timing={dayResult?.trailingLeg ?? undefined}
+                tripBufferPct={trip.car_buffer_pct ?? 0}
+                readOnly={!canEditItinerary}
+                onUpdate={(patch) =>
+                  endPointLeg && onUpdateLeg(endPointLeg.id, patch)
+                }
+                onReroute={() => endPointLeg && onRerouteLeg(endPointLeg.id)}
+                onSetDuration={(min) =>
+                  endPointLeg && onSetLegDuration(endPointLeg.id, min)
+                }
+                linkOut={linkOut}
+                onLinkOut={() => onLinkOut?.(0)}
+              />
+              <div className="flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 opacity-70">
+                <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
+                  ↓
+                </span>
+                <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
+                  {endThumb && (
+                    <img
+                      src={endThumb}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-medium text-text-3">
+                    {endPointStop.title}
+                  </span>
+                  <span className="block font-mono text-[11.5px] text-text-5">
+                    end point
+                    {dayResult?.endArrival != null
+                      ? ` · back ${formatClock(dayResult.endArrival)}`
+                      : ''}
+                  </span>
+                </span>
+                {canEditItinerary && (
+                  <button
+                    onClick={onClearEndPoint}
+                    title="Clear end point"
+                    className="flex-none px-1 text-text-5 hover:text-text"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+          {canEditItinerary &&
+            dayStops.length > 0 &&
+            !endPointStop &&
+            endPointCandidate && (
+              <button
+                onClick={onSetEndPoint}
+                className="mt-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+              >
+                ↓ End at {endPointCandidate.title}
+              </button>
+            )}
 
           {canEditItinerary && (
             <button

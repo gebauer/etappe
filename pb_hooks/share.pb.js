@@ -163,6 +163,9 @@ routerAdd('GET', '/api/share/{token}', (e) => {
       title: day.get('title'),
       kind: day.get('kind'),
       start_stop: day.get('start_stop'),
+      // WORK 29: travels for the same reason start_stop does — without it a
+      // shared base camp warns "no accommodation" on every day of the stay.
+      end_stop: day.get('end_stop'),
       stops: stopPayload,
       legs: legs,
       blocks: blocksFor('day', day.id),

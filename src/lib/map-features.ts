@@ -166,6 +166,49 @@ export function buildLegFeatures(
         });
       }
     }
+
+    // Trailing leg (WORK 29): the evening drive back to the day's end point,
+    // the mirror of the leading leg above. Same hue — a base camp's two
+    // transfers belong to the day that drives them, not to the day the hotel
+    // row happens to live on.
+    const lastStop = dayStops[dayStops.length - 1];
+    const endStop = day.end_stop ? (stopById.get(day.end_stop) ?? null) : null;
+    if (
+      lastStop &&
+      endStop &&
+      endStop.id !== lastStop.id &&
+      lastStop.lat &&
+      lastStop.lon &&
+      endStop.lat &&
+      endStop.lon
+    ) {
+      const trailLeg = records.legs.find(
+        (l) => l.from_stop === lastStop.id && l.to_stop === endStop.id,
+      );
+      const afterDusk =
+        dusk != null &&
+        dayResult?.endArrival != null &&
+        dayResult.endArrival > dusk;
+      const geometry = asLineString(trailLeg?.geometry);
+      features.push({
+        type: 'Feature',
+        geometry: geometry ?? {
+          type: 'LineString',
+          coordinates: [
+            [lastStop.lon, lastStop.lat],
+            [endStop.lon, endStop.lat],
+          ],
+        },
+        properties: {
+          legId: trailLeg?.id ?? `trail:${day.id}`,
+          dayId: day.id,
+          flat,
+          shade: legColor(hue, dayStops.length),
+          afterDusk,
+          manual: !geometry,
+        },
+      });
+    }
   });
 
   return { type: 'FeatureCollection', features };

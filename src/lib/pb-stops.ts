@@ -201,8 +201,10 @@ export async function recycleStopsToWishlist(
  * order reverses and each day's stops reverse, so a clockwise ring becomes
  * the same ring counter-clockwise. Every leg is deleted and rebuilt (routed
  * afresh), and each day's start-point pointer is recomputed to the previous
- * day's new last stop. Dates are derived, so a day keeps its identity and
- * just lands on a different date.
+ * day's new last stop. An end-point pointer (WORK 29) is kept as it stands —
+ * the hotel you sleep at doesn't change when you drive the ring the other way
+ * — and its trailing leg is rebuilt from the day's new last stop. Dates are
+ * derived, so a day keeps its identity and just lands on a different date.
  *
  * A leg's mode/surface is carried over by its unordered stop pair — a
  * ferry stays a ferry when you cross it the other way.
@@ -269,6 +271,7 @@ export async function invertTripRoute(
   await batch.send();
 
   // 2. Rebuild every leg from the reversed arrangement.
+  const dayOf = new Map(records.stops.map((s) => [s.id, s.day]));
   const create: NewLeg[] = [];
   newDays.forEach((d, k) => {
     const seq = [...(origStops.get(d.id) ?? [])].reverse();
@@ -276,6 +279,20 @@ export async function invertTripRoute(
     if (prevFirst && seq[0]) create.push(leg(prevFirst.id, seq[0].id));
     for (let i = 0; i < seq.length - 1; i++) {
       create.push(leg(seq[i]!.id, seq[i + 1]!.id));
+    }
+    // A base camp survives the reversal — the hotel is still the hotel, so
+    // `end_stop` is left pointing where it was and its trailing leg rebuilt
+    // from the day's *new* last stop (WORK 29). Same "must be another day"
+    // guard `planCrossDayLegs` uses, or the next reconcile would delete it.
+    const lastOfDay = seq[seq.length - 1];
+    const endStopId = d.end_stop || null;
+    if (
+      lastOfDay &&
+      endStopId &&
+      dayOf.has(endStopId) &&
+      dayOf.get(endStopId) !== d.id
+    ) {
+      create.push(leg(lastOfDay.id, endStopId));
     }
   });
   await applyLegPlan(

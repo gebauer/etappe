@@ -82,6 +82,20 @@ export interface CascadeDay {
    * back-derived first anchor) is when you *leave the start point*.
    * `null`/absent whenever there's no start point or it isn't routed yet. */
   leadingLeg?: CascadeLeg | null;
+  /** WORK 29: the mirror of `startPoint` — the place you come back to in the
+   * evening, referenced via `days.end_stop`. A base camp sets both to the
+   * same hotel, so four nights need one hotel row rather than four copies.
+   * `is_accommodation` rides along because it is what tells the day it has
+   * somewhere to sleep even though its own last stop is a waterfall. */
+  endPoint?: {
+    id: string;
+    lat: number | null;
+    lon: number | null;
+    is_accommodation: boolean;
+  } | null;
+  /** WORK 29: the routed evening drive from the last stop to `endPoint`.
+   * `null`/absent whenever there's no end point or it isn't routed yet. */
+  trailingLeg?: CascadeLeg | null;
 }
 
 export interface CascadeTrip {
@@ -162,6 +176,14 @@ export interface DayResult {
    * baked into `stops[0].arrival` and `elapsedMin`; it's surfaced separately
    * so the timeline and map can render the leading leg row/line. */
   leadingLeg: LegTiming | null;
+  /** WORK 29: the evening drive from the last stop back to the day's end
+   * point, or null when the day has none. Like `leadingLeg` it is already
+   * counted in `elapsedMin`; it is surfaced so the timeline, map and print
+   * can render the row/line. */
+  trailingLeg: LegTiming | null;
+  /** WORK 29: clock time you get back to the end point — the last stop's
+   * departure plus the trailing leg. `null` when there's no end point. */
+  endArrival: number | null;
   daylight: Daylight | null;
   elapsedMin: number;
 }
@@ -337,6 +359,8 @@ function computeDay(
         stops: [],
         legs: [],
         leadingLeg: null,
+        trailingLeg: null,
+        endArrival: null,
         daylight,
         elapsedMin: 0,
       },
@@ -355,6 +379,12 @@ function computeDay(
   // Zero when the day is an island or the leading leg isn't routed yet.
   const lead = day.leadingLeg ? legTiming(day.leadingLeg, trip) : NO_LEG;
   const leadEff = lead.effectiveDuration;
+
+  // The evening drive back to the day's end point (WORK 29). It hangs off the
+  // last stop's *departure*, so unlike the leading leg it shifts nothing
+  // above it — no stop's clock changes when a base camp is set.
+  const trail = day.trailingLeg ? legTiming(day.trailingLeg, trip) : NO_LEG;
+  const trailEff = trail.effectiveDuration;
 
   // Baseline: the arrival of stop 0. Derive it from the first anchor by walking
   // backwards, so the forward pass reproduces that anchor exactly. With no
@@ -413,14 +443,28 @@ function computeDay(
   const leadingLeg: LegTiming | null = day.leadingLeg
     ? { legId: day.leadingLeg.id, ...lead }
     : null;
+  const trailingLeg: LegTiming | null = day.trailingLeg
+    ? { legId: day.trailingLeg.id, ...trail }
+    : null;
 
   const first = timings[0]!;
   const last = timings[timings.length - 1]!;
-  // Elapsed counts the morning drive: a short day of stops after a long
-  // transfer is still a long day (WORK 13.1).
-  const elapsedMin = last.arrival - first.arrival + leadEff;
+  // The pointer can be set before the leg is routed, so the end point — not
+  // the trailing leg — is what decides whether the day has an arrival home.
+  const endArrival = day.endPoint ? last.departure + trailEff : null;
+  // Elapsed counts the drives at both ends: a short day of stops between a
+  // long transfer out and back is still a long day (WORK 13.1, WORK 29).
+  const elapsedMin = (endArrival ?? last.arrival) - first.arrival + leadEff;
 
-  collectDayWarnings(day, timings, date, daylight, elapsedMin, warnings);
+  collectDayWarnings(
+    day,
+    timings,
+    date,
+    daylight,
+    elapsedMin,
+    endArrival,
+    warnings,
+  );
 
   return {
     result: {
@@ -429,6 +473,8 @@ function computeDay(
       stops: timings,
       legs,
       leadingLeg,
+      trailingLeg,
+      endArrival,
       daylight,
       elapsedMin,
     },
@@ -450,6 +496,7 @@ function collectDayWarnings(
   date: string,
   daylight: Daylight | null,
   elapsedMin: number,
+  endArrival: number | null,
   warnings: Warning[],
 ): void {
   for (const stop of day.stops) {
@@ -466,8 +513,12 @@ function collectDayWarnings(
     }
   }
 
+  // A base camp sleeps at its end point, not at its last stop (WORK 29), so
+  // a day trip that ends at a waterfall and drives back to the hotel is not
+  // missing a bed.
   const lastStop = day.stops[day.stops.length - 1];
-  if (lastStop && !lastStop.is_accommodation) {
+  const sleepsAtEndPoint = day.endPoint?.is_accommodation ?? false;
+  if (lastStop && !lastStop.is_accommodation && !sleepsAtEndPoint) {
     warnings.push({
       code: 'NO_ACCOMMODATION',
       dayId: day.id,
@@ -479,13 +530,18 @@ function collectDayWarnings(
     warnings.push({ code: 'LONG_DAY', dayId: day.id });
   }
 
+  // Getting *back* after dark is the thing worth warning about, so with an
+  // end point the check moves to the arrival home. The warning still hangs
+  // off the day's own last stop — the end point belongs to another day, and
+  // that is the row this day can actually show a banner on.
   const last = timings[timings.length - 1]!;
-  if (daylight && last.arrival > daylight.sunset) {
+  const dayEnd = endArrival ?? last.arrival;
+  if (daylight && dayEnd > daylight.sunset) {
     warnings.push({
       code: 'AFTER_DARK',
       dayId: day.id,
       stopId: last.stopId,
-      deficitMin: last.arrival - daylight.sunset,
+      deficitMin: dayEnd - daylight.sunset,
     });
   }
 }

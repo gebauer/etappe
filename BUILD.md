@@ -25,6 +25,21 @@ you leave the start point rather than the moment you reach the first stop. Day 1
 has no start point; a day with the pointer cleared is an island, timed from its
 own first stop as before.
 
+Its mirror is the **end point** (`days.end_stop`) — the place the day comes
+back to at night, adding a **trailing leg** from the day's last stop to it.
+That is what makes a **base camp** work: four nights in one hotel with day
+trips out and back needs one hotel row (a real stop on the arrival day) and a
+pointer each way from the days that follow, not four copies of the hotel. A day
+whose end point is flagged `is_accommodation` satisfies the "must end
+somewhere you sleep" rule above even though its own last stop is a waterfall.
+Unlike the leading leg, the trailing leg shifts no stop's clock — it hangs off
+the last stop's departure — but it counts towards the day's elapsed time, and
+it is the arrival home that the after-dark warning measures.
+
+A place still belongs to exactly one day, once: these two pointers cover
+staying put, not the general "same place on several days" case. That remodel
+is [issue #2](https://github.com/gebauer/etappe/issues/2).
+
 Etappe does not navigate. It plans, and it tells you what to do on which day.
 Turn-by-turn is handed to Google Maps or Komoot via deep links.
 
@@ -54,12 +69,15 @@ with the trip.
 
 ### days
 `trip` · `order_index` (int) · `title` · `kind` (`travel` | `rest`) · `notes` ·
-`start_stop` (relation → stops, optional, no cascade delete).
+`start_stop`, `end_stop` (relations → stops, optional, no cascade delete).
 
 Date is computed as `trip.start_date + order_index`. Inserting a day means
 incrementing `order_index` on everything after it, in one transaction.
-`start_stop` points at the stop this day leaves from (§1); deleting that stop
-clears the pointer rather than cascading.
+`start_stop` points at the stop this day leaves from and `end_stop` at the one
+it comes back to (§1); both must resolve to a stop in *another* day, and
+deleting that stop clears the pointer rather than cascading. The legs they
+imply are the only cross-day legs in the model and are owned by
+`lib/cross-day-legs.ts`, not by the within-day leg lifecycle.
 
 ### stops
 | field | type | notes |
@@ -148,7 +166,11 @@ Input: the full trip document. Output: for each stop an `arrival` and
    stop's own clock and back-derives as before; the leading leg only shifts the
    untimed morning departure.
 2. Walk forward: `arrival(n) = departure(n-1) + effective_duration(leg)`;
-   `departure(n) = arrival(n) + dwell(n)`.
+   `departure(n) = arrival(n) + dwell(n)`. When the day has an `end_stop`
+   (§1), one more step follows the last stop:
+   `end_arrival = departure(last) + effective_duration(trailing leg)`. It
+   pins nothing above it — no stop's clock changes — but it is where the day
+   ends for the elapsed-time and after-dark checks.
 3. `dwell` = `dwell_override` if set, else the sum of the stop's activity
    durations, else the taxonomy default for its kind.
 4. `effective_duration` = `base + buffer` for car legs, where `base` is
@@ -170,8 +192,8 @@ Input: the full trip document. Output: for each stop an `arrival` and
 | code | condition |
 |---|---|
 | `MISSED_ANCHOR` | computed arrival later than a pinned time |
-| `NO_ACCOMMODATION` | day does not end at an `is_accommodation` stop |
-| `AFTER_DARK` | arrival later than sunset; carries the deficit |
+| `NO_ACCOMMODATION` | day does not end at an `is_accommodation` stop — satisfied by an `end_stop` that is one (§1) |
+| `AFTER_DARK` | arrival later than sunset; carries the deficit. With an `end_stop`, measures the arrival home |
 | `LONG_DAY` | total elapsed exceeds 12 h (counts the leading leg, §1) |
 | `FROAD_SEASON` | F-road leg on a date outside 15 Jun – 10 Sep |
 | `UNCATEGORIZED` | stop kind is `uncategorized` |

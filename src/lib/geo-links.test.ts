@@ -82,4 +82,26 @@ describe('placeUrl', () => {
     expect(placeUrl('here', kef)).toContain('map=63.985,-22.605');
     expect(placeUrl('osm', kef)).toContain('mlat=63.985&mlon=-22.605');
   });
+
+  it('carries an address label where the app has a slot for one', () => {
+    const label = 'Skógafoss, Iceland';
+    // Google's only field is the query itself.
+    expect(placeUrl('google', kef, label)).toContain(
+      `query=${encodeURIComponent(label)}`,
+    );
+    // Apple keeps the exact point and names the pin.
+    const apple = placeUrl('apple', kef, label);
+    expect(apple).toContain('ll=63.985,-22.605');
+    expect(apple).toContain(`q=${encodeURIComponent(label)}`);
+    // HERE searches, still centred on the point.
+    const here = placeUrl('here', kef, label);
+    expect(here).toContain(`/search/${encodeURIComponent(label)}`);
+    expect(here).toContain('map=63.985,-22.605');
+    // OSM has no label form — the marker stays put.
+    expect(placeUrl('osm', kef, label)).toBe(placeUrl('osm', kef));
+  });
+
+  it('ignores a blank label', () => {
+    expect(placeUrl('google', kef, '   ')).toContain('query=63.985,-22.605');
+  });
 });

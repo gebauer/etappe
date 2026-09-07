@@ -197,6 +197,7 @@ export const DaysKindOptions = {
 export type DaysKindOptions = typeof DaysKindOptions[keyof typeof DaysKindOptions]
 export type DaysRecord = {
 	created: IsoAutoDateString
+	end_stop?: RecordIdString
 	id: string
 	kind: DaysKindOptions
 	notes?: string

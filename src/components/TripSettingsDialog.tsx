@@ -121,7 +121,9 @@ export function TripSettingsDialog({
           Run the whole trip the other way round — a clockwise ring becomes the
           same ring counter-clockwise. Day order and each day&rsquo;s stops
           reverse, every leg is re-routed, and start points move to the new
-          previous day. Dates are unchanged. No undo, but it inverts back.
+          previous day. End points stay where they are — the hotel you sleep at
+          doesn&rsquo;t change. Dates are unchanged. No undo, but it inverts
+          back.
         </p>
         {confirmInvert ? (
           <div className="mt-2 flex gap-2">

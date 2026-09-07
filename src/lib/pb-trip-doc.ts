@@ -129,6 +129,29 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
           ? (legByPair.get(`${startPoint.id}->${firstStop.id}`) ?? null)
           : null;
 
+      // Day-end continuity (WORK 29), the exact mirror: `end_stop` points at
+      // the place you come back to, and the trailing leg runs from this day's
+      // last stop to it. Same guards — a pointer at this day's own last stop
+      // is a no-op, a dangling id is ignored.
+      const lastStop = dayStops[dayStops.length - 1];
+      const endStopId = day.end_stop || null;
+      const endStop =
+        endStopId && lastStop && endStopId !== lastStop.id
+          ? (stopById.get(endStopId) ?? null)
+          : null;
+      const endPoint = endStop
+        ? {
+            id: endStop.id,
+            lat: endStop.lat || null,
+            lon: endStop.lon || null,
+            is_accommodation: !!endStop.is_accommodation,
+          }
+        : null;
+      const trailingLegRecord =
+        endPoint && lastStop
+          ? (legByPair.get(`${lastStop.id}->${endPoint.id}`) ?? null)
+          : null;
+
       return {
         id: day.id,
         order_index: day.order_index,
@@ -137,6 +160,8 @@ export function buildCascadeTrip(records: TripRecords): CascadeTrip {
         legs: cascadeLegs,
         startPoint,
         leadingLeg: leadingLegRecord ? toCascadeLeg(leadingLegRecord) : null,
+        endPoint,
+        trailingLeg: trailingLegRecord ? toCascadeLeg(trailingLegRecord) : null,
       };
     });
 

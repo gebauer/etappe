@@ -22,6 +22,8 @@ const day = (partial: Partial<DayResult>): DayResult => ({
   stops: [],
   legs: [],
   leadingLeg: null,
+  trailingLeg: null,
+  endArrival: null,
   daylight: null,
   elapsedMin: 0,
   ...partial,
@@ -63,6 +65,7 @@ describe('dayTotals', () => {
         stops: [stop('a', 45), stop('waypoint', 0), stop('hotel', 0)],
         legs: [leg(35), leg(0)],
         leadingLeg: leg(0),
+        trailingLeg: leg(0),
       }),
     );
     expect(totals).toEqual({
@@ -71,7 +74,22 @@ describe('dayTotals', () => {
       legCount: 1,
       stopCount: 1,
       hasLeadingLeg: false,
+      hasTrailingLeg: false,
     });
+  });
+
+  it('counts the evening drive back to a base camp (WORK 29)', () => {
+    const totals = dayTotals(
+      day({
+        stops: [stop('a', 45)],
+        legs: [],
+        leadingLeg: leg(40),
+        trailingLeg: leg(50),
+      }),
+    );
+    expect(totals.roadMin).toBe(90);
+    expect(totals.legCount).toBe(2);
+    expect(totals.hasTrailingLeg).toBe(true);
   });
 
   it('is all zeroes for a day the cascade has nothing for', () => {

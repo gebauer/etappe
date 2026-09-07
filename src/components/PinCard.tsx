@@ -6,7 +6,7 @@ import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { formatClock, type Daylight, type StopTiming } from '../lib/cascade';
 import { describeDaylight } from '../lib/daylight';
 import { ContributorPill } from './ContributorMark';
-import { directionsUrl, type LinkOut } from '../lib/geo-links';
+import { placeUrl, type LinkOut } from '../lib/geo-links';
 import { formatDuration } from '../lib/format';
 import type { CurrencyCode } from '../lib/currency';
 import type { BlocksResponse, PoisResponse, StopsResponse } from '../types/pb';
@@ -247,14 +247,15 @@ export function PinCard({
             )}
             {!!target.stop.lat && !!target.stop.lon && (
               <a
-                href={directionsUrl(linkOut, {
-                  lat: target.stop.lat,
-                  lon: target.stop.lon,
-                })}
+                href={placeUrl(
+                  linkOut,
+                  { lat: target.stop.lat, lon: target.stop.lon },
+                  target.stop.address,
+                )}
                 onClick={onLinkOut}
                 target="_blank"
                 rel="noreferrer"
-                title="Directions in your map app"
+                title="Show this place in your map app"
                 className={`${GHOST} flex items-center`}
               >
                 ↗ Maps

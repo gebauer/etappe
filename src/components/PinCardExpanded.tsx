@@ -20,6 +20,7 @@ import type {
   StopsResponse,
 } from '../types/pb';
 import type { CurrencyCode } from '../lib/currency';
+import { placeUrl, type LinkOut } from '../lib/geo-links';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
 import { TimingCells } from './TimingCells';
@@ -131,6 +132,8 @@ interface Props {
   /** Called when the signal above has been honoured, so the sender can
    * clear it. */
   onKindPickerOpened?: () => void;
+  /** Which map app the ↗ link opens (WORK 19.4). */
+  linkOut?: LinkOut;
 }
 
 /**
@@ -171,6 +174,7 @@ export function PinCardExpanded({
   onChangeCost,
   openKindPickerSignal,
   onKindPickerOpened,
+  linkOut = 'google',
 }: Props) {
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
@@ -452,6 +456,21 @@ export function PinCardExpanded({
                 <p className="col-span-2 -mt-1 text-[11.5px] text-danger-text">
                   {coordError}
                 </p>
+              )}
+              {!!stop.lat && !!stop.lon && (
+                <a
+                  href={placeUrl(
+                    linkOut,
+                    { lat: stop.lat, lon: stop.lon },
+                    stop.address,
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open this place in your map app"
+                  className="col-span-2 -mt-1 inline-flex w-fit items-center gap-1 rounded-[7px] border border-border-strong px-2.5 py-1 text-[11.5px] text-text-2 hover:border-text-5 hover:text-text"
+                >
+                  ↗ Open in maps
+                </a>
               )}
               <div className="col-span-2 flex items-center justify-between gap-3 rounded-[10px] border border-[oklch(0.29_0.012_250)] bg-surface-2 px-3.5 py-2.5">
                 <div className="min-w-0">
