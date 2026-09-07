@@ -87,7 +87,11 @@ interface Props {
   /** WORK 16.7/16.10 — the costs on this stop or idea (usually one, per
    * the simplified card field) and how to change it. */
   costs: CostsResponse[];
-  onChangeCost: (amount: number | null, currency: CurrencyCode) => void;
+  onChangeCost: (
+    amount: number | null,
+    currency: CurrencyCode,
+    paid: number,
+  ) => void;
   openKindPickerSignal?: number;
   onKindPickerOpened?: () => void;
   /** WORK 12.7 — the compact bottom-sheet strip instead of the docked card.

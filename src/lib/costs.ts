@@ -112,6 +112,11 @@ export interface Budget {
   buckets: BudgetBucket[];
   /** Sum of every convertible bucket, in the trip currency. */
   total: number;
+  /** Of `total`, the part already handed over (deposits and balances),
+   * converted the same way. Clamped per cost to never exceed its amount. */
+  paid: number;
+  /** `total - paid`, never negative — what is still owed. */
+  open: number;
   /** Anything without a resolvable parent (a deleted stop/poi) or a
    * currency the cached rates don't cover — excluded from `total` rather
    * than guessed at, and surfaced so the popover can say "N not counted"
@@ -152,6 +157,7 @@ export function budgetByKind(
   const sums = new Map<BudgetBucketKey, { total: number; count: number }>();
   let hasFuel = false;
   let unconverted = 0;
+  let paid = 0;
 
   for (const cost of costs) {
     const kind =
@@ -168,18 +174,19 @@ export function budgetByKind(
     if (kind === 'fuel') hasFuel = true;
 
     const from = isCurrencyCode(cost.currency) ? cost.currency : to;
-    const converted =
-      from === to
-        ? cost.amount
-        : rates
-          ? convert(cost.amount, from, to, rates)
-          : null;
+    const toTrip = (n: number): number | null =>
+      from === to ? n : rates ? convert(n, from, to, rates) : null;
+
+    const converted = toTrip(cost.amount);
     if (converted == null) {
       unconverted += 1;
       continue;
     }
     const prev = sums.get(bucket) ?? { total: 0, count: 0 };
     sums.set(bucket, { total: prev.total + converted, count: prev.count + 1 });
+
+    const paidRaw = Math.min(Math.max(cost.paid ?? 0, 0), cost.amount);
+    if (paidRaw > 0) paid += toTrip(paidRaw) ?? 0;
   }
 
   const labels: Record<BudgetBucketKey, string> = {
@@ -204,9 +211,12 @@ export function budgetByKind(
     };
   });
 
+  const total = buckets.reduce((n, b) => n + b.total, 0);
   return {
     buckets,
-    total: buckets.reduce((n, b) => n + b.total, 0),
+    total,
+    paid: Math.min(paid, total),
+    open: Math.max(total - paid, 0),
     unconverted,
   };
 }

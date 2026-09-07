@@ -113,7 +113,9 @@ are what the future photo album needs.
 
 ### costs
 `trip` · `parent_type` · `parent_id` (nullable) · `label` · `amount` ·
-`currency` · `category` · `is_estimate`.
+`currency` · `category` · `is_estimate` · `paid` (how much of `amount` is
+already settled — a deposit, or the whole thing; `paid === amount` is "fully
+paid", there is no separate flag).
 
 ### pois
 Wishlist. `trip` · `title` · `kind` · `lat`, `lon` · `notes` · `url` ·

@@ -105,6 +105,22 @@ export function BudgetPopover({
               {formatMoney(budget.total, currency)}
             </span>
           </div>
+          {budget.paid > 0 && (
+            <>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="text-[12px] text-text-2">Already paid</span>
+                <span className="font-mono text-[12.5px] text-text-2">
+                  {formatMoney(budget.paid, currency)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-text-2">Still open</span>
+                <span className="font-mono text-[12.5px] text-text-2">
+                  {formatMoney(budget.open, currency)}
+                </span>
+              </div>
+            </>
+          )}
           <p className="mt-1.5 text-[11px] text-text-5 [text-wrap:pretty]">
             {hasCost
               ? "Sum of the cost field on this trip's stops. Stops without a cost are not counted."

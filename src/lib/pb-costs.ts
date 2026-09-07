@@ -18,6 +18,8 @@ export interface NewCost {
   amount: number;
   category?: string;
   is_estimate?: boolean;
+  /** Already handed over (a deposit, or the full amount). */
+  paid?: number;
 }
 
 export async function listCosts(
@@ -46,6 +48,7 @@ export async function addCost(
     currency,
     category: cost.category ?? '',
     is_estimate: cost.is_estimate ?? false,
+    paid: cost.paid ?? 0,
   });
 }
 
@@ -70,6 +73,10 @@ export async function deleteCost(
  * `existingId` (the first cost row already on this parent, or null). A
  * blank/zero amount deletes it rather than writing a meaningless 0 — the
  * card's own "+ add a price" affordance is how a cleared field comes back.
+ *
+ * `paid` is what's already been handed over (phase 27), clamped into
+ * `[0, amount]` here so a stale deposit can't outlive a price that was
+ * edited downwards.
  */
 export async function setSingleCost(
   pb: TypedPocketBase,
@@ -78,13 +85,20 @@ export async function setSingleCost(
   existingId: string | null,
   amount: number | null,
   currency: string,
+  paid = 0,
 ): Promise<void> {
   if (amount == null || !Number.isFinite(amount) || amount <= 0) {
     if (existingId) await pb.collection('costs').delete(existingId);
     return;
   }
+  const clampedPaid = Math.min(
+    Math.max(Number.isFinite(paid) ? paid : 0, 0),
+    amount,
+  );
   if (existingId) {
-    await pb.collection('costs').update(existingId, { amount, currency });
+    await pb
+      .collection('costs')
+      .update(existingId, { amount, currency, paid: clampedPaid });
     return;
   }
   await pb.collection('costs').create({
@@ -95,5 +109,6 @@ export async function setSingleCost(
     amount,
     currency,
     is_estimate: true,
+    paid: clampedPaid,
   });
 }

@@ -1378,10 +1378,19 @@ export function TripEditor({
     parent: { type: 'stop' | 'poi'; id: string },
     amount: number | null,
     currency: CurrencyCode,
+    paid: number,
   ) => {
     const existing = costsFor(records.costs, parent.type, parent.id)[0];
     void run(() =>
-      setSingleCost(pb, tripId, parent, existing?.id ?? null, amount, currency),
+      setSingleCost(
+        pb,
+        tripId,
+        parent,
+        existing?.id ?? null,
+        amount,
+        currency,
+        paid,
+      ),
     );
   };
 
@@ -2020,18 +2029,20 @@ export function TripEditor({
                     ? costsFor(records.costs, 'poi', cardTarget.item.id)
                     : []
               }
-              onChangeCost={(amount, currency) => {
+              onChangeCost={(amount, currency, paid) => {
                 if (cardTarget.type === 'stop')
                   changeCost(
                     { type: 'stop', id: cardTarget.stop.id },
                     amount,
                     currency,
+                    paid,
                   );
                 else if (cardTarget.type === 'wish')
                   changeCost(
                     { type: 'poi', id: cardTarget.item.id },
                     amount,
                     currency,
+                    paid,
                   );
               }}
               onAddPrivateNote={() => {
@@ -2389,11 +2400,12 @@ export function TripEditor({
           isWish
           blocks={blocksFor(records.blocks, 'poi', cardTarget.item.id)}
           costs={costsFor(records.costs, 'poi', cardTarget.item.id)}
-          onChangeCost={(amount, currency) =>
+          onChangeCost={(amount, currency, paid) =>
             changeCost(
               { type: 'poi', id: cardTarget.item.id },
               amount,
               currency,
+              paid,
             )
           }
           days={days}
@@ -2457,11 +2469,12 @@ export function TripEditor({
           stop={cardTarget.stop}
           blocks={blocksFor(records.blocks, 'stop', cardTarget.stop.id)}
           costs={costsFor(records.costs, 'stop', cardTarget.stop.id)}
-          onChangeCost={(amount, currency) =>
+          onChangeCost={(amount, currency, paid) =>
             changeCost(
               { type: 'stop', id: cardTarget.stop.id },
               amount,
               currency,
+              paid,
             )
           }
           days={days}

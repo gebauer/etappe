@@ -183,6 +183,7 @@ export type CostsRecord = {
 	id: string
 	is_estimate?: boolean
 	label?: string
+	paid?: number
 	parent_id?: string
 	parent_type?: CostsParentTypeOptions
 	trip: RecordIdString

@@ -2926,6 +2926,40 @@ backfilled stamp is indistinguishable from a real one), so no `down`.
 
 ---
 
+## Phase 27 — Record what's been paid on a price (2026-09-07, author request)
+
+The price section only exposed the amount. It now also tracks how much of
+that amount is already handed over, and the bill shows the balance.
+
+**Data.** Migration `1788000023` adds one field, `costs.paid` (number,
+`min: 0`). No "fully paid" boolean — `paid === amount` *is* fully paid, and
+a flag would drift the moment the price is edited. `setSingleCost` clamps
+every write into `[0, amount]` so a stale deposit can't outlive a price
+that was lowered. `down` drops the field.
+
+**`CostField`.** Once a price exists, a divider and either two chips —
+**Fully paid** (writes the whole amount) and **Partial** (opens a small box
+for a deposit, in the price's own currency, no picker) — or, if something is
+already paid, a status line: `✓ Paid in full · undo`, or
+`Paid 100 EUR · 200 EUR open · edit`. The chips only show once an amount is
+set, per the request. `onChange` grew a third arg, `paid`; threaded through
+`PinCard`, `PinCardExpanded` and `TripEditor.changeCost`.
+
+**The bill.** `budgetByKind` now also returns `paid` (each cost's paid
+figure, clamped then converted the same way as its amount; a cost that
+can't be converted contributes nothing) and `open` (`total - paid`, never
+negative). `BudgetPopover` renders **Already paid** and **Still open** under
+**Total**, but only when `paid > 0` — a trip with nothing paid looks
+exactly as before.
+
+- `StopRow`'s €/€€/€€€ mark and the phone `PinCard` are unchanged — display
+  only, out of scope here.
+- Verify: `npm run check`; a browser check that the chips write, the bill
+  lines appear, and clearing the price removes the row.
+- Commit: `phase 27: record deposits and what is still owed`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

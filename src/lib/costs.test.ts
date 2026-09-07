@@ -124,6 +124,7 @@ describe('budgetByKind', () => {
     parentId: string,
     amount: number,
     currency = 'EUR',
+    paid = 0,
   ): CostsResponse {
     return {
       id: `c-${parentId}`,
@@ -132,6 +133,7 @@ describe('budgetByKind', () => {
       amount,
       currency,
       label: '',
+      paid,
     } as unknown as CostsResponse;
   }
 
@@ -235,6 +237,60 @@ describe('budgetByKind', () => {
     );
     expect(b.total).toBe(0);
     expect(b.unconverted).toBe(1);
+  });
+
+  it('totals what is already paid and what is still open', () => {
+    const b = budgetByKind(
+      [
+        cost('hotel1', 100, 'EUR', 30),
+        cost('flight1', 200, 'EUR', 200),
+        cost('fall1', 30),
+      ],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.total).toBe(330);
+    expect(b.paid).toBe(230);
+    expect(b.open).toBe(100);
+  });
+
+  it('clamps a deposit that exceeds its own cost', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 100, 'EUR', 500)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.paid).toBe(100);
+    expect(b.open).toBe(0);
+  });
+
+  it('converts a deposit entered in a foreign currency', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 14500, 'ISK', 7250)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.total).toBe(100);
+    expect(b.paid).toBe(50);
+    expect(b.open).toBe(50);
+  });
+
+  it('ignores a deposit on a cost that could not be converted', () => {
+    const b = budgetByKind(
+      [cost('hotel1', 100, 'NOK', 50)],
+      stops,
+      pois,
+      'EUR',
+      rates,
+    );
+    expect(b.paid).toBe(0);
+    expect(b.open).toBe(0);
   });
 });
 

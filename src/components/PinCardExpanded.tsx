@@ -122,7 +122,11 @@ interface Props {
   onReorderBlock?: (blockId: string, targetIndex: number) => void;
   onUploadBlockFile: (blockId: string, file: File) => Promise<void>;
   /** `null` clears the price. */
-  onChangeCost: (amount: number | null, currency: CurrencyCode) => void;
+  onChangeCost: (
+    amount: number | null,
+    currency: CurrencyCode,
+    paid: number,
+  ) => void;
   openKindPickerSignal?: number;
   /** Called when the signal above has been honoured, so the sender can
    * clear it. */
