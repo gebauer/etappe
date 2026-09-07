@@ -3120,6 +3120,24 @@ network, not no dependencies.
 
 ---
 
+## Phase 32 — No "End at …" when the day already ends in a bed (2026-09-07, author report)
+
+The `↓ End at <hotel>` offer showed under every day, including one whose last
+stop is a hotel flagged `is_accommodation`. There it is worse than clutter:
+taking it would add an evening drive *away* from tonight's bed back to last
+night's.
+
+The button is now gated on the day's own last stop not being accommodation —
+the same test `NO_ACCOMMODATION` uses — so the offer appears exactly when
+accepting it would clear that warning, and never otherwise. Deliberately the
+**last** stop rather than "any stop on the day": a hotel in the middle of a
+day that ends at a waterfall is still a day you drive back from.
+
+- Verified: `npm run check` — 384 tests, 0 errors.
+- Commit: `phase 32: no end-point offer when the day already ends in a bed`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

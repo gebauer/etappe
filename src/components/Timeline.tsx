@@ -239,6 +239,10 @@ export function Timeline({
   const endThumb = endPointStop
     ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', endPointStop.id))
     : null;
+  // The day's own last stop is somewhere you sleep — the same test the
+  // cascade's NO_ACCOMMODATION uses, so the "End at …" offer appears exactly
+  // when it would clear that warning.
+  const endsAtAccommodation = !!dayStops[dayStops.length - 1]?.is_accommodation;
 
   function indexInDay(beforeStopId?: string): number {
     const list = dayStops.filter((s) => s.id !== dragId);
@@ -606,9 +610,14 @@ export function Timeline({
               </div>
             </>
           )}
+          {/* Offered exactly when the cascade would warn NO_ACCOMMODATION: a
+            day that already ends at somewhere you sleep needs no end point,
+            and the button would be inviting a drive *away* from tonight's
+            bed to the last one (author, 2026-09-07). */}
           {canEditItinerary &&
             dayStops.length > 0 &&
             !endPointStop &&
+            !endsAtAccommodation &&
             endPointCandidate && (
               <button
                 onClick={onSetEndPoint}
