@@ -3053,6 +3053,44 @@ from the day's new last stop.
 
 ---
 
+## Phase 30 — The carried-in start point gets a number (2026-09-07, author request)
+
+The stop a day leaves from was already framed by the day's zoom and drawn on
+the map, but only as a greyed *other-day* pin: no number, and hovering its
+ghost row in the itinerary highlighted nothing. It read as scenery rather
+than as part of the day.
+
+**Map.** `buildStopFeatures` emits one extra feature per day that carries a
+start point: same stop, same coordinates, but `dayId` = the day that carries
+it and `seq: 0`, so it renders in that day's focused `stops` layer as a plain
+`n:0` badge. Always a plain circle — never a photo tile, never a star: it is
+context, not a destination, and a tile would make it compete with the day's
+real stops.
+
+The stop's own pin stays where it is, tagged `carriedInto` with the days that
+carry it, and `MapPane`'s `stops-dim` filter now excludes it while one of
+those days is focused — otherwise the "0" would sit on top of a dimmed
+duplicate of itself. `carriedInto` is a delimited **string** (`|d2|d3|`), not
+an array: MapLibre serialises non-primitive feature properties through its
+tile pipeline, so an array can come back out of `['get', …]` as JSON text and
+quietly change what `['in', …]` means. `dayTag`/`dayTagNeedle` own both ends
+of that contract and are tested together — the delimiters are what stop one
+id matching inside another.
+
+**Itinerary.** The start-point ghost row shows `0` instead of `↑`, and both
+ghost rows (start and end) now hover like a `StopRow`: `onHoverStop` on
+enter/leave, lifting to full opacity on `bg-control`, which rings the pin via
+the existing `stops-hover` layer.
+
+- Verified: `npm run check` — 380 tests, 0 errors.
+- **Noticed:** a day whose `end_stop` differs from its `start_stop` gets no
+  numbered pin of its own. In a base camp the two are the same stop, so the
+  "0" already covers it; a differing end point would want the mirror
+  treatment (`seq` = last + 1). Not built — no case for it yet.
+- Commit: `phase 30: number and highlight the carried-in start point`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

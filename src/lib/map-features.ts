@@ -278,6 +278,20 @@ export interface StopFeature {
      * destination; kept alongside `iconImage` (which already encodes it into
      * a distinct "n:wp:<seq>" key) for the same reason `starred` is. */
     routingKind: 'stop' | 'waypoint';
+    /** WORK 30 — this is the extra "0" pin for a stop another day carries in
+     * as its start point, not the stop's own pin. Its `dayId` is the day that
+     * carries it, so it renders in that day's focused layer. */
+    carried: boolean;
+    /** WORK 30 — on a stop's *own* pin: the days that carry it in as their
+     * start point, as `|d2|d3|`. `MapPane` hides the dimmed own-pin while one
+     * of those days is focused, so the "0" doesn't sit on a duplicate.
+     *
+     * A delimited **string**, not an array, on purpose: MapLibre serialises
+     * non-primitive feature properties through its tile pipeline, so an array
+     * can come back out of `['get', …]` as JSON text and quietly change what
+     * `['in', …]` means. The leading and trailing `|` make the substring test
+     * an exact-id test. `''` when nothing carries it. */
+    carriedInto: string;
   };
 }
 
@@ -295,9 +309,33 @@ export interface StopFeatureCollection {
  * lives in the card, not painted on the map (BUILD §5's kind-icon pins are
  * superseded here, not merely restyled). iconImage names the composited
  * numbered badge the map builds on demand. */
+/** `['d2','d3']` -> `'|d2|d3|'`; nothing -> `''`. See `carriedInto`. */
+export function dayTag(dayIds: string[] | undefined): string {
+  return dayIds && dayIds.length ? `|${dayIds.join('|')}|` : '';
+}
+
+/** The `['in', …]` needle that matches one day inside a `dayTag` string. */
+export function dayTagNeedle(dayId: string): string {
+  return `|${dayId}|`;
+}
+
 export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
   const features: StopFeature[] = [];
   const days = [...records.days].sort((a, b) => a.order_index - b.order_index);
+
+  // WORK 30: which days carry each stop in as their start point. Built first
+  // so a stop's own pin can name them and be hidden while one is focused.
+  const stopById = new Map(records.stops.map((s) => [s.id, s]));
+  const carriedInto = new Map<string, string[]>();
+  for (const day of days) {
+    const startId = day.start_stop;
+    if (!startId) continue;
+    const start = stopById.get(startId);
+    // A same-day pointer is a no-op, and an unlocated stop has no pin.
+    if (!start || start.day === day.id || !isValidLatLon(start.lat, start.lon))
+      continue;
+    carriedInto.set(startId, [...(carriedInto.get(startId) ?? []), day.id]);
+  }
 
   for (const day of days) {
     const dayStops = records.stops
@@ -345,9 +383,41 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
           hasPhoto,
           starred,
           routingKind: isWaypoint ? 'waypoint' : 'stop',
+          carried: false,
+          carriedInto: dayTag(carriedInto.get(s.id)),
         },
       });
     }
+  }
+
+  // The "0" pin (WORK 30): the previous night's hotel, drawn in the day that
+  // leaves from it so it is numbered, undimmed and hoverable like that day's
+  // own stops — before this it was only ever a greyed other-day pin you
+  // could not pick out. Always a plain numbered circle: a photo tile or a
+  // star would make it compete with the day's real stops, and it is context,
+  // not a destination.
+  for (const day of days) {
+    const startId = day.start_stop;
+    if (!startId || !(carriedInto.get(startId) ?? []).includes(day.id))
+      continue;
+    const start = stopById.get(startId)!;
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [start.lon, start.lat] },
+      properties: {
+        stopId: start.id,
+        title: start.title,
+        dayId: day.id,
+        seq: 0,
+        iconImage: 'n:0',
+        iconImageDim: 'n:0',
+        hasPhoto: false,
+        starred: false,
+        routingKind: 'stop',
+        carried: true,
+        carriedInto: '',
+      },
+    });
   }
 
   return { type: 'FeatureCollection', features };

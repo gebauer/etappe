@@ -190,7 +190,12 @@ describe('boundsForDay', () => {
   });
 });
 
-import { buildStopFeatures, buildWishlistFeatures } from './map-features';
+import {
+  buildStopFeatures,
+  buildWishlistFeatures,
+  dayTag,
+  dayTagNeedle,
+} from './map-features';
 
 describe('buildStopFeatures', () => {
   const recs = {
@@ -340,6 +345,150 @@ describe('buildStopFeatures', () => {
     expect(a.properties.hasPhoto).toBe(false);
     expect(a.properties.iconImage).toBe('n:wp:1');
     expect(a.properties.iconImageDim).toBe('n:wp:1');
+  });
+
+  // WORK 30: the previous night's hotel gets a "0" pin inside the day that
+  // leaves from it, so it is numbered and hoverable rather than an anonymous
+  // greyed other-day dot.
+  describe('the carried-in start point', () => {
+    const carried = {
+      ...recs,
+      days: [
+        { id: 'd1', order_index: 0, kind: 'travel' },
+        { id: 'd2', order_index: 1, kind: 'travel', start_stop: 'B' },
+      ],
+    } as unknown as TripRecords;
+
+    it('adds a seq-0 pin for it in the day that carries it', () => {
+      const fc = buildStopFeatures(carried);
+      const zero = fc.features.filter((f) => f.properties.carried);
+      expect(zero).toHaveLength(1);
+      expect(zero[0]!.properties).toMatchObject({
+        stopId: 'B',
+        title: 'Hótel Skálholt',
+        dayId: 'd2',
+        seq: 0,
+        iconImage: 'n:0',
+      });
+      // Same place as the stop's own pin.
+      expect(zero[0]!.geometry.coordinates).toEqual([-21, 63]);
+    });
+
+    it('leaves the stop’s own pin in place, tagged with who carries it', () => {
+      const fc = buildStopFeatures(carried);
+      const own = fc.features.find(
+        (f) => f.properties.stopId === 'B' && !f.properties.carried,
+      )!;
+      expect(own.properties.dayId).toBe('d1');
+      expect(own.properties.seq).toBe(2);
+      expect(own.properties.carriedInto).toBe('|d2|');
+    });
+
+    it('is a plain circle — never a photo tile or a star', () => {
+      const withPhoto = {
+        ...carried,
+        stops: carried.stops.map((s) =>
+          s.id === 'B' ? { ...s, starred: true } : s,
+        ),
+        blocks: [
+          { parent_type: 'stop', parent_id: 'B', kind: 'photo', url: 'x.jpg' },
+        ],
+      } as unknown as TripRecords;
+      const zero = buildStopFeatures(withPhoto).features.find(
+        (f) => f.properties.carried,
+      )!;
+      expect(zero.properties.iconImage).toBe('n:0');
+      expect(zero.properties.hasPhoto).toBe(false);
+      expect(zero.properties.starred).toBe(false);
+    });
+
+    it('lists every day of a base camp that leaves from the same hotel', () => {
+      const baseCamp = {
+        ...recs,
+        days: [
+          { id: 'd1', order_index: 0, kind: 'travel' },
+          { id: 'd2', order_index: 1, kind: 'travel', start_stop: 'B' },
+          { id: 'd3', order_index: 2, kind: 'travel', start_stop: 'B' },
+        ],
+        stops: [
+          ...recs.stops,
+          {
+            id: 'F',
+            day: 'd3',
+            order_index: 0,
+            title: 'Geysir',
+            kind: 'other',
+            lat: 64.31,
+            lon: -20.3,
+          },
+        ],
+      } as unknown as TripRecords;
+      const fc = buildStopFeatures(baseCamp);
+      expect(
+        fc.features
+          .filter((f) => f.properties.carried)
+          .map((f) => f.properties.dayId),
+      ).toEqual(['d2', 'd3']);
+      const own = fc.features.find(
+        (f) => f.properties.stopId === 'B' && !f.properties.carried,
+      )!;
+      expect(own.properties.carriedInto).toBe('|d2|d3|');
+    });
+
+    it('ignores a pointer at a stop in the same day, or one with no coords', () => {
+      const noop = {
+        ...recs,
+        days: [
+          { id: 'd1', order_index: 0, kind: 'travel', start_stop: 'A' },
+          { id: 'd2', order_index: 1, kind: 'travel', start_stop: 'C' },
+        ],
+      } as unknown as TripRecords;
+      const fc = buildStopFeatures(noop);
+      expect(fc.features.some((f) => f.properties.carried)).toBe(false);
+      expect(fc.features.every((f) => f.properties.carriedInto === '')).toBe(
+        true,
+      );
+    });
+
+    it('ignores a dangling pointer', () => {
+      const dangling = {
+        ...recs,
+        days: [
+          { id: 'd1', order_index: 0, kind: 'travel' },
+          { id: 'd2', order_index: 1, kind: 'travel', start_stop: 'ghost' },
+        ],
+      } as unknown as TripRecords;
+      expect(
+        buildStopFeatures(dangling).features.some((f) => f.properties.carried),
+      ).toBe(false);
+    });
+  });
+});
+
+// The `stops-dim` filter is `['in', dayTagNeedle(focus), ['get','carriedInto']]`
+// — a substring test. These two helpers have to agree, and the delimiters are
+// what stop one id matching inside another.
+describe('dayTag / dayTagNeedle', () => {
+  const contains = (tag: string, dayId: string) =>
+    tag.includes(dayTagNeedle(dayId));
+
+  it('round-trips every day it was built from', () => {
+    const tag = dayTag(['d2', 'd3']);
+    expect(contains(tag, 'd2')).toBe(true);
+    expect(contains(tag, 'd3')).toBe(true);
+  });
+
+  it('is empty for a stop nothing carries', () => {
+    expect(dayTag(undefined)).toBe('');
+    expect(dayTag([])).toBe('');
+    expect(contains('', 'd2')).toBe(false);
+  });
+
+  it('does not match an id that merely contains a member id', () => {
+    const tag = dayTag(['d2']);
+    expect(contains(tag, 'd')).toBe(false);
+    expect(contains(tag, 'd22')).toBe(false);
+    expect(contains(dayTag(['abc']), 'b')).toBe(false);
   });
 });
 

@@ -363,9 +363,21 @@ export function Timeline({
             is set, a button to point it at the previous accommodation. */}
           {dayStops.length > 0 && startPointStop && (
             <>
-              <div className="flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 opacity-70">
+              {/* Hovering the ghost row rings its map pin, exactly as a
+                StopRow does — the carried stop is numbered 0 there (WORK 30),
+                so it is pickable out of the day rather than being an
+                anonymous grey dot. */}
+              <div
+                onMouseEnter={() => onHoverStop(startPointStop.id)}
+                onMouseLeave={() => onHoverStop(null)}
+                className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
+                  hoveredStopId === startPointStop.id
+                    ? 'bg-control opacity-100'
+                    : 'opacity-70'
+                }`}
+              >
                 <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
-                  ↑
+                  0
                 </span>
                 <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
                   {startThumb && (
@@ -549,7 +561,15 @@ export function Timeline({
                 linkOut={linkOut}
                 onLinkOut={() => onLinkOut?.(0)}
               />
-              <div className="flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 opacity-70">
+              <div
+                onMouseEnter={() => onHoverStop(endPointStop.id)}
+                onMouseLeave={() => onHoverStop(null)}
+                className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
+                  hoveredStopId === endPointStop.id
+                    ? 'bg-control opacity-100'
+                    : 'opacity-70'
+                }`}
+              >
                 <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
                   ↓
                 </span>

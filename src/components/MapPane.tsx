@@ -7,6 +7,7 @@ import {
   buildDayStartFeatures,
   buildWishlistFeatures,
   boundsForDay,
+  dayTagNeedle,
   type StopFeatureCollection,
 } from '../lib/map-features';
 import { isValidLatLon } from '../lib/geo';
@@ -1239,11 +1240,14 @@ export function MapPane({
       ['!=', ['get', 'stopId'], selId],
     ] as unknown as maplibregl.FilterSpecification);
     // Every other day's stops, minus the selected one (its DOM twin stands
-    // in for it wherever it lives) — WORK 25.
+    // in for it wherever it lives) — WORK 25 — and minus any stop this day
+    // carries in as its start point, which is already drawn above as the "0"
+    // pin at the same coordinates (WORK 30).
     map.setFilter('stops-dim', [
       'all',
       ['!=', ['get', 'dayId'], dayId],
       ['!=', ['get', 'stopId'], selId],
+      ['!', ['in', dayTagNeedle(dayId), ['get', 'carriedInto']]],
     ] as unknown as maplibregl.FilterSpecification);
   }, [focusDayId, selectedStop?.id, stopFc, mapReady]);
 
