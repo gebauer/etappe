@@ -359,6 +359,7 @@ Closed enum. Adding a member means adding a sprite and a default dwell.
 | `museum` | 90 | | `parking` | 5 |
 | `monument` | 30 | | `other` | 30 |
 | `church` | 20 | | `uncategorized` | 30 |
+| `cafe` | 30 | | `rental` | 20 |
 
 **Who assigns it:**
 

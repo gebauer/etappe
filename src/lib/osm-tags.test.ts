@@ -25,6 +25,11 @@ describe('mapOsmTags', () => {
     expect(mapOsmTags({ aeroway: 'aerodrome' })).toBe('airport');
   });
 
+  it('resolves a cafe to its own kind, distinct from a restaurant', () => {
+    expect(mapOsmTags({ amenity: 'cafe' })).toBe('cafe');
+    expect(mapOsmTags({ amenity: 'restaurant' })).toBe('restaurant');
+  });
+
   it('returns null for unknown or empty tags', () => {
     expect(mapOsmTags({ leisure: 'pitch' })).toBeNull();
     expect(mapOsmTags({})).toBeNull();

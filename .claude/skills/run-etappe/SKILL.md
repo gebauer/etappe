@@ -116,6 +116,24 @@ replacement for it.
 
 ## Gotchas
 
+- **`driver.mjs` and most `*-check.mjs` scripts in this directory are stale
+  as of 2026-09-04** — the app has been redesigned enough times since they
+  were written (trip-selection redesign WORK 21, "+ Stop" opening the search
+  palette instead of dropping a blank stop, the map-first shell) that their
+  register/trip-creation/add-stop steps now fail against the live UI. Confirmed
+  broken: `text=Need an account? Register` (clicks the combined `<span>`'s
+  centre, which can land on the plain-text part rather than the nested
+  `<button>` — use `button:has-text("Register")` instead); trip creation
+  filling the Title/Start-date fields _before_ clicking "New trip" (those
+  fields don't exist in the DOM until the button reveals the form); and
+  `driver.mjs`'s `addStop` waiting for `input[value="New stop"]`, which no
+  longer appears anywhere (see `cafe-icon-fallback-check.mjs` for a script
+  re-derived against the current UI, including the current wishlist row,
+  card, "Edit," and kind-picker path). Don't trust an old script's selectors
+  just because it once worked — re-verify each step against the live app,
+  the same way you'd re-derive them from scratch. Already tracked as its own
+  item in `WORK.md`'s Noticed list ("The run-etappe driver can no longer
+  build a fixture") — a full rewrite is out of scope to do inline here.
 - **A running PocketBase process only applies migrations at startup.** If
   the backend has been running since before a `git pull`/merge that added a
   migration, the live SQLite database silently lacks the new columns — the

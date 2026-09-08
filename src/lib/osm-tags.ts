@@ -47,7 +47,7 @@ const RULES: readonly Rule[] = [
   // Amenities
   { key: 'amenity', value: 'place_of_worship', kind: 'church' },
   { key: 'amenity', value: 'restaurant', kind: 'restaurant' },
-  { key: 'amenity', value: 'cafe', kind: 'restaurant' },
+  { key: 'amenity', value: 'cafe', kind: 'cafe' },
   { key: 'amenity', value: 'fast_food', kind: 'restaurant' },
   { key: 'amenity', value: 'fuel', kind: 'fuel' },
   { key: 'amenity', value: 'parking', kind: 'parking' },

@@ -9,13 +9,16 @@
  * BUILD §5.3's zoom-tiered, kind-icon pin (`compositeMarker`,
  * `drawAtlasGlyph`, the accommodation/other layer split, `TIER_OPACITY`) is
  * retired here, not restyled — the redesign (design_handoff_map_first_
- * planner/README.md, WORK 12.4) replaces it with a plain numbered circle,
- * identical across every kind and day, day-scoped by `MapPane` rather than
- * zoom-faded. Identity now lives in the card (WORK 12.2), not painted on the
- * pin. The access-point marker is a dashed "P" disc (`buildAccessPointElement`,
- * WORK 12.9) — it isn't part of the itinerary sequence the numbered pins
- * encode, and the picking flow it belongs to needs a plain draggable element,
- * not a symbol image.
+ * planner/README.md, WORK 12.4) replaces it with a numbered tile,
+ * identical shape across every kind and day, day-scoped by `MapPane` rather
+ * than zoom-faded. Identity mostly lives in the card (WORK 12.2), not
+ * painted on the pin — except a photo-less stop or wishlist idea's kind
+ * icon (author request 2026-09-04), a narrower reprise of that retired
+ * kind-icon pin as a fallback only, not a restoration of it: a cover photo
+ * still wins whenever one exists. The access-point marker is a dashed "P"
+ * disc (`buildAccessPointElement`, WORK 12.9) — it isn't part of the
+ * itinerary sequence the numbered pins encode, and the picking flow it
+ * belongs to needs a plain draggable element, not a symbol image.
  */
 
 import type maplibregl from 'maplibre-gl';
@@ -90,9 +93,7 @@ export function drawAtlasGlyphWhite(
 // Canvas 2D both need concrete colours, not the CSS custom properties
 // Tailwind generates.
 const BADGE_UNSEL_D = 52; // -> 26px CSS
-const BADGE_SEL_D = 68; // -> 34px CSS
 const BADGE_BORDER_D = 4; // -> 2px CSS
-const BADGE_HALO_D = 16; // -> 8px CSS halo width
 
 const BADGE_BG = oklchToHex(0.24, 0.013, 250); // control
 const BADGE_BORDER = oklchToHex(0.72, 0.13, 215); // accent
@@ -257,52 +258,6 @@ export function compositeNumberBadge(map: maplibregl.Map, id: string) {
     );
   }
   map.addImage(id, ctx.getImageData(0, 0, d, d), { pixelRatio: 2 });
-}
-
-/** Builds the selected stop's draggable DOM marker: bigger badge, brighter
- * border, plus the spec's 8px accent halo at 16% alpha baked into the same
- * canvas (simpler than a second underlying layer for one always-DOM
- * marker). Centre-anchored, like the GL badge — see `MARKER_LAYOUT`. */
-export function buildNumberedPinElement(
-  seq: number,
-  starred = false,
-): HTMLCanvasElement {
-  const d = BADGE_SEL_D + BADGE_HALO_D * 2;
-  const canvas = document.createElement('canvas');
-  canvas.width = d;
-  canvas.height = d;
-  canvas.style.width = `${d / 2}px`;
-  canvas.style.height = `${d / 2}px`;
-  canvas.style.cursor = 'grab';
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const c = d / 2;
-    ctx.globalAlpha = 0.16;
-    fillCircle(ctx, c, c, BADGE_SEL_D / 2 + BADGE_HALO_D / 2, BADGE_HALO);
-    ctx.globalAlpha = 1;
-    fillCircle(ctx, c, c, BADGE_SEL_D / 2 - BADGE_BORDER_D / 2, BADGE_SEL_BG);
-    strokeCircle(
-      ctx,
-      c,
-      c,
-      BADGE_SEL_D / 2 - BADGE_BORDER_D / 2,
-      BADGE_SEL_BORDER,
-      BADGE_BORDER_D,
-    );
-    drawBadgeNumber(ctx, c, c, String(seq), BADGE_SEL_TEXT, 28);
-    if (starred) {
-      // Corner of the badge's own bounding box (inset by the halo margin),
-      // not the full canvas — the halo's transparent margin would otherwise
-      // push the star away from the badge it belongs to.
-      drawStarBadge(
-        ctx,
-        BADGE_HALO_D + BADGE_SEL_D - STOP_STAR_D_SEL / 2,
-        BADGE_HALO_D + STOP_STAR_D_SEL / 2,
-        STOP_STAR_D_SEL,
-      );
-    }
-  }
-  return canvas;
 }
 
 // --- access-point picking (design_handoff_map_first_planner, WORK 12.9) ---
@@ -604,8 +559,12 @@ export function compositeWishlistPin(
 // the same rounded photo tile the wishlist uses, only with the accent
 // border instead of amber so a planned stop still reads as distinct from a
 // loose idea. The day-sequence number sits in a small disc in the
-// bottom-left corner. A stop with no photo keeps the plain numbered circle
-// (`compositeNumberBadge`) — this path is only the photo case.
+// bottom-left corner. A stop with no photo renders through this same tile
+// too (author request 2026-09-04) — its kind icon in place of the photo,
+// same fallback the wishlist pin uses — so `compositeNumberBadge`'s plain
+// circle is no longer this path's photo-less counterpart; it now only
+// serves waypoints and the carried-in start-point pin, which stay plain by
+// their own design (a routing point and a context marker, not stops).
 //
 // Three variants, composited in one pass like the wishlist pin:
 //   "s:<id>"      unselected, on the focused day
@@ -653,7 +612,9 @@ function drawNumberDisc(
 
 /** Cover-fits `img` into a rounded square of side `size` at `(x,y)`;
  * `desaturate` greys it and lays a dark wash over it (the dim context
- * variant). No image → fills `fallback`. Then strokes `border`. */
+ * variant). No image → fills `fallback`, then draws `glyph` (the kind's
+ * white icon) centred on it if given — a stop with no photo reads as its
+ * kind rather than a blank tile. Then strokes `border`. */
 function drawStopTileSquare(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -663,6 +624,7 @@ function drawStopTileSquare(
   img: HTMLImageElement | null,
   fallback: string,
   desaturate: boolean,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ) {
   roundedRectPath(ctx, x, y, size, size, STOP_TILE_RADIUS_D);
   ctx.save();
@@ -687,6 +649,16 @@ function drawStopTileSquare(
   } else {
     ctx.fillStyle = fallback;
     ctx.fillRect(x, y, size, size);
+    if (glyph) {
+      drawAtlasGlyphWhite(
+        ctx,
+        glyph.atlas,
+        glyph.iconName,
+        x + size / 2,
+        y + size / 2,
+        Math.round(size * 0.52),
+      );
+    }
   }
   ctx.restore();
   roundedRectPath(
@@ -707,6 +679,7 @@ function stopTileVariant(
   img: HTMLImageElement | null,
   seq: string,
   starred: boolean,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ): ImageData | null {
   const sizeD =
     kind === 'sel'
@@ -743,6 +716,10 @@ function stopTileVariant(
     img,
     BADGE_BG,
     kind === 'dim',
+    // The dim context variant already drops the number and star (below) to
+    // stay quiet — the glyph follows the same rule, not just "kind !== dim"
+    // by omission.
+    kind === 'dim' ? null : glyph,
   );
   if (kind !== 'dim') {
     const numD = kind === 'sel' ? STOP_TILE_NUM_SEL_D : STOP_TILE_NUM_D;
@@ -765,13 +742,16 @@ function stopTileVariant(
 /** Composites all three stop-photo variants for one stop. `img` is null
  * until the cover photo loads — the caller draws the fallback tile first
  * (via `styleimagemissing`) and re-calls this once it resolves, exactly
- * like `compositeWishlistPin`. */
+ * like `compositeWishlistPin`. `glyph`, when `img` is null, is the stop's
+ * kind icon — a photo-less stop reads as its kind instead of a blank tile
+ * (mirrors the wishlist pin's icon fallback, WORK 18.11). */
 export function compositeStopPin(
   map: maplibregl.Map,
   stopId: string,
   img: HTMLImageElement | null,
   seq: number,
   starred: boolean,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ) {
   let replaced = false;
   const put = (id: string, data: ImageData | null) => {
@@ -784,20 +764,21 @@ export function compositeStopPin(
     }
   };
   const s = String(seq);
-  put(`s:${stopId}`, stopTileVariant('unsel', img, s, starred));
-  put(`s:${stopId}:sel`, stopTileVariant('sel', img, s, starred));
-  put(`s:${stopId}:dim`, stopTileVariant('dim', img, s, starred));
+  put(`s:${stopId}`, stopTileVariant('unsel', img, s, starred, glyph));
+  put(`s:${stopId}:sel`, stopTileVariant('sel', img, s, starred, glyph));
+  put(`s:${stopId}:dim`, stopTileVariant('dim', img, s, starred, glyph));
   if (replaced) map.triggerRepaint(); // see compositeWishlistPin
 }
 
-/** The selected stop's draggable DOM twin as a photo tile — mirrors
- * `buildNumberedPinElement`, which the caller uses instead when the stop
- * has no cover photo. Same selected size/halo as the GL "s:<id>:sel"
- * image so swapping between them doesn't shift the pin. */
+/** The selected stop's draggable DOM twin, always the photo-tile shape —
+ * same selected size/halo as the GL "s:<id>:sel" image so swapping between
+ * them (photo arriving, kind changing) doesn't shift the pin. `img` null
+ * falls back to `glyph` (the kind icon) exactly like the GL variant. */
 export function buildStopPinElement(
   seq: number,
   starred: boolean,
-  img: HTMLImageElement,
+  img: HTMLImageElement | null,
+  glyph?: { atlas: Atlas; iconName: string } | null,
 ): HTMLCanvasElement {
   const total = STOP_TILE_SEL_D + STOP_TILE_HALO_D * 2;
   const canvas = document.createElement('canvas');
@@ -807,7 +788,7 @@ export function buildStopPinElement(
   canvas.style.height = `${total / 2}px`;
   canvas.style.cursor = 'grab';
   const ctx = canvas.getContext('2d');
-  const data = stopTileVariant('sel', img, String(seq), starred);
+  const data = stopTileVariant('sel', img, String(seq), starred, glyph);
   if (ctx && data) ctx.putImageData(data, 0, 0);
   return canvas;
 }

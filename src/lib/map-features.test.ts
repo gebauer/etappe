@@ -283,30 +283,36 @@ describe('buildStopFeatures', () => {
     expect(byId.get('D')!.properties.dayId).toBe('d2');
   });
 
-  it('names the composited badge image after the sequence number', () => {
+  it('names the composited image after the stop, not the sequence number', () => {
+    // The tile key is per-stop ("s:<id>") so a late kind change or photo
+    // arriving re-composites just that stop's image, not every stop that
+    // happens to share a sequence number across days.
     const fc = buildStopFeatures(recs);
     const a = fc.features.find((f) => f.properties.stopId === 'A')!;
     const d = fc.features.find((f) => f.properties.stopId === 'D')!;
-    expect(a.properties.iconImage).toBe('n:1');
-    expect(d.properties.iconImage).toBe('n:1'); // same key, different day — fine, badges carry no day-specific styling
+    expect(a.properties.iconImage).toBe('s:A');
+    expect(d.properties.iconImage).toBe('s:D');
   });
 
-  it('gives a starred stop its own badge image and a starred flag (WORK 14.3)', () => {
+  it('gives a starred stop its own starred flag (WORK 14.3)', () => {
     const fc = buildStopFeatures(recs);
     const a = fc.features.find((f) => f.properties.stopId === 'A')!;
     const e = fc.features.find((f) => f.properties.stopId === 'E')!;
     expect(a.properties.starred).toBe(false);
     expect(e.properties.starred).toBe(true);
     expect(e.properties.seq).toBe(2); // second stop on day 2
-    expect(e.properties.iconImage).toBe('n:2:star');
+    expect(e.properties.iconImage).toBe('s:E'); // star is baked into the tile, not a distinct key
   });
 
-  it('a photo-less stop stays a numbered circle, dim key included (WORK 25)', () => {
+  it('a photo-less stop still gets the tile key, dim key included (WORK 25, author request 2026-09-04)', () => {
+    // MapPane composites the kind icon onto this tile when there's no
+    // photo (compositeStopPin, map-markers.ts) — the feature layer no
+    // longer distinguishes "has a photo" by routing to a different key.
     const fc = buildStopFeatures(recs);
     const a = fc.features.find((f) => f.properties.stopId === 'A')!;
     expect(a.properties.hasPhoto).toBe(false);
-    expect(a.properties.iconImage).toBe('n:1');
-    expect(a.properties.iconImageDim).toBe('n:1');
+    expect(a.properties.iconImage).toBe('s:A');
+    expect(a.properties.iconImageDim).toBe('s:A:dim');
   });
 
   it('a stop with a resolvable photo block renders as a photo tile (WORK 25)', () => {
@@ -326,7 +332,7 @@ describe('buildStopFeatures', () => {
     expect(a.properties.iconImageDim).toBe('s:A:dim');
     // A note block is not a photo; a POI-parented photo isn't this stop's.
     expect(b.properties.hasPhoto).toBe(false);
-    expect(b.properties.iconImage).toBe('n:2');
+    expect(b.properties.iconImage).toBe('s:B');
   });
 
   it('a waypoint never becomes a photo tile even with a photo block (WORK 25)', () => {

@@ -32,6 +32,7 @@ export const TAXONOMY = {
   church: { label: 'Church', dwell: 20, icon: 'religious-christian' },
   town: { label: 'Town', dwell: 90, icon: 'town' },
   restaurant: { label: 'Restaurant', dwell: 60, icon: 'restaurant' },
+  cafe: { label: 'Cafe', dwell: 30, icon: 'cafe' },
   hotel: { label: 'Hotel', dwell: null, icon: 'lodging' },
   campsite: { label: 'Campsite', dwell: null, icon: 'campsite' },
   airport: { label: 'Airport', dwell: 60, icon: 'airport' },

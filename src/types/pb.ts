@@ -302,6 +302,7 @@ export const PoisKindOptions = {
 	"other": "other",
 	"uncategorized": "uncategorized",
 	"rental": "rental",
+	"cafe": "cafe",
 } as const
 export type PoisKindOptions = typeof PoisKindOptions[keyof typeof PoisKindOptions]
 export type PoisRecord = {
@@ -359,6 +360,7 @@ export const StopsKindOptions = {
 	"other": "other",
 	"uncategorized": "uncategorized",
 	"rental": "rental",
+	"cafe": "cafe",
 } as const
 export type StopsKindOptions = typeof StopsKindOptions[keyof typeof StopsKindOptions]
 

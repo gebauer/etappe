@@ -304,11 +304,12 @@ export interface StopFeatureCollection {
  * collection (seq is stable per day regardless of which day is focused);
  * `MapPane` filters the rendered layer to the focused day (design handoff:
  * "clicking a day pill swaps ... the map's numbered pins to that day").
- * The pin no longer carries a kind icon or a day hue — the redesign's pins
- * are plain numbered circles, identical across days and kinds; identity
- * lives in the card, not painted on the map (BUILD §5's kind-icon pins are
- * superseded here, not merely restyled). iconImage names the composited
- * numbered badge the map builds on demand. */
+ * The pin carries no day hue, and identity mostly lives in the card, not
+ * painted on the map (BUILD §5's kind-icon pins are superseded here, not
+ * merely restyled) — except a photo-less stop's kind icon (author request
+ * 2026-09-04), which reads as its kind on the tile itself rather than a
+ * blank fallback square; a stop with a photo still shows that instead.
+ * iconImage names the composited badge/tile the map builds on demand. */
 /** `['d2','d3']` -> `'|d2|d3|'`; nothing -> `''`. See `carriedInto`. */
 export function dayTag(dayIds: string[] | undefined): string {
   return dayIds && dayIds.length ? `|${dayIds.join('|')}|` : '';
@@ -359,17 +360,13 @@ export function buildStopFeatures(records: TripRecords): StopFeatureCollection {
             b.kind === 'photo' &&
             (b.file || b.url),
         );
-      const circleKey = starred ? `n:${seq}:star` : `n:${seq}`;
-      const iconImage = isWaypoint
-        ? `n:wp:${seq}`
-        : hasPhoto
-          ? `s:${s.id}`
-          : circleKey;
-      const iconImageDim = isWaypoint
-        ? `n:wp:${seq}`
-        : hasPhoto
-          ? `s:${s.id}:dim`
-          : circleKey;
+      // A waypoint is the only stop still routed to the plain numbered
+      // badge — every other stop uses the tile key regardless of hasPhoto:
+      // `compositeStopPin` draws the cover photo when there is one and the
+      // kind icon (plus the star, same as the badge did) when there isn't,
+      // so there's no longer a separate blank-circle fallback to route to.
+      const iconImage = isWaypoint ? `n:wp:${seq}` : `s:${s.id}`;
+      const iconImageDim = isWaypoint ? `n:wp:${seq}` : `s:${s.id}:dim`;
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [s.lon, s.lat] },

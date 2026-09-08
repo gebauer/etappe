@@ -16,7 +16,6 @@ import type { CascadeResult } from '../lib/cascade';
 import type { StopsResponse, PoisResponse } from '../types/pb';
 import {
   addMarkerLayers,
-  buildNumberedPinElement,
   buildAccessPointElement,
   buildParkingChipElement,
   compositeNumberBadge,
@@ -271,18 +270,19 @@ export function MapPane({
   // came up with fallback-coloured wishlist pins and no photos until the
   // next edit.
   const [mapReady, setMapReady] = useState(false);
-  // The sprite atlas, loaded once for the wishlist "icon" pin mode (WORK
-  // 18.11). Null until it resolves; `photo` mode never needs it.
+  // The sprite atlas: the wishlist's "icon" pin mode (WORK 18.11) and every
+  // photo-less stop/wishlist pin's kind-icon fallback both need it, so it
+  // loads once, unconditionally, rather than only for the icon-mode toggle.
+  // Null until it resolves — those pins draw their plain fallback tile
+  // first and get their icon in a follow-up composite once this arrives.
   const [atlas, setAtlas] = useState<Atlas | null>(null);
   useEffect(() => {
     let live = true;
-    if (wishlistPinMode === 'icon' && !atlas) {
-      loadAtlas().then((a) => live && setAtlas(a));
-    }
+    loadAtlas().then((a) => live && setAtlas(a));
     return () => {
       live = false;
     };
-  }, [wishlistPinMode, atlas]);
+  }, []);
   // Which day's route the pills are pointing at. Map-local: nothing outside
   // MapPane reacts to it, and it must not touch `focusDayId`, which scopes
   // the stop pins and is a click, not a hover.
@@ -302,6 +302,11 @@ export function MapPane({
   selectWishlistRef.current = onSelectWishlist;
   const wishlistRef = useRef(wishlist ?? []);
   wishlistRef.current = wishlist ?? [];
+  // Read from the mount-once styleimagemissing handler below, which closes
+  // over whatever atlas was loaded (or wasn't) at mount — the follow-up
+  // cover effects re-composite once it actually arrives.
+  const atlasRef = useRef(atlas);
+  atlasRef.current = atlas;
   const selectDayRef = useRef(onSelectDay);
   selectDayRef.current = onSelectDay;
   const overviewRef = useRef(overview ?? false);
@@ -608,12 +613,23 @@ export function MapPane({
             const f = stopFcRef.current.features.find(
               (x) => x.properties.stopId === stopId,
             );
+            const stop = recordsRef.current.stops.find((x) => x.id === stopId);
+            const atlas = atlasRef.current;
+            const glyph = atlas
+              ? {
+                  atlas,
+                  iconName:
+                    TAXONOMY[(stop?.kind ?? 'uncategorized') as Kind]?.icon ??
+                    'marker',
+                }
+              : null;
             compositeStopPin(
               map,
               stopId,
               stopPhotoRef.current.get(stopId) ?? null,
               f?.properties.seq ?? 1,
               f?.properties.starred ?? false,
+              glyph,
             );
             return;
           }
@@ -625,12 +641,22 @@ export function MapPane({
             // upgrades this in place once (if) one loads.
             const poiId = e.id.slice('w:'.length).split(':')[0] ?? '';
             const item = wishlistRef.current.find((w) => w.id === poiId);
+            const atlas = atlasRef.current;
+            const glyph = atlas
+              ? {
+                  atlas,
+                  iconName:
+                    TAXONOMY[(item?.kind ?? 'uncategorized') as Kind]?.icon ??
+                    'marker',
+                }
+              : null;
             compositeWishlistPin(
               map,
               poiId,
               null,
               categoryColor(item?.kind ?? 'uncategorized'),
               item?.starred ?? false,
+              glyph,
             );
           }
         } catch (err) {
@@ -845,21 +871,22 @@ export function MapPane({
             blocksFor(recordsRef.current.blocks, 'poi', item.id),
           );
       const fallback = categoryColor(item.kind ?? 'uncategorized');
-      const glyph = iconMode
-        ? {
-            atlas: atlas!,
-            iconName: TAXONOMY[item.kind as Kind]?.icon ?? 'marker',
-          }
+      // Independent of iconMode: also the no-cover-photo fallback in photo
+      // mode (below), so an idea without a photo reads as its kind rather
+      // than a blank tile — same icon, just not forced over a real photo.
+      const glyph = atlas
+        ? { atlas, iconName: TAXONOMY[item.kind as Kind]?.icon ?? 'marker' }
         : null;
       // Signature of what the pin should show. Unchanged since last draw →
       // nothing to do. The wishlist and the trip document arrive from two
       // separate fetches, so this effect routinely first runs with the item
       // present but its blocks not loaded yet (url null); when they arrive
-      // the signature changes and the pin re-composites. A star toggle, or
-      // flipping to icon mode, changes it the same way.
+      // the signature changes and the pin re-composites. A star toggle,
+      // flipping to icon mode, or the atlas finishing a late load (no icon
+      // -> icon, once) all change it the same way.
       const sig = iconMode
         ? `I:${item.starred ? 'S' : '-'}:${item.kind ?? ''}`
-        : `${item.starred ? 'S' : '-'}:${url ?? ''}`;
+        : `${item.starred ? 'S' : '-'}:${url ?? ''}:${glyph ? 'a' : ''}`;
       const prev = wishlistPinStateRef.current.get(item.id);
       if (prev === sig) continue;
       wishlistPinStateRef.current.set(item.id, sig);
@@ -881,11 +908,12 @@ export function MapPane({
       }
 
       if (!url) {
-        // No cover photo. The first paint (colour fallback) is handled by
+        // No cover photo. The first paint (a plain fallback, or the kind
+        // icon if the atlas was already loaded by then) is handled by
         // styleimagemissing; only re-draw here when the star must go onto
-        // that fallback, or a previous draw (star or a since-deleted photo)
-        // has to be undone.
-        if (item.starred || prev !== undefined) {
+        // it, a since-deleted photo has to be undone, or the icon just
+        // became available (sig already carries that last one).
+        if (item.starred || prev !== undefined || glyph) {
           try {
             compositeWishlistPin(
               map,
@@ -893,6 +921,7 @@ export function MapPane({
               null,
               fallback,
               item.starred ?? false,
+              glyph,
             );
           } catch (err) {
             console.error('wishlist pin composite failed for', item.id, err);
@@ -933,35 +962,56 @@ export function MapPane({
     }
   }, [wishlist, records.blocks, mapReady, wishlistPinMode, atlas]);
 
-  // Upgrade each photo-carrying stop pin from its dark fallback tile to its
-  // real cover photo (WORK 25) — the same mechanism as the wishlist cover
-  // effect above: read the cover the card way (`firstPhotoUrl`/`blocksFor`),
-  // composite via `updateImage` once it loads, and keep the decoded image
-  // so the selected stop's draggable DOM twin can use it too. A promoted
-  // wishlist idea's photo blocks have re-parented onto the stop by now, so
-  // this is where a "consumed" idea gets its thumbnail back.
+  // Upgrade each stop pin from its synchronous fallback tile (plain, or the
+  // kind icon if the atlas was already loaded — styleimagemissing) to its
+  // real cover photo, once loaded (WORK 25) — the same mechanism as the
+  // wishlist cover effect above: read the cover the card way
+  // (`firstPhotoUrl`/`blocksFor`), composite via `updateImage`, and keep the
+  // decoded image so the selected stop's draggable DOM twin can use it too.
+  // A promoted wishlist idea's photo blocks have re-parented onto the stop
+  // by now, so this is where a "consumed" idea gets its thumbnail back.
+  // Photo-less stops go through here too now (author request 2026-09-04):
+  // nothing to fetch, but the icon still needs painting in once the atlas
+  // arrives, if it wasn't ready yet at the first synchronous paint.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     for (const f of stopFcRef.current.features) {
-      if (!f.properties.hasPhoto) continue;
       const stopId = f.properties.stopId;
-      const { seq, starred } = f.properties;
-      const url = firstPhotoUrl(
-        pb,
-        blocksFor(recordsRef.current.blocks, 'stop', stopId),
-        '640x0',
-      );
-      const sig = `${starred ? 'S' : '-'}:${seq}:${url ?? ''}`;
-      if (stopPinStateRef.current.get(stopId) === sig) continue;
+      const { seq, starred, hasPhoto } = f.properties;
+      const kind = recordsRef.current.stops.find((s) => s.id === stopId)?.kind;
+      const glyph = atlas
+        ? {
+            atlas,
+            iconName:
+              TAXONOMY[(kind ?? 'uncategorized') as Kind]?.icon ?? 'marker',
+          }
+        : null;
+      const url = hasPhoto
+        ? firstPhotoUrl(
+            pb,
+            blocksFor(recordsRef.current.blocks, 'stop', stopId),
+            '640x0',
+          )
+        : null;
+      const sig = `${starred ? 'S' : '-'}:${seq}:${kind ?? ''}:${url ?? ''}:${glyph ? 'a' : ''}`;
+      const prev = stopPinStateRef.current.get(stopId);
+      if (prev === sig) continue;
       stopPinStateRef.current.set(stopId, sig);
 
       if (!url) {
-        // A photo block that no longer resolves — redraw the plain tile.
-        try {
-          compositeStopPin(map, stopId, null, seq, starred);
-        } catch (err) {
-          console.error('stop pin composite failed for', stopId, err);
+        // No cover photo (never had one, or a block that no longer
+        // resolves). The first paint is handled by styleimagemissing;
+        // redraw here only when something changed since — the star, an
+        // undone photo (prev !== undefined), or the icon just becoming
+        // available (glyph) — not on a brand new stop's very first pass,
+        // which already got the identical plain tile.
+        if (starred || prev !== undefined || glyph) {
+          try {
+            compositeStopPin(map, stopId, null, seq, starred, glyph);
+          } catch (err) {
+            console.error('stop pin composite failed for', stopId, err);
+          }
         }
         continue;
       }
@@ -975,7 +1025,7 @@ export function MapPane({
         if (stopPinStateRef.current.get(stopId) !== sig) return;
         stopPhotoRef.current.set(stopId, img);
         try {
-          compositeStopPin(map, stopId, img, seq, starred);
+          compositeStopPin(map, stopId, img, seq, starred, glyph);
         } catch (err) {
           console.error('stop photo composite failed for', stopId, err);
         }
@@ -988,7 +1038,7 @@ export function MapPane({
       };
       img.src = url;
     }
-  }, [stopFc, records.blocks, mapReady]);
+  }, [stopFc, records.blocks, records.stops, mapReady, atlas]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1272,9 +1322,10 @@ export function MapPane({
     // into the dependency list.
     if (selectedStop?.id && isValidLatLon(selectedStop.lat, selectedStop.lon)) {
       const photo = stopPhotoRef.current.get(selectedStop.id) ?? null;
-      // The twin rebuilds when the stop changes *or* when its cover photo
-      // arrives (circle -> photo tile), so the key carries both.
-      const wantKey = `${selectedStop.id}:${photo ? 'p' : 'n'}`;
+      // The twin rebuilds when the stop changes, its cover photo arrives
+      // (circle -> photo tile), its kind changes, or the atlas finishes
+      // loading late (no icon -> icon, once) — the key carries all four.
+      const wantKey = `${selectedStop.id}:${photo ? 'p' : 'n'}:${selectedStop.kind}:${atlas ? 'a' : ''}`;
       if (!poiMarkerRef.current || poiMarkerStopIdRef.current !== wantKey) {
         poiMarkerRef.current?.remove();
         const feature = stopFcRef.current.features.find(
@@ -1282,9 +1333,15 @@ export function MapPane({
         );
         const seq = feature?.properties.seq ?? 1;
         const starred = feature?.properties.starred ?? false;
-        const element = photo
-          ? buildStopPinElement(seq, starred, photo)
-          : buildNumberedPinElement(seq, starred);
+        const glyph = atlas
+          ? {
+              atlas,
+              iconName:
+                TAXONOMY[(selectedStop.kind ?? 'uncategorized') as Kind]
+                  ?.icon ?? 'marker',
+            }
+          : null;
+        const element = buildStopPinElement(seq, starred, photo, glyph);
         const marker = new maplibregl.Marker({
           element,
           anchor: 'center',
@@ -1346,11 +1403,13 @@ export function MapPane({
     selectedStop?.id,
     selectedStop?.lat,
     selectedStop?.lon,
+    selectedStop?.kind,
     selectedStop?.access_lat,
     selectedStop?.access_lon,
     markerResetSignal,
     stopPhotoNonce,
     mapReady,
+    atlas,
   ]);
 
   // In the trip overview no pill is active (WORK 17.6); otherwise fall back
