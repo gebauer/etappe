@@ -30,6 +30,7 @@ import { resolvePlaceHint } from './geocode';
 import { createTrip } from './pb-trips';
 import { buildLegRecord } from './pb-legs';
 import { isKind } from './taxonomy';
+import { readAmenities } from './amenities';
 import type { ImportDoc } from './import-cascade';
 import type { LatLon, RoutingProvider } from './routing';
 import type { TypedPocketBase, TripsResponse } from '../types/pb';
@@ -126,6 +127,7 @@ export async function commitTripImport(
         lat: resolved.lat,
         lon: resolved.lon,
         is_accommodation: s.is_accommodation ?? false,
+        amenities: readAmenities(s.amenities),
         anchor_time: s.anchor_time ?? '',
         anchor_type: s.anchor_type,
         dwell_override: s.dwell_min,

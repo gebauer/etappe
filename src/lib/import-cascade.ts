@@ -31,6 +31,7 @@ export interface ImportStop {
   lat?: number;
   lon?: number;
   is_accommodation?: boolean;
+  amenities?: string[];
   anchor_time?: string;
   anchor_type?: 'arrival' | 'departure';
   dwell_min?: number;

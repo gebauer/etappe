@@ -373,10 +373,11 @@ export const StopsRoutingKindOptions = {
 	"waypoint": "waypoint",
 } as const
 export type StopsRoutingKindOptions = typeof StopsRoutingKindOptions[keyof typeof StopsRoutingKindOptions]
-export type StopsRecord = {
+export type StopsRecord<Tamenities = unknown> = {
 	access_lat?: number
 	access_lon?: number
 	address?: string
+	amenities?: null | Tamenities
 	anchor_time?: string
 	anchor_type?: StopsAnchorTypeOptions
 	created: IsoAutoDateString
@@ -461,7 +462,7 @@ export type InvitesResponse<Texpand = unknown> = Required<InvitesRecord> & BaseS
 export type LegsResponse<Tgeometry = unknown, Texpand = unknown> = Required<LegsRecord<Tgeometry>> & BaseSystemFields<Texpand>
 export type PoisResponse<Texpand = unknown> = Required<PoisRecord> & BaseSystemFields<Texpand>
 export type RouteCacheResponse<Tgeometry = unknown, Texpand = unknown> = Required<RouteCacheRecord<Tgeometry>> & BaseSystemFields<Texpand>
-export type StopsResponse<Texpand = unknown> = Required<StopsRecord> & BaseSystemFields<Texpand>
+export type StopsResponse<Tamenities = unknown, Texpand = unknown> = Required<StopsRecord<Tamenities>> & BaseSystemFields<Texpand>
 export type TripMembersResponse<Texpand = unknown> = Required<TripMembersRecord> & BaseSystemFields<Texpand>
 export type TripsResponse<Tdefault_dwell = unknown, Tsurface_multipliers = unknown, Texpand = unknown> = Required<TripsRecord<Tdefault_dwell, Tsurface_multipliers>> & BaseSystemFields<Texpand>
 export type UsersResponse<Trouting_keys = unknown, Trouting_providers = unknown, Texpand = unknown> = Required<UsersRecord<Trouting_keys, Trouting_providers>> & AuthSystemFields<Texpand>

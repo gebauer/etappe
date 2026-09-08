@@ -90,6 +90,7 @@ imply are the only cross-day legs in the model and are owned by
 | `lat`, `lon` | number | |
 | `address` | text | |
 | `is_accommodation` | bool | |
+| `amenities` | json | array of keys from a closed set (`src/lib/amenities.ts`); accommodation only — what the place provides, so a companion knows what to pack. Absent key = bring your own |
 | `anchor_time` | text | `HH:MM` or empty; pins the stop to the clock |
 | `anchor_type` | select | `arrival` \| `departure` |
 | `dwell_override` | number | minutes; null means "sum of activities" |

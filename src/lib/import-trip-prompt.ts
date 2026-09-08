@@ -66,6 +66,9 @@ geocoded from "place_hint" on import, which is coarser and can miss.
 - Mark exactly the stop where each day ends for the night as \
 "is_accommodation": true (a hotel, campsite, or similar) — this drives the \
 next day's starting point and clears a warning if left unmarked.
+- "amenities" (accommodation only, optional) is an array from: linen, \
+towels, breakfast, private_bath, kitchen, wifi. Include only the ones you \
+actually know the place provides; omit the field when unsure.
 - "anchor_time" (HH:MM) and "anchor_type" ("arrival" or "departure") are \
 optional — only include them for a stop with a real fixed time (a flight, \
 a booked tour), not a guess.

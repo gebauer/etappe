@@ -3,6 +3,7 @@ import { cascade, formatClock } from '../lib/cascade';
 import { createSunCalcDaylight } from '../lib/daylight';
 import { warningText } from '../lib/warnings';
 import { formatDuration, formatDayDate } from '../lib/format';
+import { AmenityIcons } from './AmenityIcons';
 import {
   shareToCascade,
   type ShareDoc,
@@ -138,6 +139,12 @@ export function ShareView({ token }: { token: string }) {
                           {timing ? ` · ${formatDuration(timing.dwell)}` : ''}
                           {stop.is_accommodation ? ' · overnight' : ''}
                         </div>
+                        {stop.is_accommodation && (
+                          <AmenityIcons
+                            amenities={stop.amenities}
+                            className="mt-1"
+                          />
+                        )}
                         {publicBlocksOf(stop.blocks)}
                       </div>
                     </li>

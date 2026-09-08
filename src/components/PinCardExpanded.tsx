@@ -21,6 +21,7 @@ import type {
 } from '../types/pb';
 import type { CurrencyCode } from '../lib/currency';
 import { placeUrl, type LinkOut } from '../lib/geo-links';
+import { AMENITIES, readAmenities, toggleAmenity } from '../lib/amenities';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
 import { TimingCells } from './TimingCells';
@@ -181,6 +182,7 @@ export function PinCardExpanded({
   // `isWish` is a flag, not a discriminant TypeScript can narrow on, so the
   // stop-only sections render off this instead.
   const asStop = isWish ? null : (stop as StopsResponse);
+  const amenities = readAmenities(asStop?.amenities);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [coordError, setCoordError] = useState<string | null>(null);
 
@@ -377,6 +379,43 @@ export function PinCardExpanded({
                 >
                   <span className="h-[22px] w-[22px] rounded-full bg-[oklch(0.97_0.005_250)] shadow-sm" />
                 </button>
+              </div>
+            )}
+
+            {asStop?.is_accommodation && (
+              <div className="mt-3">
+                <div className={SECTION_LABEL}>Amenities</div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                  {AMENITIES.map((a) => {
+                    const on = amenities.includes(a.key);
+                    return (
+                      <label
+                        key={a.key}
+                        className="flex cursor-pointer items-center gap-2 text-[13px] text-text-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={(e) =>
+                            onUpdate({
+                              amenities: toggleAmenity(
+                                amenities,
+                                a.key,
+                                e.target.checked,
+                              ),
+                            })
+                          }
+                          className="h-4 w-4 flex-none accent-wishlist"
+                        />
+                        {a.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[11px] text-text-5 [text-wrap:pretty]">
+                  What the place provides — an unticked box reads as “bring your
+                  own”.
+                </p>
               </div>
             )}
 

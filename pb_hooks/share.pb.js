@@ -114,6 +114,8 @@ routerAdd('GET', '/api/share/{token}', (e) => {
         lat: stop.get('lat'),
         lon: stop.get('lon'),
         is_accommodation: stop.get('is_accommodation'),
+        // WORK 33 — what an overnight provides; companions pack from this.
+        amenities: stop.get('amenities'),
         anchor_time: stop.get('anchor_time'),
         anchor_type: stop.get('anchor_type'),
         dwell_override: stop.get('dwell_override'),

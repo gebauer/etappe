@@ -8,6 +8,7 @@ import { formatClock, type CascadeResult } from '../lib/cascade';
 import { formatDayDate, formatDuration } from '../lib/format';
 import { warningText } from '../lib/warnings';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
+import { AMENITIES, readAmenities } from '../lib/amenities';
 import type {
   BlocksResponse,
   DaysResponse,
@@ -292,6 +293,34 @@ export function PrintView({
                           {t?.dwell ? ` · ${formatDuration(t.dwell)}` : ''}
                           {stop.is_accommodation ? ' · overnight' : ''}
                         </div>
+                        {stop.is_accommodation &&
+                          (() => {
+                            // Grey on paper, so a green/red row would not
+                            // read — a plain "provides / bring" split does
+                            // (WORK 33).
+                            const have = new Set(readAmenities(stop.amenities));
+                            const provides = AMENITIES.filter((a) =>
+                              have.has(a.key),
+                            );
+                            const bring = AMENITIES.filter(
+                              (a) => !have.has(a.key),
+                            );
+                            return (
+                              <div className="pv-stop-meta">
+                                Provides:{' '}
+                                {provides.length
+                                  ? provides.map((a) => a.label).join(' · ')
+                                  : '—'}
+                                {bring.length > 0 && (
+                                  <>
+                                    {' '}
+                                    · Bring:{' '}
+                                    {bring.map((a) => a.label).join(' · ')}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
                         {stopWarnings.map((w, wi) => (
                           <div key={wi} className="pv-stop-warn">
                             {warningText(w)}

@@ -38,6 +38,7 @@ import type {
   ImportLink,
 } from './import-cascade';
 import type { HighlightsDoc, Highlight } from './import-highlights';
+import { readAmenities } from './amenities';
 
 /** The version every export is written at. Bump when the shape changes, and
  * add a parser for the old one rather than editing the existing parser. */
@@ -125,6 +126,9 @@ function exportStop(
     ...(stop.lat ? { lat: stop.lat } : {}),
     ...(stop.lon ? { lon: stop.lon } : {}),
     ...(stop.is_accommodation ? { is_accommodation: true } : {}),
+    ...(readAmenities(stop.amenities).length
+      ? { amenities: readAmenities(stop.amenities) }
+      : {}),
     ...(stop.routing_kind === 'waypoint'
       ? { routing_kind: 'waypoint' as const }
       : {}),

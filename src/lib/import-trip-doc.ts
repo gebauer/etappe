@@ -14,6 +14,7 @@
 
 import { z } from 'zod';
 import { KINDS } from './taxonomy';
+import { AMENITY_KEYS } from './amenities';
 import type { ImportDoc } from './import-cascade';
 import { CURRENT_TRIP_VERSION } from './export-trip';
 
@@ -42,6 +43,7 @@ const StopSchema = z.object({
   lat: z.number().min(-90).max(90).optional(),
   lon: z.number().min(-180).max(180).optional(),
   is_accommodation: z.boolean().optional(),
+  amenities: z.array(z.enum(AMENITY_KEYS as [string, ...string[]])).optional(),
   anchor_time: clock.optional(),
   anchor_type: z.enum(['arrival', 'departure']).optional(),
   dwell_min: z.number().int().min(0).optional(),

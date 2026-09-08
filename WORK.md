@@ -3138,6 +3138,40 @@ day that ends at a waterfall is still a day you drive back from.
 
 ---
 
+## Phase 33 — Amenities on an accommodation stop (2026-09-08, author request)
+
+The one question a planner asks a guesthouse before a trip: what do I have to
+bring? An Iceland hut that hands you a bare mattress is a real and important
+difference from a hotel.
+
+**Model.** `stops.amenities` (migration `1788000025`) — a JSON array of keys
+from a closed set (`src/lib/amenities.ts`: `linen`, `towels`, `breakfast`,
+`private_bath`, `kitchen`, `wifi`). A list, not a column per amenity: "add
+one more" is a one-line change there, like the stop taxonomy. **Binary, not
+tri-state** (author): a key present = provided, absent = "bring your own /
+don't know" — the planner packs it either way, so the app does not
+distinguish. `readAmenities` normalises whatever the JSON column returns
+(null, an array, junk) into an ordered de-duplicated list of known keys.
+
+**Edit** in "All details" only (`PinCardExpanded`) — a two-column grid of
+plain checkboxes, shown when `is_accommodation`. **Show** on the pin card and
+the share view as `AmenityIcons`: the *whole* closed set every time, green
+for provided and muted-red for not, so absence reads as "no" rather than "not
+entered". Print gets a text line instead (`Provides: … · Bring: …`) — grey on
+paper, so colour would not carry.
+
+**Carried everywhere a stop travels:** `StopPatch`, the share hook +
+`ShareView`, `PrintView`, `export-trip` / `import-trip-doc` (Zod enum) /
+`import-trip-commit`, and the import prompt template.
+
+- Verified: `npm run check` — 392 tests, 0 errors. Migration applied to the
+  dev DB and `src/types/pb.ts` regenerated.
+- **Redeploy needed** for the live instance to pick up `1788000025`, same as
+  27 and 29 — until then writes to `amenities` are silently dropped there.
+- Commit: `phase 33: amenities on an accommodation stop`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

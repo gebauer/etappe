@@ -14,6 +14,7 @@ import type { PlaceResult } from '../lib/photon';
 import type { StopPatch } from '../lib/pb-stops';
 import { PinCardEdit } from './PinCardEdit';
 import { CostField } from './CostField';
+import { AmenityIcons } from './AmenityIcons';
 import type { CostsResponse } from '../types/pb';
 import { TimingCells } from './TimingCells';
 import { timingCells } from '../lib/timing-cells';
@@ -607,6 +608,13 @@ export function PinCard({
                       }`}
                 </span>
               </div>
+            )}
+
+            {target.stop.is_accommodation && (
+              <AmenityIcons
+                amenities={target.stop.amenities}
+                className="mt-2.5"
+              />
             )}
           </>
         )}
