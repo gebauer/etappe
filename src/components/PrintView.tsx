@@ -9,6 +9,7 @@ import { formatDayDate, formatDuration } from '../lib/format';
 import { warningText } from '../lib/warnings';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import { AMENITIES, readAmenities } from '../lib/amenities';
+import { linkDomainLabel } from '../lib/link-domains';
 import type {
   BlocksResponse,
   DaysResponse,
@@ -376,9 +377,13 @@ function PrintBlocks({ blocks }: { blocks: BlocksResponse[] }) {
           );
         }
         if (b.kind === 'link' && b.url) {
+          // No icon in print — emoji render inconsistently across printers
+          // and PDF exporters; the label alone is the useful part here.
+          const label =
+            b.title?.trim() || linkDomainLabel(b.url)?.label || 'Link';
           return (
             <p key={b.id} className="pv-link">
-              {b.title?.trim() || 'Link'}: {b.url}
+              {label}: {b.url}
             </p>
           );
         }

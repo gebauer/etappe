@@ -4,6 +4,7 @@ import { createSunCalcDaylight } from '../lib/daylight';
 import { warningText } from '../lib/warnings';
 import { formatDuration, formatDayDate } from '../lib/format';
 import { AmenityIcons } from './AmenityIcons';
+import { linkDomainLabel } from '../lib/link-domains';
 import {
   shareToCascade,
   type ShareDoc,
@@ -183,6 +184,7 @@ function publicBlocksOf(blocks: ShareBlock[]) {
     <div className="mt-2 space-y-1.5">
       {blocks.map((b) => {
         if (b.kind === 'link' && b.url) {
+          const domain = linkDomainLabel(b.url);
           return (
             <a
               key={b.id}
@@ -191,7 +193,8 @@ function publicBlocksOf(blocks: ShareBlock[]) {
               rel="noreferrer"
               className="block text-xs text-accent underline"
             >
-              {b.title?.trim() || b.url}
+              {b.title?.trim() ||
+                (domain ? `${domain.icon} ${domain.label}` : b.url)}
             </a>
           );
         }

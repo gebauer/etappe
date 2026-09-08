@@ -8,6 +8,7 @@ import {
   type BlockPatch,
   type BlockVisibility,
 } from '../lib/pb-blocks';
+import { linkDomainLabel } from '../lib/link-domains';
 
 interface Props {
   blocks: BlocksResponse[];
@@ -290,7 +291,9 @@ function summaryOf(block: BlocksResponse): string {
     return block.body?.trim().split('\n')[0] || 'Empty note';
   }
   if (block.kind === 'link') {
-    return block.title?.trim() || block.url?.trim() || 'Empty link';
+    const domain = linkDomainLabel(block.url);
+    const proposed = domain ? `${domain.icon} ${domain.label}` : undefined;
+    return block.title?.trim() || proposed || block.url?.trim() || 'Empty link';
   }
   return block.title?.trim() || block.file || block.url?.trim() || 'No file';
 }
@@ -451,6 +454,10 @@ function LinkBody({
   block: BlocksResponse;
   onUpdate: Props['onUpdate'];
 }) {
+  // A recognised domain (Airbnb, Booking.com, Google Maps, ...) proposes its
+  // name as the title placeholder — not written to the record unless the
+  // author actually types something, just what an untitled link shows as.
+  const domain = linkDomainLabel(block.url);
   return (
     <>
       <input
@@ -470,7 +477,7 @@ function LinkBody({
             onUpdate(block.id, { title: e.target.value });
         }}
         onKeyDown={commitOnEnter}
-        placeholder="Title (optional)"
+        placeholder={domain ? `${domain.label} (proposed)` : 'Title (optional)'}
         className={FIELD}
       />
       {block.url && (
@@ -480,7 +487,7 @@ function LinkBody({
           rel="noopener noreferrer"
           className="block truncate text-[12px] text-accent underline"
         >
-          {block.title || block.url}
+          {block.title || domain?.label || block.url}
         </a>
       )}
     </>

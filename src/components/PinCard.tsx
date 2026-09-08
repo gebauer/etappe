@@ -15,6 +15,7 @@ import type { StopPatch } from '../lib/pb-stops';
 import { PinCardEdit } from './PinCardEdit';
 import { CostField } from './CostField';
 import { AmenityIcons } from './AmenityIcons';
+import { linkDomainLabel } from '../lib/link-domains';
 import type { CostsResponse } from '../types/pb';
 import { TimingCells } from './TimingCells';
 import { timingCells } from '../lib/timing-cells';
@@ -657,17 +658,27 @@ export function PinCard({
 
         {linkBlocks.length > 0 && (
           <div className="mt-2.5 flex flex-col gap-1">
-            {linkBlocks.map((b) => (
-              <a
-                key={b.id}
-                href={b.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[13px] text-accent underline"
-              >
-                {b.title?.trim() || 'Official site'}
-              </a>
-            ))}
+            {linkBlocks.map((b) => {
+              // An untitled link proposes the recognised domain's name
+              // (Airbnb, Booking.com, Google Maps, ...) rather than the
+              // generic "Official site", which is actively wrong for a
+              // booking confirmation or a map link.
+              const domain = linkDomainLabel(b.url);
+              const label = b.title?.trim() || domain?.label || 'Official site';
+              return (
+                <a
+                  key={b.id}
+                  href={b.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] text-accent underline"
+                >
+                  {domain && !b.title?.trim()
+                    ? `${domain.icon} ${label}`
+                    : label}
+                </a>
+              );
+            })}
           </div>
         )}
 
