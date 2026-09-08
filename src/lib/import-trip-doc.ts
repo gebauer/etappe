@@ -43,7 +43,15 @@ const StopSchema = z.object({
   lat: z.number().min(-90).max(90).optional(),
   lon: z.number().min(-180).max(180).optional(),
   is_accommodation: z.boolean().optional(),
-  amenities: z.array(z.enum(AMENITY_KEYS as [string, ...string[]])).optional(),
+  // A `{key: 'yes'|'book'}` map, or the older key array. Unknown keys and
+  // states are dropped by `readAmenities` on commit, so the schema only has
+  // to accept the shape, not police the contents.
+  amenities: z
+    .union([
+      z.record(z.enum(AMENITY_KEYS as [string, ...string[]]), z.string()),
+      z.array(z.string()),
+    ])
+    .optional(),
   anchor_time: clock.optional(),
   anchor_type: z.enum(['arrival', 'departure']).optional(),
   dwell_min: z.number().int().min(0).optional(),

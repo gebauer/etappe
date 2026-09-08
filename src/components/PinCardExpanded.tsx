@@ -21,7 +21,12 @@ import type {
 } from '../types/pb';
 import type { CurrencyCode } from '../lib/currency';
 import { placeUrl, type LinkOut } from '../lib/geo-links';
-import { AMENITIES, readAmenities, toggleAmenity } from '../lib/amenities';
+import {
+  AMENITIES,
+  amenityState,
+  readAmenities,
+  setAmenity,
+} from '../lib/amenities';
 import type { StopPatch } from '../lib/pb-stops';
 import { KindIcon } from './KindIcon';
 import { TimingCells } from './TimingCells';
@@ -387,7 +392,48 @@ export function PinCardExpanded({
                 <div className={SECTION_LABEL}>Amenities</div>
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
                   {AMENITIES.map((a) => {
-                    const on = amenities.includes(a.key);
+                    const state = amenityState(amenities, a.key);
+                    const set = (next: 'yes' | 'book' | null) =>
+                      onUpdate({
+                        amenities: setAmenity(amenities, a.key, next),
+                      });
+                    if ('bookable' in a && a.bookable) {
+                      // A three-way: not included / bookable (amber) /
+                      // included (green). One extra state, one control.
+                      return (
+                        <div
+                          key={a.key}
+                          className="flex items-center gap-2 text-[13px] text-text-2"
+                        >
+                          <span className="flex overflow-hidden rounded-[6px] border border-border-strong">
+                            {(
+                              [
+                                ['no', '–'],
+                                ['book', 'Book'],
+                                ['yes', 'Yes'],
+                              ] as const
+                            ).map(([s, label]) => (
+                              <button
+                                key={s}
+                                onClick={() => set(s === 'no' ? null : s)}
+                                className={`px-1.5 py-[3px] text-[11px] ${
+                                  state === s
+                                    ? s === 'book'
+                                      ? 'bg-[oklch(0.80_0.15_85)] text-[oklch(0.2_0.03_85)]'
+                                      : s === 'yes'
+                                        ? 'bg-wishlist text-[oklch(0.2_0.03_155)]'
+                                        : 'bg-control text-text-2'
+                                    : 'text-text-4 hover:text-text-2'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </span>
+                          {a.label}
+                        </div>
+                      );
+                    }
                     return (
                       <label
                         key={a.key}
@@ -395,16 +441,8 @@ export function PinCardExpanded({
                       >
                         <input
                           type="checkbox"
-                          checked={on}
-                          onChange={(e) =>
-                            onUpdate({
-                              amenities: toggleAmenity(
-                                amenities,
-                                a.key,
-                                e.target.checked,
-                              ),
-                            })
-                          }
+                          checked={state === 'yes'}
+                          onChange={(e) => set(e.target.checked ? 'yes' : null)}
                           className="h-4 w-4 flex-none accent-wishlist"
                         />
                         {a.label}
@@ -413,8 +451,8 @@ export function PinCardExpanded({
                   })}
                 </div>
                 <p className="mt-1.5 text-[11px] text-text-5 [text-wrap:pretty]">
-                  What the place provides — an unticked box reads as “bring your
-                  own”.
+                  What the place provides — anything left off reads as “bring
+                  your own”.
                 </p>
               </div>
             )}

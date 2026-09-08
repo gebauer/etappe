@@ -295,28 +295,27 @@ export function PrintView({
                         </div>
                         {stop.is_accommodation &&
                           (() => {
-                            // Grey on paper, so a green/red row would not
-                            // read — a plain "provides / bring" split does
-                            // (WORK 33).
-                            const have = new Set(readAmenities(stop.amenities));
-                            const provides = AMENITIES.filter((a) =>
-                              have.has(a.key),
+                            // Grey on paper, so a green/amber/red row would
+                            // not read — a plain "provides / bring" split
+                            // does (WORK 33/34). A bookable amenity is listed
+                            // under provides with a "(book)" tag.
+                            const map = readAmenities(stop.amenities);
+                            const provides = AMENITIES.filter(
+                              (a) => map[a.key],
+                            ).map((a) =>
+                              map[a.key] === 'book'
+                                ? `${a.label} (book)`
+                                : a.label,
                             );
                             const bring = AMENITIES.filter(
-                              (a) => !have.has(a.key),
-                            );
+                              (a) => !map[a.key],
+                            ).map((a) => a.label);
                             return (
                               <div className="pv-stop-meta">
                                 Provides:{' '}
-                                {provides.length
-                                  ? provides.map((a) => a.label).join(' · ')
-                                  : '—'}
+                                {provides.length ? provides.join(' · ') : '—'}
                                 {bring.length > 0 && (
-                                  <>
-                                    {' '}
-                                    · Bring:{' '}
-                                    {bring.map((a) => a.label).join(' · ')}
-                                  </>
+                                  <> · Bring: {bring.join(' · ')}</>
                                 )}
                               </div>
                             );

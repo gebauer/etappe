@@ -1,40 +1,53 @@
 import {
   AMENITIES,
   AMENITY_ICON_PATHS,
+  amenityState,
   readAmenities,
   type AmenityKey,
 } from '../lib/amenities';
 
+const TINT: Record<'no' | 'yes' | 'book', string> = {
+  yes: 'text-[oklch(0.78_0.13_155)]', // green — provided
+  book: 'text-[oklch(0.80_0.15_85)]', // amber — bookable
+  no: 'text-[oklch(0.62_0.13_25)]', // muted red — not provided
+};
+
+const TITLE: Record<'no' | 'yes' | 'book', (label: string) => string> = {
+  yes: (l) => l,
+  book: (l) => `${l} — bookable`,
+  no: (l) => `${l} — not provided`,
+};
+
 /**
- * The amenity row shown on an accommodation stop's card (WORK 33): the whole
- * closed set, every time, so absence reads as "no" rather than "not entered".
- * Green = provided, muted red = not — the planner's "do I pack a towel?"
- * check at a glance. Editing is in "All details" (`PinCardExpanded`).
+ * The amenity row on an accommodation stop's card (WORK 33): the whole closed
+ * set, every time, so absence reads as "no" rather than "not entered". Icons
+ * only — the label is the hover tooltip (WORK 34); the card is dense and the
+ * six glyphs plus colour carry the "do I pack a towel?" check on their own.
+ * Green = provided, amber = bookable, muted red = not. Editing is in "All
+ * details" (`PinCardExpanded`).
  */
 export function AmenityIcons({
   amenities,
   className = '',
 }: {
-  /** Raw `stops.amenities` (a JSON column — array, null, whatever). */
+  /** Raw `stops.amenities` (a JSON column — map, legacy array, null). */
   amenities: unknown;
   className?: string;
 }) {
-  const have = new Set(readAmenities(amenities));
+  const map = readAmenities(amenities);
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-2.5 ${className}`}>
       {AMENITIES.map((a) => {
-        const on = have.has(a.key as AmenityKey);
+        const state = amenityState(map, a.key as AmenityKey);
         return (
           <span
             key={a.key}
-            title={on ? a.label : `${a.label} — not provided`}
-            className={`flex items-center gap-1 text-[11.5px] ${
-              on ? 'text-[oklch(0.78_0.13_155)]' : 'text-[oklch(0.62_0.13_25)]'
-            }`}
+            title={TITLE[state](a.label)}
+            className={TINT[state]}
           >
             <svg
-              width="14"
-              height="14"
+              width="15"
+              height="15"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -44,9 +57,8 @@ export function AmenityIcons({
               aria-hidden="true"
             >
               <path d={AMENITY_ICON_PATHS[a.key as AmenityKey]} />
-              {!on && <path d="M4 20 20 4" />}
+              {state === 'no' && <path d="M4 20 20 4" />}
             </svg>
-            {a.label}
           </span>
         );
       })}

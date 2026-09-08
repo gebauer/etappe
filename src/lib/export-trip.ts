@@ -126,7 +126,7 @@ function exportStop(
     ...(stop.lat ? { lat: stop.lat } : {}),
     ...(stop.lon ? { lon: stop.lon } : {}),
     ...(stop.is_accommodation ? { is_accommodation: true } : {}),
-    ...(readAmenities(stop.amenities).length
+    ...(Object.keys(readAmenities(stop.amenities)).length
       ? { amenities: readAmenities(stop.amenities) }
       : {}),
     ...(stop.routing_kind === 'waypoint'

@@ -3169,6 +3169,38 @@ paper, so colour would not carry.
 - **Redeploy needed** for the live instance to pick up `1788000025`, same as
   27 and 29 — until then writes to `amenities` are silently dropped there.
 - Commit: `phase 33: amenities on an accommodation stop`.
+- Superseded by phase 34 the same day — see there for the current shape.
+
+---
+
+## Phase 34 — Breakfast can be "bookable"; card icons lose their labels (2026-09-08, author request)
+
+Two tweaks on phase 33.
+
+**A third state for breakfast.** Some places do breakfast but you have to
+reserve it ahead — neither "included" nor "not there". `stops.amenities`
+goes from a `string[]` of provided keys to a `{key: "yes" | "book"}` **map**;
+`"book"` is amber and is offered only for an amenity flagged `bookable` in
+`AMENITIES` (just `breakfast`). `readAmenities` still accepts the old array
+form and reads each entry as `"yes"`, so no migration and no data fix —
+`1788000025` only ever declared a `json` column. Helpers: `setAmenity`
+(add/change/clear one key), `amenityState` (the flat `'no' | 'yes' | 'book'`
+the UI switches on), `isBookable`.
+
+Edit UI: binary amenities keep the checkbox; a bookable one gets a
+three-segment `– / Book / Yes` control in the same grid cell.
+
+**Card icons are icon-only now.** `AmenityIcons` dropped the visible label —
+the row was wordy on a dense card. The label is the hover `title` (`"Breakfast
+— bookable"`, `"Towels — not provided"`). Colour still carries the state at a
+glance: green provided, amber bookable, muted-red struck-through for not.
+Print keeps its text line, now tagging a bookable item `Breakfast (book)`.
+
+The import-prompt template and the Zod schema move to the object shape (the
+schema accepts either; `readAmenities` cleans it on commit).
+
+- Verified: `npm run check` — 395 tests, 0 errors.
+- Commit: `phase 34: bookable breakfast; unlabelled amenity icons`.
 
 ---
 

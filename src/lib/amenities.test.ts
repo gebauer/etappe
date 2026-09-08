@@ -2,54 +2,78 @@ import { describe, it, expect } from 'vitest';
 import {
   AMENITIES,
   AMENITY_KEYS,
+  amenityState,
   isAmenityKey,
+  isBookable,
   readAmenities,
-  toggleAmenity,
+  setAmenity,
 } from './amenities';
 
 describe('readAmenities', () => {
-  it('keeps only known keys, in the canonical order', () => {
-    // Given out of order and with junk mixed in.
-    expect(readAmenities(['wifi', 'nonsense', 'linen', 'breakfast'])).toEqual([
-      'linen',
-      'breakfast',
-      'wifi',
-    ]);
+  it('reads the current map form, keeping only known keys', () => {
+    expect(
+      readAmenities({ wifi: 'yes', nonsense: 'yes', linen: 'yes' }),
+    ).toEqual({ linen: 'yes', wifi: 'yes' });
   });
 
-  it('de-duplicates', () => {
-    expect(readAmenities(['towels', 'towels', 'towels'])).toEqual(['towels']);
+  it('reads the legacy array form as all-yes', () => {
+    expect(readAmenities(['towels', 'linen'])).toEqual({
+      linen: 'yes',
+      towels: 'yes',
+    });
   });
 
-  it('is empty for null, a string, an object — anything not an array', () => {
-    expect(readAmenities(null)).toEqual([]);
-    expect(readAmenities(undefined)).toEqual([]);
-    expect(readAmenities('linen')).toEqual([]);
-    expect(readAmenities({ linen: true })).toEqual([]);
+  it("keeps 'book' only for a bookable amenity", () => {
+    expect(readAmenities({ breakfast: 'book' })).toEqual({ breakfast: 'book' });
+    // linen is not bookable — coerced to yes.
+    expect(readAmenities({ linen: 'book' })).toEqual({ linen: 'yes' });
+  });
+
+  it('drops falsy / unknown states', () => {
+    expect(readAmenities({ wifi: '', linen: 'yes' })).toEqual({ linen: 'yes' });
+  });
+
+  it('is empty for null, a string — anything not array or object', () => {
+    expect(readAmenities(null)).toEqual({});
+    expect(readAmenities(undefined)).toEqual({});
+    expect(readAmenities('linen')).toEqual({});
   });
 });
 
-describe('toggleAmenity', () => {
-  it('adds a key and re-normalises the order', () => {
-    expect(toggleAmenity(['wifi'], 'linen', true)).toEqual(['linen', 'wifi']);
+describe('setAmenity', () => {
+  it('adds, changes and clears a key', () => {
+    let m = setAmenity({}, 'linen', 'yes');
+    expect(m).toEqual({ linen: 'yes' });
+    m = setAmenity(m, 'breakfast', 'book');
+    expect(m).toEqual({ linen: 'yes', breakfast: 'book' });
+    m = setAmenity(m, 'linen', null);
+    expect(m).toEqual({ breakfast: 'book' });
   });
 
-  it('removes a key', () => {
-    expect(toggleAmenity(['linen', 'wifi'], 'linen', false)).toEqual(['wifi']);
+  it("coerces 'book' to 'yes' for a non-bookable amenity", () => {
+    expect(setAmenity({}, 'wifi', 'book')).toEqual({ wifi: 'yes' });
   });
+});
 
-  it('is idempotent — adding what is there, removing what is not', () => {
-    expect(toggleAmenity(['linen'], 'linen', true)).toEqual(['linen']);
-    expect(toggleAmenity(['linen'], 'wifi', false)).toEqual(['linen']);
+describe('amenityState', () => {
+  it("is 'no' for an absent key", () => {
+    expect(amenityState({}, 'linen')).toBe('no');
+    expect(amenityState({ breakfast: 'book' }, 'breakfast')).toBe('book');
+    expect(amenityState({ wifi: 'yes' }, 'wifi')).toBe('yes');
   });
 });
 
 describe('the closed set', () => {
-  it('every amenity has a key, a label and an icon path', () => {
+  it('every amenity has a key and a label', () => {
     for (const a of AMENITIES) {
       expect(a.key).toBeTruthy();
       expect(a.label).toBeTruthy();
     }
+  });
+
+  it('only breakfast is bookable', () => {
+    expect(isBookable('breakfast')).toBe(true);
+    expect(isBookable('wifi')).toBe(false);
   });
 
   it('isAmenityKey guards the enum', () => {

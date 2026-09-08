@@ -1,10 +1,19 @@
 /**
  * The closed set of accommodation amenities (WORK 33). Like the stop
  * taxonomy, this is a fixed list: adding one is a one-line change here plus
- * an icon, never a schema change. `stops.amenities` stores a JSON array of
- * these keys; a key in the list means "provided", absent means "bring your
- * own / don't know" — the planner packs it either way, so there is no third
- * state.
+ * an icon, never a schema change.
+ *
+ * `stops.amenities` is a JSON map from key to state:
+ *
+ *   - **absent**  — not provided / not known. The planner packs it either
+ *     way, so the app does not distinguish the two.
+ *   - `'yes'`     — provided.
+ *   - `'book'`    — available but has to be booked / paid for ahead. Only
+ *     `bookable` amenities (breakfast) ever carry this; the UI never offers
+ *     it for the rest (WORK 34).
+ *
+ * The earlier shape was a plain array of provided keys; `readAmenities`
+ * still accepts that and reads every entry as `'yes'`.
  *
  * Pure: no React, no icons imported here (the SVG paths are plain strings the
  * `AmenityIcons` component renders). Order is the order they show on a card.
@@ -13,52 +22,81 @@
 export const AMENITIES = [
   { key: 'linen', label: 'Bed linen' },
   { key: 'towels', label: 'Towels' },
-  { key: 'breakfast', label: 'Breakfast' },
+  { key: 'breakfast', label: 'Breakfast', bookable: true },
   { key: 'private_bath', label: 'Private bath' },
   { key: 'kitchen', label: 'Kitchen' },
   { key: 'wifi', label: 'Wi-Fi' },
 ] as const;
 
 export type AmenityKey = (typeof AMENITIES)[number]['key'];
+export type AmenityState = 'yes' | 'book';
+export type AmenityMap = Partial<Record<AmenityKey, AmenityState>>;
 
 /** The keys alone, for a Zod enum at the import boundary. */
 export const AMENITY_KEYS = AMENITIES.map((a) => a.key) as AmenityKey[];
 
 const KEYS = new Set<string>(AMENITY_KEYS);
+const BOOKABLE = new Set<string>(
+  AMENITIES.filter((a) => 'bookable' in a && a.bookable).map((a) => a.key),
+);
 
 export function isAmenityKey(value: unknown): value is AmenityKey {
   return typeof value === 'string' && KEYS.has(value);
 }
 
-/**
- * Normalise whatever PocketBase handed back for `stops.amenities` (a JSON
- * column: `null`, an array, or in principle anything) into a clean, ordered,
- * de-duplicated list of known keys. Unknown entries are dropped rather than
- * carried — a renamed amenity should disappear, not linger untyped.
- */
-export function readAmenities(raw: unknown): AmenityKey[] {
-  if (!Array.isArray(raw)) return [];
-  const have = new Set(raw.filter(isAmenityKey));
-  return AMENITIES.map((a) => a.key).filter((k) => have.has(k));
+/** Can this amenity be in the `'book'` state? (Only breakfast, today.) */
+export function isBookable(key: AmenityKey): boolean {
+  return BOOKABLE.has(key);
 }
 
-/** Add or remove one key, returning a fresh normalised list. */
-export function toggleAmenity(
-  current: AmenityKey[],
+/**
+ * Normalise whatever PocketBase handed back for `stops.amenities` — a JSON
+ * column, so `null`, the legacy `['linen','wifi']` array, or the current
+ * `{ linen: 'yes', breakfast: 'book' }` map — into a clean map keyed by
+ * known amenities only. `'book'` survives only for a `bookable` amenity;
+ * anything else truthy reads as `'yes'`.
+ */
+export function readAmenities(raw: unknown): AmenityMap {
+  const out: AmenityMap = {};
+  if (Array.isArray(raw)) {
+    for (const k of raw) if (isAmenityKey(k)) out[k] = 'yes';
+    return out;
+  }
+  if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (!isAmenityKey(k) || !v) continue;
+      out[k] = v === 'book' && isBookable(k) ? 'book' : 'yes';
+    }
+  }
+  return out;
+}
+
+/** Set (or clear, with `null`) one amenity, returning a fresh normalised
+ * map. `'book'` on a non-bookable amenity is coerced to `'yes'`. */
+export function setAmenity(
+  current: AmenityMap,
   key: AmenityKey,
-  on: boolean,
-): AmenityKey[] {
-  const have = new Set(current);
-  if (on) have.add(key);
-  else have.delete(key);
-  return readAmenities([...have]);
+  state: AmenityState | null,
+): AmenityMap {
+  const next = { ...current };
+  if (state === null) delete next[key];
+  else next[key] = state === 'book' && isBookable(key) ? 'book' : 'yes';
+  return readAmenities(next);
+}
+
+/** `'no' | 'yes' | 'book'` for one key — the flat form the UI switches on. */
+export function amenityState(
+  map: AmenityMap,
+  key: AmenityKey,
+): AmenityState | 'no' {
+  return map[key] ?? 'no';
 }
 
 /**
  * 16×16 icon geometry per amenity, drawn with `currentColor` so the caller
- * tints it green (provided) or muted-red (not). Kept as raw path data rather
- * than a component so `amenities.ts` stays React-free and the same glyphs can
- * be inlined into the print stylesheet if that is ever wanted.
+ * tints it green (provided), amber (bookable) or muted-red (not). Kept as
+ * raw path data rather than a component so `amenities.ts` stays React-free
+ * and the same glyphs can be inlined into the print stylesheet if wanted.
  */
 export const AMENITY_ICON_PATHS: Record<AmenityKey, string> = {
   // bed

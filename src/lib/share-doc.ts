@@ -36,9 +36,10 @@ export interface ShareStop {
   lat?: number | null;
   lon?: number | null;
   is_accommodation?: boolean;
-  /** WORK 33 — a JSON array of amenity keys; companions want to know what to
-   * pack. Not sensitive, so it rides in the trip payload like the rest. */
-  amenities?: string[];
+  /** WORK 33/34 — the amenities JSON (a `{key: 'yes'|'book'}` map, or the
+   * legacy key array); companions want to know what to pack. Not sensitive,
+   * so it rides in the trip payload. `readAmenities` normalises it. */
+  amenities?: unknown;
   anchor_time?: string;
   anchor_type?: 'arrival' | 'departure';
   dwell_override?: number;

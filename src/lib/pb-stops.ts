@@ -14,7 +14,7 @@ import {
   type Surface,
 } from './pb-legs';
 import { isRoutable, type LatLon, type RoutingProvider } from './routing';
-import type { AmenityKey } from './amenities';
+import type { AmenityMap } from './amenities';
 import { planStopMove } from './stop-move';
 import { loadTripRecords, type TripRecords } from './pb-trip-doc';
 import { reparentBlocks } from './pb-blocks';
@@ -372,7 +372,7 @@ export type StopPatch = Partial<
 > & {
   /** Accommodation amenities (WORK 33) — a JSON column, so typed here rather
    * than picked from the generated `unknown`. */
-  amenities?: AmenityKey[];
+  amenities?: AmenityMap;
 };
 
 export async function updateStop(
