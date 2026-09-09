@@ -142,6 +142,15 @@ replacement for it.
 - **Headless Chromium has no emoji font**, so 🔒/🔓/📍 render as tofu boxes
   in screenshots. The characters are still in the DOM, so assert on
   `innerText` rather than on what the picture looks like.
+- **A phone-width run cannot build its own fixture.** Adding a stop is a
+  desktop affordance (mobile structural editing is out of scope — CLAUDE.md),
+  and the trip-selection screen is barely usable at 393px. Seed the trip in a
+  desktop-sized context, then `page.setViewportSize(...)` to narrow it —
+  `useIsPhone` listens to `matchMedia`, so the layout switches live. Set
+  `hasTouch: true` on the context up front; it cannot be changed later. See
+  `phone-rebuild-check.mjs`.
+- **`innerText` applies `text-transform`**, so a Tailwind `uppercase` label
+  comes back as `TAP TO OPEN`, not `tap to open`. Match case-insensitively.
 - **A running PocketBase process only applies migrations at startup.** If
   the backend has been running since before a `git pull`/merge that added a
   migration, the live SQLite database silently lacks the new columns — the

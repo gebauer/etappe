@@ -1,6 +1,6 @@
 import { formatClock, type StopTiming } from '../lib/cascade';
 import { formatDuration } from '../lib/format';
-import { formatMoney } from '../lib/costs';
+import { formatMoney, stopCostBand } from '../lib/costs';
 import { TAXONOMY, type Kind } from '../lib/taxonomy';
 import type { CostsResponse, StopsResponse } from '../types/pb';
 
@@ -20,11 +20,6 @@ interface Props {
   hovered?: boolean;
   onSelect?: (additive: boolean) => void;
   onHover?: (hovering: boolean) => void;
-}
-
-/** 1–50 → €, 51–250 → €€, 251+ → €€€. */
-function costBand(amount: number): '€' | '€€' | '€€€' {
-  return amount <= 50 ? '€' : amount <= 250 ? '€€' : '€€€';
 }
 
 /**
@@ -47,7 +42,7 @@ export function StopRow({
   onHover,
 }: Props) {
   const dwell = timing ? formatDuration(timing.dwell) : null;
-  const costMark = cost && cost.amount > 0 ? costBand(cost.amount) : null;
+  const costMark = cost && cost.amount > 0 ? stopCostBand(cost.amount) : null;
   const isWaypoint = stop.routing_kind === 'waypoint';
   const kind = isWaypoint
     ? 'Routing point'

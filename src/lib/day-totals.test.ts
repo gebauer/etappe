@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { dayTotals } from './day-totals';
+import { dayTotals, daySpanLabel } from './day-totals';
 import type { DayResult, LegTiming, StopTiming } from './cascade';
 
-const stop = (id: string, dwell: number): StopTiming => ({
+const stop = (id: string, dwell: number, arrival = 0): StopTiming => ({
   stopId: id,
-  arrival: 0,
-  departure: dwell,
+  arrival,
+  departure: arrival + dwell,
   dwell,
 });
 
@@ -95,5 +95,30 @@ describe('dayTotals', () => {
   it('is all zeroes for a day the cascade has nothing for', () => {
     expect(dayTotals(null).roadMin).toBe(0);
     expect(dayTotals(undefined).stopCount).toBe(0);
+  });
+});
+
+describe('daySpanLabel', () => {
+  it('runs from the first arrival to the last departure', () => {
+    expect(
+      daySpanLabel(day({ stops: [stop('a', 45, 540), stop('b', 20, 700)] })),
+    ).toBe('09:00 – 12:00');
+  });
+
+  it('opens at the morning departure when the day has a start point', () => {
+    expect(
+      daySpanLabel(day({ stops: [stop('a', 45, 540)], leadingLeg: leg(30) })),
+    ).toBe('08:30 – 09:45');
+  });
+
+  it('closes on the drive back to an end point', () => {
+    expect(
+      daySpanLabel(day({ stops: [stop('a', 45, 540)], endArrival: 1000 })),
+    ).toBe('09:00 – 16:40');
+  });
+
+  it('is empty for a day with no stops', () => {
+    expect(daySpanLabel(day({}))).toBe('');
+    expect(daySpanLabel(null)).toBe('');
   });
 });

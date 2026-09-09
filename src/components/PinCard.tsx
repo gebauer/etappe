@@ -229,6 +229,141 @@ export function PinCard({
       : `${kindLabel(target.place?.kind ?? 'uncategorized')} · ${coords}`;
   }
 
+  /**
+   * Everything under the title: the timing trio, daylight, amenities, notes,
+   * links, cost and — while editing — the edit grid.
+   *
+   * One function for both layouts. The phone sheet (design handoff rev 12)
+   * is half the screen tall precisely so it can carry this, and a second
+   * copy of it would drift: the desktop card is where these get fixed.
+   */
+  function renderBody() {
+    return (
+      <>
+        {target.type === 'stop' && (
+          <>
+            <div className="mt-3">
+              <TimingCells
+                size={phone ? 'phone' : 'card'}
+                cells={timingCells(
+                  target.stop,
+                  target.timing,
+                  timingFlashStopId === target.stop.id,
+                )}
+                onEdit={onEditTiming}
+              />
+            </div>
+
+            {target.daylight && (
+              <div className="mt-2.5 flex items-center gap-[7px] text-[12.5px] text-text-3">
+                <span className="h-[7px] w-[7px] flex-none rounded-full bg-daylight" />
+                <span>
+                  {target.timing
+                    ? describeDaylight(
+                        target.daylight,
+                        target.timing.arrival,
+                        target.afterDark,
+                      ).line
+                    : `Daylight until ${formatClock(target.daylight.sunset)} · ${
+                        target.afterDark ? 'after dark' : 'well clear'
+                      }`}
+                </span>
+              </div>
+            )}
+
+            {target.stop.is_accommodation && (
+              <AmenityIcons
+                amenities={target.stop.amenities}
+                className="mt-2.5"
+              />
+            )}
+          </>
+        )}
+
+        {notes.map((note) => (
+          <div
+            key={note.id}
+            className="prose-note mt-3 text-[13.5px] text-text-2 [text-wrap:pretty] [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }}
+          />
+        ))}
+
+        {target.type === 'empty' && !target.identifying && (
+          <p className="mt-3 text-[13.5px] text-text-2 [text-wrap:pretty]">
+            Nothing here yet. Save it for later, or drop it straight into a day.
+          </p>
+        )}
+
+        {(target.type === 'stop' || target.type === 'wish') &&
+          (costs.length > 0 || editing) && (
+            <CostField cost={costs[0]} onChange={onChangeCost} />
+          )}
+
+        {myNotes.length > 0 && (
+          <div className="mt-3 rounded-[9px] border border-border-strong bg-surface-3 px-3 py-2.5">
+            <div className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+              My notes
+            </div>
+            {myNotes.map((note) => (
+              <div
+                key={note.id}
+                className="prose-note mt-1.5 text-[13.5px] text-text-2 [text-wrap:pretty] [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(note.body ?? ''),
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {linkBlocks.length > 0 && (
+          <div className="mt-2.5 flex flex-col gap-1">
+            {linkBlocks.map((b) => {
+              // An untitled link proposes the recognised domain's name
+              // (Airbnb, Booking.com, Google Maps, ...) rather than the
+              // generic "Official site", which is actively wrong for a
+              // booking confirmation or a map link.
+              const domain = linkDomainLabel(b.url);
+              const label = b.title?.trim() || domain?.label || 'Official site';
+              return (
+                <a
+                  key={b.id}
+                  href={b.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] text-accent underline"
+                >
+                  {domain && !b.title?.trim()
+                    ? `${domain.icon} ${label}`
+                    : label}
+                </a>
+              );
+            })}
+          </div>
+        )}
+
+        {editing && (target.type === 'stop' || target.type === 'wish') && (
+          <PinCardEdit
+            key={
+              target.type === 'stop'
+                ? `${target.stop.id}:${target.stop.updated}`
+                : `${target.item.id}:${target.item.updated}`
+            }
+            stop={target.type === 'stop' ? target.stop : target.item}
+            isWish={target.type === 'wish'}
+            onUpdate={onUpdateStop}
+            onPlaceAccessPoint={onPlaceAccessPoint}
+            onClearAccessPoint={onClearAccessPoint}
+            onAddBlock={onAddBlock}
+            onAddPrivateNote={onAddPrivateNote}
+            openKindPickerSignal={openKindPickerSignal}
+            onKindPickerOpened={onKindPickerOpened}
+          />
+        )}
+      </>
+    );
+  }
+
   function renderActions() {
     return (
       <div className="flex flex-none items-center gap-2.5 border-t border-[oklch(0.28_0.012_250)] bg-surface-3 px-4 py-[11px]">
@@ -399,7 +534,11 @@ export function PinCard({
         // on phone. `fixed` would anchor it to the *screen* bottom instead,
         // covering the itinerary column rather than sitting at the bottom
         // of the map above it.
-        className="absolute inset-x-0 bottom-0 z-30 flex max-h-[76vh] flex-col overflow-hidden rounded-t-2xl border-t border-border-strong bg-[oklch(0.215_0.012_250/0.97)] font-sans text-text shadow-phone-card backdrop-blur-[14px]"
+        // Fixed half the screen, full width (design handoff rev 12): a
+        // content-sized strip inset from the edges read as a fragment, and
+        // the fixed height is what buys the scrollable body below — the
+        // timings and description that used to have nowhere to go on phone.
+        className="absolute inset-x-0 bottom-0 z-30 flex h-[50vh] flex-col overflow-hidden rounded-t-2xl border-t border-border-strong bg-[oklch(0.215_0.012_250/0.98)] font-sans text-text shadow-phone-card backdrop-blur-[14px]"
       >
         <div className="flex flex-none items-center gap-[11px] px-[11px] py-2.5">
           <span
@@ -469,26 +608,9 @@ export function PinCard({
           </div>
         )}
 
-        {editing && (target.type === 'stop' || target.type === 'wish') && (
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden border-t border-[oklch(0.28_0.012_250)] px-[11px] py-3">
-            <PinCardEdit
-              key={
-                target.type === 'stop'
-                  ? `${target.stop.id}:${target.stop.updated}`
-                  : `${target.item.id}:${target.item.updated}`
-              }
-              stop={target.type === 'stop' ? target.stop : target.item}
-              isWish={target.type === 'wish'}
-              onUpdate={onUpdateStop}
-              onPlaceAccessPoint={onPlaceAccessPoint}
-              onClearAccessPoint={onClearAccessPoint}
-              onAddBlock={onAddBlock}
-              onAddPrivateNote={onAddPrivateNote}
-              openKindPickerSignal={openKindPickerSignal}
-              onKindPickerOpened={onKindPickerOpened}
-            />
-          </div>
-        )}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden border-t border-[oklch(0.28_0.012_250)] px-[11px] pb-3.5 pt-2.5">
+          {renderBody()}
+        </div>
 
         {renderActions()}
       </div>
@@ -581,125 +703,7 @@ export function PinCard({
         </div>
         <div className="mt-1 text-[13px] text-text-3">{subtitle}</div>
 
-        {target.type === 'stop' && (
-          <>
-            <div className="mt-3">
-              <TimingCells
-                cells={timingCells(
-                  target.stop,
-                  target.timing,
-                  timingFlashStopId === target.stop.id,
-                )}
-                onEdit={onEditTiming}
-              />
-            </div>
-
-            {target.daylight && (
-              <div className="mt-2.5 flex items-center gap-[7px] text-[12.5px] text-text-3">
-                <span className="h-[7px] w-[7px] flex-none rounded-full bg-daylight" />
-                <span>
-                  {target.timing
-                    ? describeDaylight(
-                        target.daylight,
-                        target.timing.arrival,
-                        target.afterDark,
-                      ).line
-                    : `Daylight until ${formatClock(target.daylight.sunset)} · ${
-                        target.afterDark ? 'after dark' : 'well clear'
-                      }`}
-                </span>
-              </div>
-            )}
-
-            {target.stop.is_accommodation && (
-              <AmenityIcons
-                amenities={target.stop.amenities}
-                className="mt-2.5"
-              />
-            )}
-          </>
-        )}
-
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            className="prose-note mt-3 text-[13.5px] text-text-2 [text-wrap:pretty] [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }}
-          />
-        ))}
-
-        {target.type === 'empty' && !target.identifying && (
-          <p className="mt-3 text-[13.5px] text-text-2 [text-wrap:pretty]">
-            Nothing here yet. Save it for later, or drop it straight into a day.
-          </p>
-        )}
-
-        {(target.type === 'stop' || target.type === 'wish') &&
-          (costs.length > 0 || editing) && (
-            <CostField cost={costs[0]} onChange={onChangeCost} />
-          )}
-
-        {myNotes.length > 0 && (
-          <div className="mt-3 rounded-[9px] border border-border-strong bg-surface-3 px-3 py-2.5">
-            <div className="text-[10.5px] uppercase tracking-[0.08em] text-text-4">
-              My notes
-            </div>
-            {myNotes.map((note) => (
-              <div
-                key={note.id}
-                className="prose-note mt-1.5 text-[13.5px] text-text-2 [text-wrap:pretty] [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5"
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(note.body ?? ''),
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {linkBlocks.length > 0 && (
-          <div className="mt-2.5 flex flex-col gap-1">
-            {linkBlocks.map((b) => {
-              // An untitled link proposes the recognised domain's name
-              // (Airbnb, Booking.com, Google Maps, ...) rather than the
-              // generic "Official site", which is actively wrong for a
-              // booking confirmation or a map link.
-              const domain = linkDomainLabel(b.url);
-              const label = b.title?.trim() || domain?.label || 'Official site';
-              return (
-                <a
-                  key={b.id}
-                  href={b.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[13px] text-accent underline"
-                >
-                  {domain && !b.title?.trim()
-                    ? `${domain.icon} ${label}`
-                    : label}
-                </a>
-              );
-            })}
-          </div>
-        )}
-
-        {editing && (target.type === 'stop' || target.type === 'wish') && (
-          <PinCardEdit
-            key={
-              target.type === 'stop'
-                ? `${target.stop.id}:${target.stop.updated}`
-                : `${target.item.id}:${target.item.updated}`
-            }
-            stop={target.type === 'stop' ? target.stop : target.item}
-            isWish={target.type === 'wish'}
-            onUpdate={onUpdateStop}
-            onPlaceAccessPoint={onPlaceAccessPoint}
-            onClearAccessPoint={onClearAccessPoint}
-            onAddBlock={onAddBlock}
-            onAddPrivateNote={onAddPrivateNote}
-            openKindPickerSignal={openKindPickerSignal}
-            onKindPickerOpened={onKindPickerOpened}
-          />
-        )}
+        {renderBody()}
       </div>
 
       {renderActions()}

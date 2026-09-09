@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { useIsPhone } from '../hooks/useIsPhone';
 import type { DaysResponse, StopsResponse } from '../types/pb';
 
 interface Props {
@@ -86,6 +87,10 @@ export function DayPills({
   canAddDay = true,
   daysLocked = false,
 }: Props) {
+  // Days only on phone (design handoff rev 12): the stop count, the state
+  // dot and the ‹ › scroll buttons all go, leaving a row of touch targets.
+  // A pill there is a thumb-sized number, not a label to read.
+  const phone = useIsPhone();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pillRefs = useRef(new Map<string, HTMLButtonElement>());
   const [atStart, setAtStart] = useState(true);
@@ -244,7 +249,7 @@ export function DayPills({
         </span>
         <span className="mr-1.5 w-px flex-none bg-[oklch(0.30_0.012_250)]" />
 
-        {!atStart && (
+        {!atStart && !phone && (
           <button
             onClick={() => scrollBy(-180)}
             aria-label="Scroll to earlier days"
@@ -256,7 +261,9 @@ export function DayPills({
 
         <div className="relative min-w-0 flex-1">
           {!atStart && (
-            <span className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-[26px] bg-gradient-to-r from-[oklch(0.20_0.013_250/0.88)] to-transparent transition-opacity duration-[140ms]" />
+            <span
+              className={`pointer-events-none absolute inset-y-0 left-0 z-[1] ${phone ? 'w-8' : 'w-[26px]'} bg-gradient-to-r from-[oklch(0.20_0.013_250/0.88)] to-transparent transition-opacity duration-[140ms]`}
+            />
           )}
           <div
             ref={scrollerRef}
@@ -314,7 +321,10 @@ export function DayPills({
                     onMouseEnter={() => onHoverDay?.(day.id)}
                     onFocus={() => onHoverDay?.(day.id)}
                     onBlur={() => onHoverDay?.(null)}
-                    className={`flex h-7 flex-none items-center gap-1.5 rounded-lg px-[11px] ${
+                    aria-label={`Day ${i + 1}${phone ? '' : ` — ${meta}`}`}
+                    className={`flex flex-none items-center justify-center rounded-lg ${
+                      phone ? 'h-[34px] px-3.5' : 'h-7 gap-1.5 px-[11px]'
+                    } ${
                       active
                         ? 'bg-accent text-on-accent'
                         : 'text-[oklch(0.78_0.008_250)] hover:bg-white/5'
@@ -323,30 +333,40 @@ export function DayPills({
                     {/* A leading dot so a bare number still reads as a day
                         token now that the repeated word "Day" has moved to
                         the container label (handoff (9), trip overview). */}
+                    {!phone && (
+                      <span
+                        className={`h-[5px] w-[5px] flex-none rounded-full ${
+                          active
+                            ? 'bg-[oklch(0.16_0.02_240/0.55)]'
+                            : 'bg-[oklch(0.46_0.01_250)]'
+                        }`}
+                      />
+                    )}
                     <span
-                      className={`h-[5px] w-[5px] flex-none rounded-full ${
-                        active
-                          ? 'bg-[oklch(0.16_0.02_240/0.55)]'
-                          : 'bg-[oklch(0.46_0.01_250)]'
+                      className={`font-mono font-semibold ${
+                        phone ? 'text-sm' : 'text-[13px]'
                       }`}
-                    />
-                    <span className="font-mono text-[13px] font-semibold">
+                    >
                       {i + 1}
                     </span>
-                    <span className="font-mono text-[10.5px] opacity-70">
-                      {meta}
-                    </span>
+                    {!phone && (
+                      <span className="font-mono text-[10.5px] opacity-70">
+                        {meta}
+                      </span>
+                    )}
                   </button>
                 </Fragment>
               );
             })}
           </div>
           {!atEnd && (
-            <span className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-[26px] bg-gradient-to-l from-[oklch(0.20_0.013_250/0.88)] to-transparent transition-opacity duration-[140ms]" />
+            <span
+              className={`pointer-events-none absolute inset-y-0 right-0 z-[1] ${phone ? 'w-8' : 'w-[26px]'} bg-gradient-to-l from-[oklch(0.20_0.013_250/0.88)] to-transparent transition-opacity duration-[140ms]`}
+            />
           )}
         </div>
 
-        {!atEnd && (
+        {!atEnd && !phone && (
           <button
             onClick={() => scrollBy(180)}
             aria-label="Scroll to later days"

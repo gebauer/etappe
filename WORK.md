@@ -3293,4 +3293,22 @@ current task. Do not act on it in the same commit.
   smoke flow (add day → stop → access point) no longer runs. Needs its
   selectors updated to the redesign shell (`+ Day` → the pill, `+ Stop`
   still exists, kind-badge select still works). Not fixed here — 12.10 was
-  verified with a throwaway one-off script instead.
+  verified with a throwaway one-off script instead.- **The trip-selection screen is unusable at phone width.** Verified while
+  browser-checking the rev-12 phone rebuild (`phone-rebuild-check.mjs`): the
+  header's email overlaps the wordmark, "Your trips" wraps under its own
+  count, and the trip card's title is `hidden` behind the photo while the
+  date/day-count column collides with `Continue ›`. Only the *editor* was
+  redesigned for phone in handoff 12 ("Nothing else on phone changed"), so
+  this is untouched, pre-existing and out of that scope — but it is the
+  first screen a phone user sees. Needs its own pass, and a decision from
+  the author about how much of the card survives at 393px.
+- **No way to add a stop on phone.** The `+ Add a stop` button lived in the
+  desktop stop list, which the rev-12 drawer replaces, so a phone can now
+  step through a day but not extend one. Consistent with CLAUDE.md's "mobile
+  structural editing" being out of scope for v1 and with the handoff (which
+  never shows one), so deliberately left alone — noted because it is a
+  capability the phone had last week and does not have now.
+- The "Routing point" / `TAXONOMY[kind].label` fallback is now spelled out in
+  four places (`StopRow`, `PinCard`, `PinCardEdit`, `PhoneDayDrawer`). One
+  `stopKindLabel()` in `lib/taxonomy.ts` would end that; not done inline with
+  the phone rebuild since it touches components that rebuild did not.

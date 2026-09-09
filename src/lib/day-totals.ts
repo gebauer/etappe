@@ -1,4 +1,4 @@
-import type { DayResult } from './cascade';
+import { formatClock, type DayResult } from './cascade';
 
 /**
  * The two numbers a planner actually balances when looking at a day: how
@@ -54,4 +54,23 @@ export function dayTotals(day: DayResult | null | undefined): DayTotals {
     hasLeadingLeg: (day.leadingLeg?.effectiveDuration ?? 0) > 0,
     hasTrailingLeg: (day.trailingLeg?.effectiveDuration ?? 0) > 0,
   };
+}
+
+/**
+ * The day's clock span, `09:00 – 16:05`, or `''` for a day with no stops.
+ *
+ * The day starts when you leave, not when you arrive somewhere: with a start
+ * point the morning drive is already part of the day, so the span opens at
+ * that departure rather than at stop 1. It closes, symmetrically, when you
+ * get back to the end point (WORK 29). Shared by the desktop day header and
+ * the phone drawer's one header line — two surfaces claiming to show "the
+ * day" must not disagree about when it begins.
+ */
+export function daySpanLabel(day: DayResult | null | undefined): string {
+  const first = day?.stops[0];
+  const last = day?.stops[day.stops.length - 1];
+  if (!day || !first || !last) return '';
+  const lead = day.leadingLeg?.effectiveDuration ?? 0;
+  const from = day.leadingLeg ? first.arrival - lead : first.arrival;
+  return `${formatClock(from)} – ${formatClock(day.endArrival ?? last.departure)}`;
 }

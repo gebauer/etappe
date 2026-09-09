@@ -30,11 +30,24 @@ export function TimingCells({
   onEdit,
 }: {
   cells: TimingCellSpec[];
-  size?: 'card' | 'expanded';
+  /** `phone`: the half-screen sheet is ~120px per cell, and a native
+   * `type=time` input renders `09:00 AM` plus a picker glyph — at card size
+   * that clips. */
+  size?: 'card' | 'expanded' | 'phone';
   onEdit?: (cell: TimingCell, value: string) => void;
 }) {
-  const pad = size === 'card' ? 'px-3 py-2.5' : 'px-3.5 py-2.5';
-  const type = size === 'card' ? 'text-[17px]' : 'text-[18px]';
+  const pad =
+    size === 'phone'
+      ? 'px-2 py-2'
+      : size === 'card'
+        ? 'px-3 py-2.5'
+        : 'px-3.5 py-2.5';
+  const type =
+    size === 'phone'
+      ? 'text-[15px]'
+      : size === 'card'
+        ? 'text-[17px]'
+        : 'text-[18px]';
   return (
     <div className="flex overflow-hidden rounded-[10px] border border-border-strong">
       {cells.map((cell, i) => (

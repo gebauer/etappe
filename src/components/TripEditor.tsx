@@ -29,7 +29,9 @@ import {
   tripLockOf,
   type LockScope,
 } from '../lib/trip-lock';
+import { clampIndex, stepIndex } from '../lib/stop-step';
 import { TripLockMenu } from './TripLockMenu';
+import { PhoneDayDrawer } from './PhoneDayDrawer';
 import {
   addStopAt,
   downgradeStopToWishlist,
@@ -346,6 +348,11 @@ export function TripEditor({
   // line so the map takes the freed height. Component-local, never
   // persisted; picking a day pill, Fit trip or adding a stop all reset it.
   const [dayCollapsed, setDayCollapsed] = useState(false);
+  // Phone only (design handoff rev 12): which stop of the day the drawer's
+  // single card is showing. The day's stop *list* does not exist there, so
+  // this is the phone's cursor through the day — reset by picking a day,
+  // moved by the card's ‹ ›, a swipe, or the detail sheet stepping on.
+  const [stopIndex, setStopIndex] = useState(0);
   // Trip overview (WORK 17.6): Fit trip clears the day selection and both
   // panes switch to a whole-trip view — numbered day pins on the map, a day
   // list in the column. Picking any day pill, row or pin leaves it.
@@ -830,15 +837,32 @@ export function TripEditor({
     setTripOverview(false);
     setSelectedDayId(dayId);
     setDayFolded(false);
+    setStopIndex(0);
   }
 
-  /** Fit trip → trip overview (WORK 17.6): frame the whole trip, drop every
-   * selection, and on phone hand the map the screen. */
+  /** Fit trip → trip overview (WORK 17.6): frame the whole trip and drop
+   * every selection. Desktop only — see `fitTrip`. */
   function enterTripOverview() {
     setTripOverview(true);
     closeCard();
     setSelectedStopIds(new Set());
-    if (phone) setDayCollapsed(true);
+  }
+
+  /**
+   * Fit trip. On phone this means zoom out and get out of the way, nothing
+   * more (design handoff rev 12): the day stays selected and its pill stays
+   * active, because a day list is not what someone asking for the whole map
+   * wants — and on a screen this size the overview would be the only thing
+   * left on it.
+   */
+  function fitTrip() {
+    if (!phone) {
+      enterTripOverview();
+      return;
+    }
+    closeCard();
+    setBrowsing(false);
+    setDayCollapsed(true);
   }
 
   // The card's `‹`/`›` order for wishlist entries: a nearest-neighbour chain
@@ -1484,6 +1508,9 @@ export function TripEditor({
       setEditing(false);
       setExpanded(false);
       setSelectedStopIds(new Set([nextId]));
+      // The sheet and the drawer card are one cursor through the day, so
+      // closing the sheet leaves the card on the stop you stepped to.
+      setStopIndex(ids.indexOf(nextId));
     }
   }
 
@@ -1620,6 +1647,32 @@ export function TripEditor({
   const endPointCandidate = startPointStop ?? startPointCandidate;
 
   const cardOpen = !!cardTarget;
+  // Phone (design handoff rev 12): the drawer is collapsed whenever a stop
+  // has the screen. Derived, not a second flag — selecting a stop and
+  // folding the day away are one event, and two flags would eventually
+  // disagree.
+  const dayDrawerCollapsed = phone && (dayCollapsed || cardOpen);
+
+  // The day the phone drawer steps through, and the stop its card is on.
+  // That stop is fed to the map as the hovered one: the phone has no hover,
+  // and stepping the card has to read as moving along the route, not as
+  // shuffling text in a drawer (design handoff rev 12).
+  const phoneDayStops = phone && activeDay ? dayStopsOf(activeDay.id) : [];
+  const steppedStop = tripOverview
+    ? undefined
+    : phoneDayStops[clampIndex(stopIndex, phoneDayStops.length)];
+
+  /** The grab handle and the header line under it. Expanding while a stop's
+   * sheet is up closes that sheet: two surfaces cannot both own the screen,
+   * and the drawer is the one just asked for. */
+  function toggleDayDrawer() {
+    if (dayDrawerCollapsed) {
+      closeCard();
+      setDayFolded(false);
+    } else {
+      setDayFolded(true);
+    }
+  }
   const pickingStop = picking
     ? ((picking.kind === 'poi'
         ? wishlist.find((w) => w.id === picking.stopId)
@@ -1801,18 +1854,18 @@ export function TripEditor({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col desktop:grid desktop:grid-cols-[minmax(0,1fr)_400px]">
-        <div
-          className={`relative min-h-0 overflow-hidden border-b border-border desktop:flex-1 desktop:border-b-0 ${
-            phone && dayCollapsed ? 'flex-1' : 'flex-none [flex:0_0_58%]'
-          }`}
-        >
+        {/* The map always holds `flex:1` on phone (design handoff rev 12).
+            It used to give up 58% of the screen to the itinerary whether
+            the itinerary needed it or not; the drawer below is sized by its
+            own content instead. */}
+        <div className="relative min-h-0 flex-1 overflow-hidden border-b border-border desktop:border-b-0">
           <MapPane
             records={records}
             result={result}
             onMapClick={onMapClick}
             onSelectStop={(id) => toggleSelect(id, false)}
             onHoverStop={setHoveredStopId}
-            hoveredStopId={hoveredStopId}
+            hoveredStopId={hoveredStopId ?? steppedStop?.id ?? null}
             focusDayId={tripOverview ? null : selectedDayId}
             overview={tripOverview}
             selectedStop={selectedStop}
@@ -1827,7 +1880,7 @@ export function TripEditor({
             hoveredWishlistId={hoveredWishId}
             wishlistPinMode={wishlistPinMode}
             onSelectDay={selectDay}
-            onFitTrip={enterTripOverview}
+            onFitTrip={fitTrip}
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
             canAddDay={canEditItinerary}
@@ -2135,101 +2188,122 @@ export function TripEditor({
           )}
         </div>
 
-        <aside
-          className={`min-h-0 border-border desktop:flex-1 desktop:border-l ${
-            phone && dayCollapsed ? 'flex-none' : 'flex-1'
-          }`}
-        >
-          <Timeline
-            trip={trip}
-            day={activeDay}
-            dayIndex={activeDayIndex}
-            days={days}
-            overview={tripOverview}
-            onSelectDay={selectDay}
-            onStepDay={
-              phone
-                ? (dir) => {
-                    const next = days[activeDayIndex + dir];
-                    if (next) selectDay(next.id);
-                  }
-                : undefined
-            }
-            collapsed={phone && dayCollapsed}
-            onToggleCollapse={
-              phone ? () => setDayFolded(!dayCollapsed) : undefined
-            }
-            stops={stops}
-            legs={legs}
-            blocks={records.blocks}
-            costs={records.costs}
-            result={result}
-            selectedStopIds={selectedStopIds}
-            onSelectStop={toggleSelect}
-            scrollToStopId={
-              selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
-            }
-            hoveredStopId={hoveredStopId}
-            onHoverStop={setHoveredStopId}
-            linkOut={linkOut}
-            onLinkOut={noteLinkOut}
-            startPointStop={startPointStop}
-            startPointLeg={startPointLeg}
-            startPointCandidate={startPointCandidate}
-            onSetStartPoint={() =>
-              activeDay &&
-              startPointCandidate &&
-              setDayPoint('start', activeDay.id, startPointCandidate.id)
-            }
-            onClearStartPoint={() =>
-              activeDay && setDayPoint('start', activeDay.id, null)
-            }
-            endPointStop={endPointStop}
-            endPointLeg={endPointLeg}
-            endPointCandidate={endPointCandidate}
-            onSetEndPoint={() =>
-              activeDay &&
-              endPointCandidate &&
-              setDayPoint('end', activeDay.id, endPointCandidate.id)
-            }
-            onClearEndPoint={() =>
-              activeDay && setDayPoint('end', activeDay.id, null)
-            }
-            onDeleteDay={doDeleteDay}
-            onAddStop={(dayId) => setAddStopDay(dayId)}
-            onUpdateLeg={(legId, patch: LegPatch) =>
-              !blockedEdit('itinerary') &&
-              run(() => updateLeg(pb, legId, patch))
-            }
-            onRerouteLeg={(legId) =>
-              !blockedEdit('itinerary') &&
-              run(() => rerouteLeg(pb, routing, records, legId))
-            }
-            onSetLegDuration={(legId, durationMin) =>
-              !blockedEdit('itinerary') &&
-              run(() => setLegDurationOverride(pb, legId, durationMin))
-            }
-            onMoveStop={(stopId, targetDayId, targetIndex) =>
-              runStructural(() =>
-                moveStop(
-                  pb,
-                  routing,
-                  records,
-                  stopId,
-                  targetDayId,
-                  targetIndex,
-                ),
-              )
-            }
-            canEditItinerary={canEditItinerary}
-            banner={
-              canEditItinerary
-                ? undefined
-                : canEditWishlist
-                  ? 'You can add and edit wishlist places, but not the itinerary.'
-                  : 'View only — this trip is shared with you read-only.'
-            }
-          />
+        <aside className="flex-none border-t border-border desktop:min-h-0 desktop:flex-1 desktop:border-l desktop:border-t-0">
+          {phone ? (
+            <PhoneDayDrawer
+              trip={trip}
+              day={activeDay}
+              dayIndex={activeDayIndex}
+              days={days}
+              stops={stops}
+              blocks={records.blocks}
+              costs={records.costs}
+              result={result}
+              overview={tripOverview}
+              onSelectDay={selectDay}
+              collapsed={dayDrawerCollapsed}
+              onToggle={toggleDayDrawer}
+              stopIndex={clampIndex(stopIndex, phoneDayStops.length)}
+              onStepStop={(dir) =>
+                setStopIndex((i) =>
+                  stepIndex(
+                    clampIndex(i, phoneDayStops.length),
+                    phoneDayStops.length,
+                    dir,
+                  ),
+                )
+              }
+              onOpenStop={(stop) =>
+                openCard(() => setSelectedStopIds(new Set([stop.id])))
+              }
+              banner={
+                canEditItinerary
+                  ? undefined
+                  : canEditWishlist
+                    ? 'You can add and edit wishlist places, but not the itinerary.'
+                    : 'View only — this trip is shared with you read-only.'
+              }
+            />
+          ) : (
+            <Timeline
+              trip={trip}
+              day={activeDay}
+              dayIndex={activeDayIndex}
+              days={days}
+              overview={tripOverview}
+              onSelectDay={selectDay}
+              stops={stops}
+              legs={legs}
+              blocks={records.blocks}
+              costs={records.costs}
+              result={result}
+              selectedStopIds={selectedStopIds}
+              onSelectStop={toggleSelect}
+              scrollToStopId={
+                selectedStopIds.size === 1 ? [...selectedStopIds][0]! : null
+              }
+              hoveredStopId={hoveredStopId}
+              onHoverStop={setHoveredStopId}
+              linkOut={linkOut}
+              onLinkOut={noteLinkOut}
+              startPointStop={startPointStop}
+              startPointLeg={startPointLeg}
+              startPointCandidate={startPointCandidate}
+              onSetStartPoint={() =>
+                activeDay &&
+                startPointCandidate &&
+                setDayPoint('start', activeDay.id, startPointCandidate.id)
+              }
+              onClearStartPoint={() =>
+                activeDay && setDayPoint('start', activeDay.id, null)
+              }
+              endPointStop={endPointStop}
+              endPointLeg={endPointLeg}
+              endPointCandidate={endPointCandidate}
+              onSetEndPoint={() =>
+                activeDay &&
+                endPointCandidate &&
+                setDayPoint('end', activeDay.id, endPointCandidate.id)
+              }
+              onClearEndPoint={() =>
+                activeDay && setDayPoint('end', activeDay.id, null)
+              }
+              onDeleteDay={doDeleteDay}
+              onAddStop={(dayId) => setAddStopDay(dayId)}
+              onUpdateLeg={(legId, patch: LegPatch) =>
+                !blockedEdit('itinerary') &&
+                run(() => updateLeg(pb, legId, patch))
+              }
+              onRerouteLeg={(legId) =>
+                !blockedEdit('itinerary') &&
+                run(() => rerouteLeg(pb, routing, records, legId))
+              }
+              onSetLegDuration={(legId, durationMin) =>
+                !blockedEdit('itinerary') &&
+                run(() => setLegDurationOverride(pb, legId, durationMin))
+              }
+              onMoveStop={(stopId, targetDayId, targetIndex) =>
+                runStructural(() =>
+                  moveStop(
+                    pb,
+                    routing,
+                    records,
+                    stopId,
+                    targetDayId,
+                    targetIndex,
+                  ),
+                )
+              }
+              canEditItinerary={canEditItinerary}
+              banner={
+                canEditItinerary
+                  ? undefined
+                  : canEditWishlist
+                    ? 'You can add and edit wishlist places, but not the itinerary.'
+                    : 'View only — this trip is shared with you read-only.'
+              }
+            />
+          )}
         </aside>
       </div>
 

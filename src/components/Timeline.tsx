@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatDayDate } from '../lib/format';
 import { formatClock, type CascadeResult } from '../lib/cascade';
 import { warningText } from '../lib/warnings';
-import { dayTotals } from '../lib/day-totals';
+import { dayTotals, daySpanLabel } from '../lib/day-totals';
 import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { costsFor } from '../lib/costs';
 import { pb } from '../lib/pb';
@@ -70,19 +70,10 @@ interface Props {
   endPointCandidate?: StopsResponse | null;
   onSetEndPoint?: () => void;
   onClearEndPoint?: () => void;
-  /** Phone only (WORK 17.2): folds the column down to its header line so the
-   * map takes the freed height. `onToggleCollapse` is undefined on desktop,
-   * where the column is always open and the chevron is not rendered. */
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
   /** Trip overview (WORK 17.6): no day selected. The column becomes a day
    * list; clicking a row selects that day. */
   overview?: boolean;
   onSelectDay?: (dayId: string) => void;
-  /** Phone only (WORK 10.1): a horizontal swipe on the day header steps
-   * to the previous / next day. Undefined on desktop — the day dock is
-   * the switcher there. */
-  onStepDay?: (direction: -1 | 1) => void;
   /** Which map app the ↗ links open (WORK 19.4). `onLinkOut` fires on every
    * ↗ click — the one-time "you can change this" hint lives in TripEditor.
    * `truncated` says how many stops the app could not take. */
@@ -136,17 +127,13 @@ export function Timeline({
   onClearEndPoint,
   onSetStartPoint,
   onClearStartPoint,
-  collapsed = false,
-  onToggleCollapse,
   overview = false,
   onSelectDay,
-  onStepDay,
   linkOut = 'google',
   onLinkOut,
   canEditItinerary = true,
   banner,
 }: Props) {
-  const swipe = useRef<number | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   // Two-click confirm rather than a dialog: deleting a day takes its stops
   // with it, but it is also the kind of thing you undo by adding one back.
@@ -204,7 +191,6 @@ export function Timeline({
   const totals = dayTotals(dayResult);
 
   const first = dayResult?.stops[0];
-  const last = dayResult?.stops[dayResult.stops.length - 1];
 
   // The whole day as one route (WORK 19.4). The start point leads, since
   // that is where the day actually begins; stops with no coordinates yet
@@ -223,16 +209,7 @@ export function Timeline({
   const departFrom =
     first && dayResult?.leadingLeg ? first.arrival - leadMin : null;
 
-  // The day starts when you leave, not when you arrive somewhere: with a
-  // start point the morning drive is already part of the day, so the span
-  // opens at the departure the ghost row shows rather than at stop 1. It
-  // closes, symmetrically, when you get back to the end point (WORK 29).
-  const span =
-    first && last
-      ? `${formatClock(departFrom ?? first.arrival)} – ${formatClock(
-          dayResult?.endArrival ?? last.departure,
-        )}`
-      : '';
+  const span = daySpanLabel(dayResult);
   const startThumb = startPointStop
     ? firstPhotoUrl(pb, blocksFor(blocks, 'stop', startPointStop.id))
     : null;
@@ -258,24 +235,7 @@ export function Timeline({
           {banner}
         </div>
       )}
-      <div
-        onTouchStart={
-          onStepDay
-            ? (e) => (swipe.current = e.touches[0]?.clientX ?? null)
-            : undefined
-        }
-        onTouchEnd={
-          onStepDay
-            ? (e) => {
-                if (swipe.current == null) return;
-                const dx = (e.changedTouches[0]?.clientX ?? 0) - swipe.current;
-                swipe.current = null;
-                if (Math.abs(dx) > 45) onStepDay(dx < 0 ? 1 : -1);
-              }
-            : undefined
-        }
-        className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]"
-      >
+      <div className="flex flex-none items-baseline justify-between gap-2.5 border-b border-border px-[15px] pb-[11px] pt-[13px]">
         <div className="min-w-0">
           <div className="truncate text-[15px] font-semibold tracking-[-0.01em]">
             Day {dayIndex + 1}
@@ -306,20 +266,6 @@ export function Timeline({
               ↗ Day{dayRoute.truncated ? ' ⚠' : ''}
             </a>
           )}
-          {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              title={
-                collapsed ? "Show the day's stops" : "Hide the day's stops"
-              }
-              aria-label={
-                collapsed ? "Show the day's stops" : "Hide the day's stops"
-              }
-              className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg border border-border-strong bg-control text-[10px] text-text-3 hover:text-text"
-            >
-              {collapsed ? '▲' : '▼'}
-            </button>
-          )}
           {canEditItinerary && (
             <button
               onClick={() =>
@@ -345,304 +291,300 @@ export function Timeline({
         </div>
       </div>
 
-      {!collapsed && (
-        <div
-          ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-[90px] pt-2"
-        >
-          {dayWarnings
-            .filter((w) => !w.stopId)
-            .map((w, i) => (
-              <div
-                key={`day-${i}`}
-                className="mb-2 flex items-center gap-2 rounded-[9px] border border-warn-border bg-warn-bg px-3 py-2 text-[12.5px] text-warn-text"
-              >
-                <span className="h-[7px] w-[7px] flex-none rounded-full bg-wishlist" />
-                {warningText(w)}
-              </div>
-            ))}
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-[90px] pt-2"
+      >
+        {dayWarnings
+          .filter((w) => !w.stopId)
+          .map((w, i) => (
+            <div
+              key={`day-${i}`}
+              className="mb-2 flex items-center gap-2 rounded-[9px] border border-warn-border bg-warn-bg px-3 py-2 text-[12.5px] text-warn-text"
+            >
+              <span className="h-[7px] w-[7px] flex-none rounded-full bg-wishlist" />
+              {warningText(w)}
+            </div>
+          ))}
 
-          {/* Day-start continuity (WORK 13.3): a greyed "ghost" row for the
+        {/* Day-start continuity (WORK 13.3): a greyed "ghost" row for the
             stop this day leaves from, then its leading leg — or, until one
             is set, a button to point it at the previous accommodation. */}
-          {dayStops.length > 0 && startPointStop && (
-            <>
-              {/* Hovering the ghost row rings its map pin, exactly as a
+        {dayStops.length > 0 && startPointStop && (
+          <>
+            {/* Hovering the ghost row rings its map pin, exactly as a
                 StopRow does — the carried stop is numbered 0 there (WORK 30),
                 so it is pickable out of the day rather than being an
                 anonymous grey dot. */}
-              <div
-                onMouseEnter={() => onHoverStop(startPointStop.id)}
-                onMouseLeave={() => onHoverStop(null)}
-                className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
-                  hoveredStopId === startPointStop.id
-                    ? 'bg-control opacity-100'
-                    : 'opacity-70'
-                }`}
-              >
-                <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
-                  0
-                </span>
-                <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
-                  {startThumb && (
-                    <img
-                      src={startThumb}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-medium text-text-3">
-                    {startPointStop.title}
-                  </span>
-                  <span className="block font-mono text-[11.5px] text-text-5">
-                    start point
-                    {departFrom != null
-                      ? ` · leave ${formatClock(departFrom)}`
-                      : ''}
-                  </span>
-                </span>
-                {canEditItinerary && (
-                  <button
-                    onClick={onClearStartPoint}
-                    title="Clear start point"
-                    className="flex-none px-1 text-text-5 hover:text-text"
-                  >
-                    ✕
-                  </button>
+            <div
+              onMouseEnter={() => onHoverStop(startPointStop.id)}
+              onMouseLeave={() => onHoverStop(null)}
+              className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
+                hoveredStopId === startPointStop.id
+                  ? 'bg-control opacity-100'
+                  : 'opacity-70'
+              }`}
+            >
+              <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
+                0
+              </span>
+              <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
+                {startThumb && (
+                  <img
+                    src={startThumb}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 )}
-              </div>
-              <LegRow
-                leg={startPointLeg}
-                from={startPointStop}
-                to={dayStops[0]}
-                timing={dayResult?.leadingLeg ?? undefined}
-                tripBufferPct={trip.car_buffer_pct ?? 0}
-                readOnly={!canEditItinerary}
-                onUpdate={(patch) =>
-                  startPointLeg && onUpdateLeg(startPointLeg.id, patch)
-                }
-                onReroute={() =>
-                  startPointLeg && onRerouteLeg(startPointLeg.id)
-                }
-                onSetDuration={(min) =>
-                  startPointLeg && onSetLegDuration(startPointLeg.id, min)
-                }
-                linkOut={linkOut}
-                onLinkOut={() => onLinkOut?.(0)}
-              />
-            </>
-          )}
-          {canEditItinerary &&
-            dayStops.length > 0 &&
-            !startPointStop &&
-            startPointCandidate && (
-              <button
-                onClick={onSetStartPoint}
-                className="mb-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
-              >
-                ↑ Start from {startPointCandidate.title}
-              </button>
-            )}
-
-          {dayStops.length === 0 ? (
-            <div className="rounded-[10px] border border-dashed border-[oklch(0.32_0.012_250)] px-4 py-8 text-center text-[13px] text-text-4">
-              No stops on this day yet.
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-medium text-text-3">
+                  {startPointStop.title}
+                </span>
+                <span className="block font-mono text-[11.5px] text-text-5">
+                  start point
+                  {departFrom != null
+                    ? ` · leave ${formatClock(departFrom)}`
+                    : ''}
+                </span>
+              </span>
               {canEditItinerary && (
-                <>
-                  <br />
-                  Use <strong className="text-text-2">+ Add a stop</strong>, the
-                  map, or a wishlist pin.
-                </>
+                <button
+                  onClick={onClearStartPoint}
+                  title="Clear start point"
+                  className="flex-none px-1 text-text-5 hover:text-text"
+                >
+                  ✕
+                </button>
               )}
             </div>
-          ) : (
-            dayStops.map((stop, i) => {
-              const next = dayStops[i + 1];
-              const leg = next
-                ? legs.find(
-                    (l) => l.from_stop === stop.id && l.to_stop === next.id,
-                  )
-                : undefined;
-              const photoUrl = firstPhotoUrl(
-                pb,
-                blocksFor(blocks, 'stop', stop.id),
-              );
-              const stopWarnings = dayWarnings.filter(
-                (w) => w.stopId === stop.id,
-              );
-              return (
-                <Fragment key={`${stop.id}:${stop.updated}`}>
-                  <div
-                    data-stop={stop.id}
-                    draggable={canEditItinerary}
-                    onDragStart={
-                      canEditItinerary ? () => setDragId(stop.id) : undefined
-                    }
-                    onDragEnd={
-                      canEditItinerary ? () => setDragId(null) : undefined
-                    }
-                    onDragOver={(e) => dragId && e.preventDefault()}
-                    onDrop={() => {
-                      if (dragId && dragId !== stop.id) {
-                        onMoveStop(dragId, day.id, indexInDay(stop.id));
-                      }
-                      setDragId(null);
-                    }}
-                    className={dragId === stop.id ? 'opacity-40' : ''}
-                  >
-                    <StopRow
-                      stop={stop}
-                      seq={i + 1}
-                      timing={timingByStop.get(stop.id)}
-                      photoUrl={photoUrl}
-                      cost={costsFor(costs, 'stop', stop.id)[0] ?? null}
-                      selected={selectedStopIds.has(stop.id)}
-                      hovered={hoveredStopId === stop.id}
-                      onSelect={(additive) => onSelectStop(stop.id, additive)}
-                      onHover={(h) => onHoverStop(h ? stop.id : null)}
-                    />
-                  </div>
+            <LegRow
+              leg={startPointLeg}
+              from={startPointStop}
+              to={dayStops[0]}
+              timing={dayResult?.leadingLeg ?? undefined}
+              tripBufferPct={trip.car_buffer_pct ?? 0}
+              readOnly={!canEditItinerary}
+              onUpdate={(patch) =>
+                startPointLeg && onUpdateLeg(startPointLeg.id, patch)
+              }
+              onReroute={() => startPointLeg && onRerouteLeg(startPointLeg.id)}
+              onSetDuration={(min) =>
+                startPointLeg && onSetLegDuration(startPointLeg.id, min)
+              }
+              linkOut={linkOut}
+              onLinkOut={() => onLinkOut?.(0)}
+            />
+          </>
+        )}
+        {canEditItinerary &&
+          dayStops.length > 0 &&
+          !startPointStop &&
+          startPointCandidate && (
+            <button
+              onClick={onSetStartPoint}
+              className="mb-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+            >
+              ↑ Start from {startPointCandidate.title}
+            </button>
+          )}
 
-                  {/* A stop's own warnings stay compact — one banner per stop
+        {dayStops.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-[oklch(0.32_0.012_250)] px-4 py-8 text-center text-[13px] text-text-4">
+            No stops on this day yet.
+            {canEditItinerary && (
+              <>
+                <br />
+                Use <strong className="text-text-2">+ Add a stop</strong>, the
+                map, or a wishlist pin.
+              </>
+            )}
+          </div>
+        ) : (
+          dayStops.map((stop, i) => {
+            const next = dayStops[i + 1];
+            const leg = next
+              ? legs.find(
+                  (l) => l.from_stop === stop.id && l.to_stop === next.id,
+                )
+              : undefined;
+            const photoUrl = firstPhotoUrl(
+              pb,
+              blocksFor(blocks, 'stop', stop.id),
+            );
+            const stopWarnings = dayWarnings.filter(
+              (w) => w.stopId === stop.id,
+            );
+            return (
+              <Fragment key={`${stop.id}:${stop.updated}`}>
+                <div
+                  data-stop={stop.id}
+                  draggable={canEditItinerary}
+                  onDragStart={
+                    canEditItinerary ? () => setDragId(stop.id) : undefined
+                  }
+                  onDragEnd={
+                    canEditItinerary ? () => setDragId(null) : undefined
+                  }
+                  onDragOver={(e) => dragId && e.preventDefault()}
+                  onDrop={() => {
+                    if (dragId && dragId !== stop.id) {
+                      onMoveStop(dragId, day.id, indexInDay(stop.id));
+                    }
+                    setDragId(null);
+                  }}
+                  className={dragId === stop.id ? 'opacity-40' : ''}
+                >
+                  <StopRow
+                    stop={stop}
+                    seq={i + 1}
+                    timing={timingByStop.get(stop.id)}
+                    photoUrl={photoUrl}
+                    cost={costsFor(costs, 'stop', stop.id)[0] ?? null}
+                    selected={selectedStopIds.has(stop.id)}
+                    hovered={hoveredStopId === stop.id}
+                    onSelect={(additive) => onSelectStop(stop.id, additive)}
+                    onHover={(h) => onHoverStop(h ? stop.id : null)}
+                  />
+                </div>
+
+                {/* A stop's own warnings stay compact — one banner per stop
                     would drown the column (three stops with no kind yet is
                     three identical banners). The full banner treatment is
                     for day-level warnings, which is what the handoff's
                     example (NO_ACCOMMODATION) actually is. */}
-                  {stopWarnings.map((w, wi) => (
-                    <div
-                      key={`w-${wi}`}
-                      className="mb-0.5 ml-[44px] flex items-center gap-1.5 px-[11px] text-[11.5px] text-warn-text"
-                    >
-                      <span className="h-[5px] w-[5px] flex-none rounded-full bg-wishlist" />
-                      {warningText(w)}
-                    </div>
-                  ))}
+                {stopWarnings.map((w, wi) => (
+                  <div
+                    key={`w-${wi}`}
+                    className="mb-0.5 ml-[44px] flex items-center gap-1.5 px-[11px] text-[11.5px] text-warn-text"
+                  >
+                    <span className="h-[5px] w-[5px] flex-none rounded-full bg-wishlist" />
+                    {warningText(w)}
+                  </div>
+                ))}
 
-                  {next && (
-                    <LegRow
-                      leg={leg}
-                      from={stop}
-                      to={next}
-                      timing={dayResult?.legs[i]}
-                      tripBufferPct={trip.car_buffer_pct ?? 0}
-                      readOnly={!canEditItinerary}
-                      onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
-                      onReroute={() => leg && onRerouteLeg(leg.id)}
-                      onSetDuration={(min) =>
-                        leg && onSetLegDuration(leg.id, min)
-                      }
-                      linkOut={linkOut}
-                      onLinkOut={() => onLinkOut?.(0)}
-                    />
-                  )}
-                </Fragment>
-              );
-            })
-          )}
+                {next && (
+                  <LegRow
+                    leg={leg}
+                    from={stop}
+                    to={next}
+                    timing={dayResult?.legs[i]}
+                    tripBufferPct={trip.car_buffer_pct ?? 0}
+                    readOnly={!canEditItinerary}
+                    onUpdate={(patch) => leg && onUpdateLeg(leg.id, patch)}
+                    onReroute={() => leg && onRerouteLeg(leg.id)}
+                    onSetDuration={(min) =>
+                      leg && onSetLegDuration(leg.id, min)
+                    }
+                    linkOut={linkOut}
+                    onLinkOut={() => onLinkOut?.(0)}
+                  />
+                )}
+              </Fragment>
+            );
+          })
+        )}
 
-          {/* Day-end continuity (WORK 29): the evening drive back, then a
+        {/* Day-end continuity (WORK 29): the evening drive back, then a
             greyed ghost row for the bed you return to — the mirror of the
             start-point pair above. */}
-          {dayStops.length > 0 && endPointStop && (
-            <>
-              <LegRow
-                leg={endPointLeg}
-                from={dayStops[dayStops.length - 1]}
-                to={endPointStop}
-                timing={dayResult?.trailingLeg ?? undefined}
-                tripBufferPct={trip.car_buffer_pct ?? 0}
-                readOnly={!canEditItinerary}
-                onUpdate={(patch) =>
-                  endPointLeg && onUpdateLeg(endPointLeg.id, patch)
-                }
-                onReroute={() => endPointLeg && onRerouteLeg(endPointLeg.id)}
-                onSetDuration={(min) =>
-                  endPointLeg && onSetLegDuration(endPointLeg.id, min)
-                }
-                linkOut={linkOut}
-                onLinkOut={() => onLinkOut?.(0)}
-              />
-              <div
-                onMouseEnter={() => onHoverStop(endPointStop.id)}
-                onMouseLeave={() => onHoverStop(null)}
-                className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
-                  hoveredStopId === endPointStop.id
-                    ? 'bg-control opacity-100'
-                    : 'opacity-70'
-                }`}
-              >
-                <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
-                  ↓
-                </span>
-                <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
-                  {endThumb && (
-                    <img
-                      src={endThumb}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-medium text-text-3">
-                    {endPointStop.title}
-                  </span>
-                  <span className="block font-mono text-[11.5px] text-text-5">
-                    end point
-                    {dayResult?.endArrival != null
-                      ? ` · back ${formatClock(dayResult.endArrival)}`
-                      : ''}
-                  </span>
-                </span>
-                {canEditItinerary && (
-                  <button
-                    onClick={onClearEndPoint}
-                    title="Clear end point"
-                    className="flex-none px-1 text-text-5 hover:text-text"
-                  >
-                    ✕
-                  </button>
+        {dayStops.length > 0 && endPointStop && (
+          <>
+            <LegRow
+              leg={endPointLeg}
+              from={dayStops[dayStops.length - 1]}
+              to={endPointStop}
+              timing={dayResult?.trailingLeg ?? undefined}
+              tripBufferPct={trip.car_buffer_pct ?? 0}
+              readOnly={!canEditItinerary}
+              onUpdate={(patch) =>
+                endPointLeg && onUpdateLeg(endPointLeg.id, patch)
+              }
+              onReroute={() => endPointLeg && onRerouteLeg(endPointLeg.id)}
+              onSetDuration={(min) =>
+                endPointLeg && onSetLegDuration(endPointLeg.id, min)
+              }
+              linkOut={linkOut}
+              onLinkOut={() => onLinkOut?.(0)}
+            />
+            <div
+              onMouseEnter={() => onHoverStop(endPointStop.id)}
+              onMouseLeave={() => onHoverStop(null)}
+              className={`flex items-center gap-2.5 rounded-[10px] px-[11px] py-2 transition-opacity ${
+                hoveredStopId === endPointStop.id
+                  ? 'bg-control opacity-100'
+                  : 'opacity-70'
+              }`}
+            >
+              <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border border-dashed border-text-5 font-mono text-[11px] text-text-5">
+                ↓
+              </span>
+              <span className="h-[38px] w-[38px] flex-none overflow-hidden rounded-lg border border-border bg-control grayscale">
+                {endThumb && (
+                  <img
+                    src={endThumb}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 )}
-              </div>
-            </>
-          )}
-          {/* Offered exactly when the cascade would warn NO_ACCOMMODATION: a
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-medium text-text-3">
+                  {endPointStop.title}
+                </span>
+                <span className="block font-mono text-[11.5px] text-text-5">
+                  end point
+                  {dayResult?.endArrival != null
+                    ? ` · back ${formatClock(dayResult.endArrival)}`
+                    : ''}
+                </span>
+              </span>
+              {canEditItinerary && (
+                <button
+                  onClick={onClearEndPoint}
+                  title="Clear end point"
+                  className="flex-none px-1 text-text-5 hover:text-text"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </>
+        )}
+        {/* Offered exactly when the cascade would warn NO_ACCOMMODATION: a
             day that already ends at somewhere you sleep needs no end point,
             and the button would be inviting a drive *away* from tonight's
             bed to the last one (author, 2026-09-07). */}
-          {canEditItinerary &&
-            dayStops.length > 0 &&
-            !endPointStop &&
-            !endsAtAccommodation &&
-            endPointCandidate && (
-              <button
-                onClick={onSetEndPoint}
-                className="mt-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
-              >
-                ↓ End at {endPointCandidate.title}
-              </button>
-            )}
-
-          {canEditItinerary && (
+        {canEditItinerary &&
+          dayStops.length > 0 &&
+          !endPointStop &&
+          !endsAtAccommodation &&
+          endPointCandidate && (
             <button
-              onClick={() => onAddStop(day.id)}
-              onDragOver={(e) => dragId && e.preventDefault()}
-              onDrop={() => {
-                if (dragId) onMoveStop(dragId, day.id, indexInDay());
-                setDragId(null);
-              }}
-              title="Search a place, paste a Maps link, or pick from the wishlist"
-              className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+              onClick={onSetEndPoint}
+              className="mt-1 h-8 w-full truncate rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] px-3 text-[12px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
             >
-              + Add a stop…
+              ↓ End at {endPointCandidate.title}
             </button>
           )}
-        </div>
-      )}
+
+        {canEditItinerary && (
+          <button
+            onClick={() => onAddStop(day.id)}
+            onDragOver={(e) => dragId && e.preventDefault()}
+            onDrop={() => {
+              if (dragId) onMoveStop(dragId, day.id, indexInDay());
+              setDragId(null);
+            }}
+            title="Search a place, paste a Maps link, or pick from the wishlist"
+            className="mt-2 h-9 w-full rounded-lg border border-dashed border-[oklch(0.32_0.012_250)] text-[13px] text-text-4 hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+          >
+            + Add a stop…
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -228,3 +228,16 @@ export function formatMoney(amount: number, currency: string): string {
   const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
   return `${text} ${currency}`;
 }
+
+/**
+ * A stop's spend tier: 1–50 → €, 51–250 → €€, 251+ → €€€.
+ *
+ * Deliberately not `trip-card.ts`'s `costBand`, which brackets a whole
+ * trip's total on a much coarser scale — a €300 stop is expensive, a €300
+ * trip is not. Shared by the desktop stop row and the phone stop card so
+ * the same stop cannot show two different bands.
+ */
+export function stopCostBand(amount: number): '' | '€' | '€€' | '€€€' {
+  if (amount <= 0) return '';
+  return amount <= 50 ? '€' : amount <= 250 ? '€€' : '€€€';
+}
