@@ -151,6 +151,7 @@ export function MapPane({
   onAddDay,
   onInsertDay,
   canAddDay = true,
+  daysLocked = false,
   picking,
   placing,
   parkingLots,
@@ -207,6 +208,9 @@ export function MapPane({
   onInsertDay?: (atIndex: number) => void;
   /** False for a `contributor`/`viewer` — hides the day dock's `+` (WORK 22). */
   canAddDay?: boolean;
+  /** Trip lock at `days` or `all` — dims the day dock's `+` rather than
+   * hiding it (`lib/trip-lock.ts`). */
+  daysLocked?: boolean;
   /** Access-point picking mode (WORK 12.9). When set, the map is zoomed to
    * the stop and every bare click reports an access point rather than
    * selecting a pin; `parkingLots` render as clickable chips. Memoised by
@@ -1429,6 +1433,7 @@ export function MapPane({
         stops={records.stops}
         activeDayId={activeDayId}
         canAddDay={canAddDay}
+        daysLocked={daysLocked}
         onSelectDay={(id) => onSelectDay?.(id)}
         onHoverDay={setHoveredDayId}
         onAddDay={() => onAddDay?.()}

@@ -134,6 +134,14 @@ replacement for it.
   the same way you'd re-derive them from scratch. Already tracked as its own
   item in `WORK.md`'s Noticed list ("The run-etappe driver can no longer
   build a fixture") — a full rewrite is out of scope to do inline here.
+- **A freshly created trip has no days at all** — the day dock's `+` makes
+  Day 1. A script that assumes a starter day (or that sleeps a fixed 800ms
+  after clicking `+`, which is shorter than the create round-trip) reads the
+  empty dock as a failure. Poll for the day count instead of sleeping; see
+  `trip-lock-check.mjs`.
+- **Headless Chromium has no emoji font**, so 🔒/🔓/📍 render as tofu boxes
+  in screenshots. The characters are still in the DOM, so assert on
+  `innerText` rather than on what the picture looks like.
 - **A running PocketBase process only applies migrations at startup.** If
   the backend has been running since before a `git pull`/merge that added a
   migration, the live SQLite database silently lacks the new columns — the

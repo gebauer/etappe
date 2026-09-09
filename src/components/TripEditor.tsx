@@ -20,8 +20,16 @@ import { shouldHintLinkOut, markLinkOutHinted } from '../lib/user-settings';
 import {
   listMembers,
   setTripStartDate,
+  setTripLock,
   updateTripSettings,
 } from '../lib/pb-trips';
+import {
+  lockBlocks,
+  lockRefusalMessage,
+  tripLockOf,
+  type LockScope,
+} from '../lib/trip-lock';
+import { TripLockMenu } from './TripLockMenu';
 import {
   addStopAt,
   downgradeStopToWishlist,
@@ -288,6 +296,9 @@ export function TripEditor({
   const canEditItinerary =
     myRole === null || myRole === 'owner' || myRole === 'editor';
   const canEditWishlist = canEditItinerary || myRole === 'contributor';
+  // The trip's own accident guard, orthogonal to the role above: the lock
+  // stops the person who set it, and they clear it from the header.
+  const lock = tripLockOf(records?.trip ?? null);
   // Raised the moment a stop becomes a hotel or campsite — see
   // AccommodationPrompt for why this is asked rather than assumed.
   const [accommodationAsk, setAccommodationAsk] = useState<{
@@ -433,20 +444,39 @@ export function TripEditor({
     return true;
   }
 
-  /** Role gate (WORK 22). `scope: 'itinerary'` also blocks a `contributor`;
-   * `'wishlist'` only blocks a `viewer`. The editor hides the affordances
-   * these guards protect — this is the belt-and-braces on top of the
-   * server's own refusal. */
-  function blockedByRole(scope: 'itinerary' | 'wishlist'): boolean {
-    const ok = scope === 'itinerary' ? canEditItinerary : canEditWishlist;
-    if (ok) return false;
-    setNotice(
-      scope === 'itinerary'
-        ? 'You can add and edit wishlist places, but not the itinerary.'
-        : 'This trip is shared with you read-only.',
-    );
-    window.setTimeout(() => setNotice(null), 5000);
-    return true;
+  /**
+   * The edit gate: role (WORK 22) then trip lock (`lib/trip-lock.ts`).
+   *
+   * Role — `scope: 'itinerary'` also blocks a `contributor`, `'wishlist'`
+   * only a `viewer`; the editor hides those affordances, so this is the
+   * belt-and-braces on top of the server's own refusal.
+   *
+   * Lock — an accident guard the editor *shows* rather than hides, so this
+   * is the only thing standing between a stray keypress and the edit. Both
+   * refusals name what to do about them: a silent no-op is what makes a
+   * locked trip feel broken instead of protected.
+   */
+  function blockedEdit(scope: LockScope): boolean {
+    const roleOk =
+      scope === 'wishlist'
+        ? canEditWishlist
+        : // Day structure is an itinerary edit as far as roles go.
+          canEditItinerary;
+    if (!roleOk) {
+      setNotice(
+        scope === 'wishlist'
+          ? 'This trip is shared with you read-only.'
+          : 'You can add and edit wishlist places, but not the itinerary.',
+      );
+      window.setTimeout(() => setNotice(null), 5000);
+      return true;
+    }
+    if (lockBlocks(lock, scope)) {
+      setNotice(lockRefusalMessage(lock, scope));
+      window.setTimeout(() => setNotice(null), 5000);
+      return true;
+    }
+    return false;
   }
 
   async function run(fn: () => Promise<unknown>) {
@@ -469,7 +499,7 @@ export function TripEditor({
     fn: () => Promise<unknown>,
     rerouteStopIds?: Iterable<string>,
   ) {
-    if (blockedOffline() || blockedByRole('itinerary')) return;
+    if (blockedOffline() || blockedEdit('itinerary')) return;
     try {
       await fn();
       if (records?.days.some((d) => d.start_stop || d.end_stop)) {
@@ -564,7 +594,7 @@ export function TripEditor({
   }
 
   function doAddStopToFocus() {
-    if (blockedByRole('itinerary')) return;
+    if (blockedEdit('itinerary')) return;
     const dayId = focusDayId();
     if (!records || !dayId) return;
     setAddStopDay(dayId);
@@ -737,7 +767,7 @@ export function TripEditor({
   // placement picker. "+ Idea" and a nearby ghost pin both feed the same
   // SearchPalette; searchMode decides what onPick does with the result.
   function commitWishlistPick(place: PlaceResult, sourceUrl?: string) {
-    if (blockedByRole('wishlist')) return;
+    if (blockedEdit('wishlist')) return;
     void run(async () => {
       const poiId = await addWishlistItem(pb, tripId, {
         title: place.name,
@@ -761,7 +791,7 @@ export function TripEditor({
   }
 
   function deleteWishlist(id: string) {
-    if (blockedOffline() || blockedByRole('wishlist')) return;
+    if (blockedOffline() || blockedEdit('wishlist')) return;
     void deleteWishlistItem(pb, id).then(reloadWishlist);
   }
 
@@ -770,7 +800,7 @@ export function TripEditor({
   // appears/clears. Not routed through `run()` — that reloads the cascade
   // trip doc, and starring touches neither stops nor legs.
   function toggleWishStar(item: PoisResponse, next: boolean) {
-    if (blockedOffline() || blockedByRole('wishlist')) return;
+    if (blockedOffline() || blockedEdit('wishlist')) return;
     void setPoiStarred(pb, item.id, next)
       .then(reloadWishlist)
       .catch((err) =>
@@ -914,7 +944,7 @@ export function TripEditor({
   // wishlist — never a hard delete (WORK 22).
   function deleteSelected() {
     if (!records || selectedStopIds.size === 0) return;
-    if (blockedByRole('itinerary')) return;
+    if (blockedEdit('itinerary')) return;
     const chosen = records.stops.filter((s) => selectedStopIds.has(s.id));
     if (chosen.length) setPendingRecycle(chosen);
   }
@@ -930,7 +960,7 @@ export function TripEditor({
   }
 
   function startPlacingAccessPoint(id: string, kind: 'stop' | 'poi' = 'stop') {
-    if (blockedByRole(kind === 'poi' ? 'wishlist' : 'itinerary')) return;
+    if (blockedEdit(kind === 'poi' ? 'wishlist' : 'itinerary')) return;
     const rec =
       kind === 'poi'
         ? wishlist.find((w) => w.id === id)
@@ -960,7 +990,7 @@ export function TripEditor({
     patch: { access_lat: number; access_lon: number },
   ) {
     if (kind === 'poi') {
-      if (blockedByRole('wishlist')) return;
+      if (blockedEdit('wishlist')) return;
       void run(async () => {
         await updatePoi(pb, id, patch);
         await reloadWishlist();
@@ -1011,14 +1041,14 @@ export function TripEditor({
   // decides. Cancelling bumps `markerReset`, which re-syncs both markers to
   // the coordinates the record still holds.
   function dragStop(stopId: string, lat: number, lon: number) {
-    if (!records || blockedByRole('itinerary')) return cancelMove();
+    if (!records || blockedEdit('itinerary')) return cancelMove();
     const stop = records.stops.find((s) => s.id === stopId);
     if (!stop) return cancelMove();
     setPendingMove({ kind: 'stop', stopId, title: stop.title, lat, lon });
   }
 
   function dragAccessPoint(stopId: string, lat: number, lon: number) {
-    if (!records || blockedByRole('itinerary')) return cancelMove();
+    if (!records || blockedEdit('itinerary')) return cancelMove();
     const stop = records.stops.find((s) => s.id === stopId);
     if (!stop) return cancelMove();
     setPendingMove({ kind: 'access', stopId, title: stop.title, lat, lon });
@@ -1095,7 +1125,7 @@ export function TripEditor({
    * derived date moved as a result — a booking pinned to "day 4" is now a
    * day later, which the planner has to be told rather than discover. */
   function doInsertDay(atIndex: number) {
-    if (!records) return;
+    if (!records || blockedEdit('days')) return;
     void run(async () => {
       const { changedBlocks } = await insertDay(pb, tripId, atIndex, {
         kind: 'travel',
@@ -1105,7 +1135,7 @@ export function TripEditor({
   }
 
   function doDeleteDay(dayId: string) {
-    if (!records) return;
+    if (!records || blockedEdit('days')) return;
     void run(async () => {
       const changedBlocks = await deleteDay(pb, tripId, dayId);
       noteShiftedBlocks(changedBlocks, 'Removing that day pulled');
@@ -1123,7 +1153,7 @@ export function TripEditor({
 
   /** Writes a plan's changes in one go, then reloads once. */
   function applyTimingChanges(changes: TimingChange[]) {
-    if (changes.length === 0 || blockedByRole('itinerary')) return;
+    if (changes.length === 0 || blockedEdit('itinerary')) return;
     void run(async () => {
       for (const change of changes) {
         await updateStop(pb, change.stopId, change.patch);
@@ -1169,7 +1199,7 @@ export function TripEditor({
   }
 
   function handleUpdateStop(id: string, patch: StopPatch) {
-    if (blockedByRole('itinerary')) return;
+    if (blockedEdit('itinerary')) return;
     const existing = records?.stops.find((s) => s.id === id);
     if (existing && !existing.is_accommodation) {
       maybeAskAccommodation(
@@ -1204,7 +1234,7 @@ export function TripEditor({
     dayId: string,
     stopId: string | null,
   ) {
-    if (blockedOffline() || blockedByRole('itinerary')) return;
+    if (blockedOffline() || blockedEdit('itinerary')) return;
     void (async () => {
       try {
         if (which === 'start') await setDayStartStop(pb, dayId, stopId);
@@ -1258,7 +1288,7 @@ export function TripEditor({
   }
 
   function doBulkShift(delta: number) {
-    if (!records || blockedByRole('itinerary')) return;
+    if (!records || blockedEdit('itinerary')) return;
     const targets = records.stops.filter(
       (s) => selectedStopIds.has(s.id) && s.anchor_time,
     );
@@ -1307,11 +1337,11 @@ export function TripEditor({
         return void (e.preventDefault(), doBulkShift(-5));
       if (e.shiftKey && e.key === 'ArrowDown')
         return void (e.preventDefault(), doBulkShift(5));
+      // Through doInsertDay, not insertDay: the shortcut has to hit the same
+      // lock guard and the same "this pushed N notes onto another date"
+      // notice the button does.
       if (e.key === 'd' && records)
-        return void (e.preventDefault(),
-        run(() =>
-          insertDay(pb, tripId, records.days.length, { kind: 'travel' }),
-        ));
+        return void (e.preventDefault(), doInsertDay(records.days.length));
       if (e.key === 'n') return void (e.preventDefault(), doAddStopToFocus());
       // BUILD §7: "k opens an icon grid" for the one selected stop. Recomputed
       // here rather than closing over the render's `selectedStop` — that const
@@ -1461,7 +1491,7 @@ export function TripEditor({
   // needs itinerary rights (WORK 22). Update/delete resolve the parent from
   // the block record.
   const blockRoleBlocked = (parentType: 'stop' | 'poi'): boolean =>
-    blockedByRole(parentType === 'poi' ? 'wishlist' : 'itinerary');
+    blockedEdit(parentType === 'poi' ? 'wishlist' : 'itinerary');
   const parentTypeOf = (blockId: string): 'stop' | 'poi' =>
     records.blocks.find((b) => b.id === blockId)?.parent_type === 'poi'
       ? 'poi'
@@ -1621,7 +1651,7 @@ export function TripEditor({
             dayCount={days.length}
             readOnly={!canEditItinerary}
             onChange={(date) =>
-              !blockedByRole('itinerary') &&
+              !blockedEdit('itinerary') &&
               run(() => setTripStartDate(trip.id, date))
             }
           />
@@ -1634,6 +1664,15 @@ export function TripEditor({
           >
             ⚠ {uncategorizedCount}
           </button>
+        )}
+        {/* Beside the ⚠ counter on purpose: both are persistent trip state
+            that doubles as the control for acting on it. A locked trip must
+            never be a mystery — see TripLockMenu. */}
+        {canEditItinerary && (
+          <TripLockMenu
+            lock={lock}
+            onChange={(next) => run(() => setTripLock(trip.id, next))}
+          />
         )}
         <div className="ml-auto flex flex-none items-center gap-2">
           <BudgetPopover
@@ -1792,6 +1831,7 @@ export function TripEditor({
             onAddDay={() => doInsertDay(records.days.length)}
             onInsertDay={doInsertDay}
             canAddDay={canEditItinerary}
+            daysLocked={lockBlocks(lock, 'days')}
             picking={mapPicking}
             placing={!!placingWish}
             parkingLots={parkingLots}
@@ -2021,7 +2061,7 @@ export function TripEditor({
               }}
               onUpdateStop={(patch) => {
                 if (cardTarget.type === 'wish') {
-                  if (blockedByRole('wishlist')) return;
+                  if (blockedEdit('wishlist')) return;
                   const id = cardTarget.item.id;
                   void run(async () => {
                     await updatePoi(pb, id, patch);
@@ -2158,15 +2198,15 @@ export function TripEditor({
             onDeleteDay={doDeleteDay}
             onAddStop={(dayId) => setAddStopDay(dayId)}
             onUpdateLeg={(legId, patch: LegPatch) =>
-              !blockedByRole('itinerary') &&
+              !blockedEdit('itinerary') &&
               run(() => updateLeg(pb, legId, patch))
             }
             onRerouteLeg={(legId) =>
-              !blockedByRole('itinerary') &&
+              !blockedEdit('itinerary') &&
               run(() => rerouteLeg(pb, routing, records, legId))
             }
             onSetLegDuration={(legId, durationMin) =>
-              !blockedByRole('itinerary') &&
+              !blockedEdit('itinerary') &&
               run(() => setLegDurationOverride(pb, legId, durationMin))
             }
             onMoveStop={(stopId, targetDayId, targetIndex) =>
@@ -2338,7 +2378,7 @@ export function TripEditor({
           trip={trip}
           onClose={() => setSettingsOpen(false)}
           onSave={(patch) =>
-            !blockedByRole('itinerary') &&
+            !blockedEdit('itinerary') &&
             run(() => updateTripSettings(tripId, patch))
           }
         />
@@ -2453,7 +2493,7 @@ export function TripEditor({
           daylight={null}
           onClose={() => setExpanded(false)}
           onUpdate={(patch) => {
-            if (blockedByRole('wishlist')) return;
+            if (blockedEdit('wishlist')) return;
             const id = cardTarget.item.id;
             void run(async () => {
               await updatePoi(pb, id, patch);

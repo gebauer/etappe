@@ -415,6 +415,11 @@ export type TripMembersRecord = {
 	user: RecordIdString
 }
 
+export const TripsLockedOptions = {
+	"days": "days",
+	"all": "all",
+} as const
+export type TripsLockedOptions = typeof TripsLockedOptions[keyof typeof TripsLockedOptions]
 export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown> = {
 	car_buffer_pct?: number
 	created: IsoAutoDateString
@@ -422,6 +427,7 @@ export type TripsRecord<Tdefault_dwell = unknown, Tsurface_multipliers = unknown
 	default_dwell: null | Tdefault_dwell
 	hero_poi?: RecordIdString
 	id: string
+	locked?: TripsLockedOptions
 	owner: RecordIdString
 	share_enabled?: boolean
 	share_token?: string

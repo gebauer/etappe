@@ -1,5 +1,6 @@
 import { pb } from './pb';
 import { defaultDwellSeed } from './taxonomy';
+import type { TripLock } from './trip-lock';
 import type {
   InvitesResponse,
   TripsResponse,
@@ -134,6 +135,14 @@ export async function setTripHeroPoi(
   poiId: string | null,
 ): Promise<void> {
   await pb.collection('trips').update(tripId, { hero_poi: poiId ?? '' });
+}
+
+/** The trip's accident guard (see `lib/trip-lock.ts`). `''` clears it. */
+export async function setTripLock(
+  tripId: string,
+  lock: TripLock,
+): Promise<void> {
+  await pb.collection('trips').update(tripId, { locked: lock });
 }
 
 /**

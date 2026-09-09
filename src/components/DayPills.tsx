@@ -24,6 +24,11 @@ interface Props {
   onFitTrip: () => void;
   /** False for a `contributor`/`viewer` (WORK 22): no `+` / insert-day. */
   canAddDay?: boolean;
+  /** The trip lock is at `days` or `all` (`lib/trip-lock.ts`). Distinct
+   * from `canAddDay` on purpose: a role someone will never have hides the
+   * affordance, a lock they set themselves dims it and keeps it clickable,
+   * so the refusal can say what to do about it. */
+  daysLocked?: boolean;
 }
 
 // Tailwind's `/<opacity>` modifier doesn't generate a rule for a custom
@@ -79,6 +84,7 @@ export function DayPills({
   onInsertDay,
   onFitTrip,
   canAddDay = true,
+  daysLocked = false,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pillRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -277,7 +283,7 @@ export function DayPills({
               const active = day.id === activeDayId;
               return (
                 <Fragment key={day.id}>
-                  {canAddDay && (
+                  {canAddDay && !daysLocked && (
                     <button
                       onClick={() => onInsertDay(i)}
                       aria-label={`Insert a day before Day ${i + 1}`}
@@ -353,11 +359,24 @@ export function DayPills({
         {canAddDay && (
           <>
             <span className="mx-1.5 w-px flex-none bg-[oklch(0.30_0.012_250)]" />
+            {/* Dimmed but still clickable while days are locked, not
+                disabled: a dead control says nothing about why, and the
+                click is what surfaces the notice naming the lock and where
+                to lift it. Hiding it outright is what would leave someone
+                hunting for a button that used to be here. */}
             <button
               onClick={onAddDay}
-              aria-label="Add day"
-              title="Add day"
-              className="h-7 w-7 flex-none rounded-lg border border-dashed border-[oklch(0.36_0.012_250)] text-[oklch(0.78_0.008_250)] hover:border-[oklch(0.46_0.012_250)] hover:text-text"
+              aria-label={daysLocked ? 'Add day — days are locked' : 'Add day'}
+              title={
+                daysLocked
+                  ? 'Days are locked — unlock the trip in the header to add one'
+                  : 'Add day'
+              }
+              className={`h-7 w-7 flex-none rounded-lg border border-dashed ${
+                daysLocked
+                  ? 'cursor-not-allowed border-[oklch(0.30_0.012_250)] text-text-5'
+                  : 'border-[oklch(0.36_0.012_250)] text-[oklch(0.78_0.008_250)] hover:border-[oklch(0.46_0.012_250)] hover:text-text'
+              }`}
             >
               +
             </button>
