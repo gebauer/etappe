@@ -31,7 +31,7 @@ Implement the map-first planner redesign described in `design_handoff_map_first_
 3. Expanded full-details modal, including the accommodation toggle wired to re-run the cascade so the itinerary column's NO_ACCOMMODATION banner updates live.
 4. Access-point picking mode: overlay suppression, the accent inset ring, easeTo z17 on the stop, parking chips, banner.
 5. Wishlist carousel with the star filter and hover highlights.
-6. Phone layout: the compact strip, swipe stepping, inline 44px-target edit form.
+6. Phone layout: days-only dock, the day drawer with its grab handle, one-card stop stepping with dots, the 50vh stop sheet.
 
 **Two things need server work, not just UI:**
 - The parking chips come from an Overpass `amenity=parking` + `parking_entrance` query around the stop. **Cache it server-side**, like the existing Nearby call. Bound it hard: one tag, nearest 3–5 results, only fetched while picking mode is active. Unbounded Overpass is what caused the original "too many pins" problem.
@@ -39,7 +39,7 @@ Implement the map-first planner redesign described in `design_handoff_map_first_
 
 **The wishlist carousel now exists on phone** — same component as desktop, re-metered to 124px cards with 92px photos, arrows dropped in favour of touch scroll-snap. It is reachable **only while the day detail is collapsed**, via an `★ Explore N places` glass pill at the map's bottom-left. See the README's phone section.
 
-**The phone day detail collapses** — a 30px chevron in the day header's top line hides the itinerary so the map takes the freed height; clicking any day pill reopens it, and phone Fit trip collapses it. Phone only. See the README's phone section.
+**The phone layout is rebuilt — read the README's phone section before writing any of it.** In short: the map always holds `flex:1`; the itinerary aside becomes a content-sized drawer with a grab handle; the day dock carries day numbers only (no stop counts, no scroll buttons — fading edges are the swipe affordance, `DAYS` label kept); the day's stops are one swipeable card with progress dots instead of a list, and the stepped card highlights its map pin; tapping that card collapses the drawer and opens the stop detail as a full-width 50vh bottom sheet with a scrollable body. Nothing else on phone changed.
 
 **Daylight wording changed** — before noon the line reads against dawn (`4 h 48 m after dawn · dawn 04:12`), from noon against dusk as today. See the README's "Daylight wording" note. Dawn/dusk still come from the cascade engine; only the sentence is new.
 
@@ -47,7 +47,7 @@ Implement the map-first planner redesign described in `design_handoff_map_first_
 
 **Sign-in is redesigned** — see the README's "Sign-in" section and `Etappe Login.dc.html` in this folder. Full-bleed travel photograph, form card floating over the left third on one blurred plate, photo caption bottom-right. The photos come from a **supplied server folder plus a `photos.json` manifest** (file, place, region, coords, month); render only the fields a manifest entry actually has — no placeholder captions. One photo per visit, 7 s crossfade while the page is open, `prefers-reduced-motion` holds the first. Sourcing photos from users' own trips is deliberately out of scope here — it is written up in `FEATURE_REQUEST_trip-photos.md`.
 
-**Fit trip enters a trip overview** — it clears the day selection (`day: null`), so no pill is active; the map then draws one 30px accent pin per day at that day's starting point, numbered 1–X (unplanned days render on `control` instead of accent), and the itinerary column becomes a day list with date, starting point, span and stop count. Stop pins and the day route are not drawn in this state. Clicking any pin, row or pill leaves it. See the README's "Trip overview".
+**Fit trip enters a trip overview on desktop only** — on phone it merely clears the stop selection and collapses the day drawer, keeping the day selected. On desktop it clears the day selection (`day: null`), so no pill is active; the map then draws one 30px accent pin per day at that day's starting point, numbered 1–X (unplanned days render on `control` instead of accent), and the itinerary column becomes a day list with date, starting point, span and stop count. Stop pins and the day route are not drawn in this state. Clicking any pin, row or pill leaves it. See the README's "Trip overview".
 
 **The day dock is a scrolling rail, not a wrapping row** — see the README's "Day dock" section. Long trips wrapped the pills onto two lines. Now: Fit trip leads as a 38px corner-brackets icon button, then a glass container whose front carries one vertical `DAYS` label (the pills lost the repeated word and show just the number), then a horizontal scroller flanked by dim-at-end chevrons with 26px edge fades on the overflowing sides. `+` add-day sits outside the scroller. The rail also drag-scrolls (with the pill click suppressed once the pointer has moved 4px), and clicking a pill near either edge scrolls the days beyond it into view. The rail must never wrap at any trip length.
 
@@ -64,7 +64,7 @@ Implement the map-first planner redesign described in `design_handoff_map_first_
 **Known gaps — leave them alone unless asked:**
 - A directions link on parking chips: not designed, not built.
 - Phone route to the expanded card: not built. `All details` is not offered on phone by design.
-- Drag-to-expand and rubber-band swipe on the phone strip: not built.
+- Drag-to-resize the phone sheet (fixed 50vh) and rubber-band swipe: not built.
 - `Remove` needs a delete confirmation that the prototype does not show. Add one using the app's existing confirmation pattern.
 - Leg-direction arrows are still absent (removed earlier over a basemap glyph issue). Not restored here.
 

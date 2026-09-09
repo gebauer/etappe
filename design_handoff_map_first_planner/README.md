@@ -211,29 +211,63 @@ Per the notes this column is the existing timeline kept functionally as-is — r
 
 ### 2. Phone (<860px)
 
-**Purpose**: read-mostly companion during the trip, with permitted edits.
+**Purpose**: read-mostly companion during the trip, with permitted edits. The phone layout was rebuilt after the first build proved too dense: three stacked surfaces (day dock, day header block, scrolling stop list) left the map about a third of a 1080px-tall screen. The rule now is **one surface at a time, stepped horizontally**.
 
-- Body switches to `flex-direction:column`. Map takes `flex:0 0 58%`, itinerary column fills the rest below it (`oklch(0.195 0.012 250)`, no left border).
-- The wishlist panel and the desktop card are suppressed. The bottom-left wishlist panel does not exist at this width. The day dock stays — it is how the day detail is reopened.
-- **The day detail collapses.** At phone width the itinerary is half the screen, and the map is the reason the user is here, so the day panel must be dismissable:
-  - A **30px chevron button** sits in the day header's top line, right of the time span: `radius:8px`, `control` background, `border-strong`, 10px glyph — `▼` to collapse, `▲` to restore, with `title`/`aria-label` reading *Hide / Show the day's stops*. Phone only; the desktop column is always open.
-  - Collapsed, the `<aside>` drops to `flex:0 0 auto` — the header line alone — and the map section takes `flex:1 1 auto` instead of its 58%, so the map claims the freed height rather than leaving a gap.
-  - **Clicking any day pill reopens it** (`dayCollapsed: false` alongside the day change). Switching day is a request to see that day, so a collapsed panel would swallow the result.
-  - **Fit trip collapses it** on phone. Framing the whole trip is a map gesture; it should hand over as much map as the screen has. Desktop Fit trip does not touch the column.
-  - The collapsed state is UI state (`dayCollapsed: boolean`), phone-only, and is not persisted between sessions.
-- **The wishlist carousel exists on phone, and only while the day detail is collapsed.** Without it there is no way to explore places on a phone at all. Gating it on the collapsed state is what makes it fit: browsing places is a map activity, so it is offered exactly when the user has already given the map the screen.
-  - **Entry point** — a glass pill at `left:8px; bottom:8px`, 38px, `radius:19px`, `oklch(0.20 0.013 250 / 0.92)` + `blur(10px)`, border `oklch(0.34 0.012 250)`: a gold `★` and `Explore N places`. Shown only when `phone && dayCollapsed && !selection && !browsing && !picking` — it never competes with the phone card.
-  - **The carousel is the same component as desktop**, re-metered: cards 124px wide (from 178), photos 92px tall (from 136), `radius:11px`, 9px gaps, 10px side padding, 24px star buttons, and the contributor pill at 17px/9.5px. Photo-first still — the thumbnail is the card, the name and kind sit over the scrim.
-  - The desktop `‹` `›` arrows are **hidden on phone**; the strip is touch-scrolled with `scroll-snap-type:x mandatory` doing the work. The star filter chip and the `✕` close stay.
-  - Tapping a card behaves as on desktop: closes the carousel, selects the place, and opens the phone strip card for it. Hover highlighting has no phone equivalent and is simply absent.
-  - Expanding the day detail again dismisses the carousel — the two never share the screen.
-- **Phone card** — a compact strip, *not* the full-bleed photo sheet, so the map stays readable behind it:
-  - `position:absolute; left:8px; right:8px; bottom:8px; z-index:20`, `radius:14px`, background `oklch(0.215 0.012 250 / 0.97)`, `backdrop-filter:blur(14px)`, border `1px solid oklch(0.31 0.012 250)`, shadow `0 10px 30px oklch(0.10 0.02 250 / 0.55)`.
-  - Row 1, `padding:10px 11px; gap:11px`: 46px thumbnail (`radius:9px`; amber border for wishlist entries, `oklch(0.33 0.012 250)` for stops), name 14px/600 truncating, subtitle 11.5px, right-aligned mono arrive over dwell, 28px close button.
-  - Row 2 (nav): `‹` and `›` as 30×30 rounded-8px buttons, and between them a centered hint — 10.5px mono `oklch(0.62 0.01 250)` reading `swipe · 3 / 8`, followed by a chevron running a looping nudge animation.
-  - Row 3: the same action bar as desktop.
-  - Edit expands the strip in place with a **44px-target** version of the edit form (title, kind, dwell, anchor, access point, block buttons), `max-height:44vh` and scrollable.
-- **Not built**: drag-to-expand on the sheet, and a rubber-band transform during the swipe. Both were called out as worth adding if the strip shape holds.
+- Body switches to `flex-direction:column`. **The map always takes `flex:1 1 auto`**; the `<aside>` is always `flex:0 0 auto` with a top border — it is a drawer sized by its content, never a pane that splits the screen.
+- The wishlist panel and the desktop card are suppressed. The day dock stays — it is how days are navigated.
+
+#### Day dock on phone — days only
+
+The dock carries **day numbers and nothing else**. Everything that made it a two-line, button-flanked control is dropped:
+
+- The per-day stop count (`4 stops`) and the state dot are hidden. A pill is the number, 34px tall, `padding:0 14px`, 14px type, centered — a touch target, not a label.
+- The `‹` `›` scroll buttons are hidden. **Fading edges are the only swipe affordance**: the same left/right gradients as desktop, widened to 32px, opacity driven by scroll position. The rail is touch-scrolled and drag-scrolled; nothing steps it by click.
+- The vertical `DAYS` label and its divider stay, at 14px width — it is what tells a first-time user the row is days and not stops.
+- `+` (add day) stays at the right end.
+- Tapping a pill selects the day, clears any stop selection, resets the stop index to 1 and opens the drawer.
+
+#### Day drawer
+
+- **Grab handle**: a 46×4px `oklch(0.44 0.012 250)` bar centered in a 26px-tall button at the top of the aside. It toggles the drawer. The header line under it is also clickable — the whole top of the drawer is the affordance, not a chevron in a corner.
+- **Header line**, `padding:0 12px 9px`: `Day 1` at 15px/600, then a mono 11px `oklch(0.62 0.01 250)` line reading `date · span` (`Thu 10 Jun · 09:00 – 16:05`), truncating. Collapsed, a mono 10.5px uppercase `tap to open` sits at the right end.
+- Collapsed, the drawer is the handle plus that one line. Nothing else.
+- Collapse is derived: `phone && (dayCollapsed || selection)` — selecting a stop collapses it without a second state flag.
+
+#### Stop stepping — one card, swiped
+
+The scrolling stop list does not exist on phone. In its place, **one stop card per day, stepped horizontally**, the same interaction already used for stops in the docked card:
+
+- Card: `padding:8px`, `radius:12px`, border `oklch(0.29 0.012 250)`, background `oklch(0.215 0.012 250)`, inside `padding:0 10px 6px` on the drawer.
+- Content: 26px accent sequence circle, 40px thumbnail (`radius:9px`), name 14px/600, meta `kind · dwell · cost band` at 11.5px, right-aligned mono arrive over depart.
+- `‹` and `›` are 30×44px flat glyph buttons flanking the card; **horizontal swipe with a >40px threshold does the same thing**. Stepping wraps.
+- **Progress dots** under the card: 6px dots, the active one stretching to 16×6 with a 160ms transition, accent fill.
+- **The current card's map pin is highlighted** — 34px, accent fill, halo ring — even before the stop is selected, so stepping the card reads as moving along the map.
+- Empty days show a dashed `No stops on this day yet.` note instead of the card.
+- Trip overview (no day selected) still shows the day list here, capped at `max-height:40vh` with its own scroll.
+
+#### Stop detail — half-screen sheet
+
+Tapping the stop card selects the stop, collapses the drawer, and raises the detail as a bottom sheet:
+
+- `position:absolute; left:0; right:0; bottom:0; height:50vh; z-index:20`, `radius:16px 16px 0 0`, `oklch(0.215 0.012 250 / 0.98)` + `blur(14px)`, top border `oklch(0.31 0.012 250)`, shadow `0 -12px 34px oklch(0.10 0.02 250 / 0.6)`. Full width — at 50vh a floating inset strip reads as a fragment.
+- Header row: 46px thumbnail, name 14px/600, subtitle 11.5px, right-aligned mono arrive over dwell, 28px close.
+- Nav row: `‹` `›` 30×30 buttons and a centered mono `swipe · 3 / 8` hint with the looping chevron nudge. Swiping the sheet steps stops too.
+- **Scrollable body** (this is what the extra height buys): the arrive / depart / daylight trio in one bordered row at 16px mono, then the description, then — when editing — the 44px-target edit grid (title, kind, dwell, anchor, access point, block buttons).
+- Footer: the same action bar as desktop.
+
+#### Fit trip on phone
+
+**Zoom out and get out of the way, nothing more.** It clears the stop selection and collapses the drawer, leaving the day selected and its pill active. It does **not** enter the trip overview — the day list is not what someone asking for the whole map wants. Desktop Fit trip is unchanged (it clears the day and enters trip overview).
+
+#### Wishlist carousel on phone
+
+- Reachable **only while the day detail is collapsed** — browsing places is a map activity, offered exactly when the user has given the map the screen.
+- **Entry point** — a glass pill at `left:8px; bottom:8px`, 38px, `radius:19px`, `oklch(0.20 0.013 250 / 0.92)` + `blur(10px)`, border `oklch(0.34 0.012 250)`: a gold `★` and `Explore N places`. Shown only when `phone && dayCollapsed && !selection && !browsing && !picking`.
+- **The carousel is the same component as desktop**, re-metered: cards 124px wide (from 178), photos 92px tall (from 136), `radius:11px`, 9px gaps, 10px side padding, 24px star buttons, contributor pill at 17px/9.5px.
+- The desktop `‹` `›` arrows are hidden; `scroll-snap-type:x mandatory` does the work. The star filter chip and `✕` stay.
+- Tapping a card closes the carousel, selects the place and opens the sheet for it. Hover highlighting has no phone equivalent.
+
+- **Not built**: drag-to-resize the sheet (it is a fixed 50vh), rubber-band transform during the swipe, and any phone route to the expanded full-details modal.
 
 ---
 
@@ -459,11 +493,7 @@ None shipped. Everything in the prototype is CSS.
 ## Files
 
 - `Etappe Redesign.dc.html` — the full prototype: desktop shell, all card modes, the expanded card, phone layout. Open it directly in a browser. Reach the expanded card via `All details` on any stop card.
-- `Etappe Login.dc.html` — the sign-in prototype (see the "Sign-in" section).
-- `Etappe Trips.dc.html` — the trip-selection prototype (see the "Trip selection" section).
-- `support.js`, `image-slot.js` — prototype runtime only. Not for the target app; ignore both.
-- `photos/` + (expected) `photos.json` — the sample sign-in photo and the manifest shape the "Sign-in" section describes. Ship 8–12 of your own.
-- `FEATURE_REQUEST_trip-photos.md` — the follow-up that swaps the supplied folder for the user's own trip photos. Touches both the sign-in and the trip-selection photo sources; not part of either redesign.
+- `support.js` — prototype runtime only. Not for the target app.
 
 Inside the prototype: the markup section is the template, the `class Component` block below it holds the logic. `STOPS` and `WISH` at the top are seeded demo data mirroring the Iceland Ring Road trip from the screenshots. Four tweakable props sit at the bottom of the file — demo state (`rest` / `stop` / `stop-edit` / `wishlist` / `empty`), force-phone, wishlist pins on/off, and accent color — useful for stepping through every state without clicking.
 
