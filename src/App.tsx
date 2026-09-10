@@ -6,6 +6,7 @@ import { AccountPanel } from './components/AccountPanel';
 import { TripList } from './components/TripList';
 import { TripEditor } from './components/TripEditor';
 import { ShareView } from './components/ShareView';
+import { useInstallPrompt } from './hooks/useInstallPrompt';
 
 /** The PWA share_target action (BUILD §6.4, public/manifest.json): Android's
  * share sheet navigates here with title/text/url query params. Read once and
@@ -68,6 +69,7 @@ function AppShell() {
   // The trip editor owns the whole viewport and renders its own 52px header
   // (WORK 12.6) — this chrome is only for the login and trip-list screens.
   const inEditor = isLoggedIn && !!tripId;
+  const { canInstall, install } = useInstallPrompt();
 
   return (
     // Two different shells, because the app is two different things.
@@ -99,6 +101,18 @@ function AppShell() {
           {isLoggedIn && (
             <div className="flex items-center gap-3 text-[13px]">
               <span className="text-text-4">{user?.email}</span>
+              {/* Only while the browser is offering — it hands the prompt
+                  over once, and never at all if the app is already
+                  installed. */}
+              {canInstall && (
+                <button
+                  onClick={() => void install()}
+                  title="Install Etappe — it runs without the browser's address bar, which is most of a phone screen's top edge"
+                  className="flex-none whitespace-nowrap rounded-lg border border-accent bg-accent-surface px-2.5 py-1 text-accent"
+                >
+                  Install
+                </button>
+              )}
               <button
                 onClick={() => setAccountOpen(true)}
                 className="text-text-3 underline hover:text-text"
