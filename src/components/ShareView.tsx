@@ -52,7 +52,7 @@ export function ShareView({ token }: { token: string }) {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-bg px-4 text-center font-sans">
+      <div className="flex h-dvh items-center justify-center bg-bg px-4 text-center font-sans">
         <p className="text-text-3">
           This link isn&rsquo;t shared, or the trip owner turned sharing off.
         </p>
@@ -61,7 +61,7 @@ export function ShareView({ token }: { token: string }) {
   }
   if (!doc) {
     return (
-      <div className="flex h-screen items-center justify-center bg-bg font-sans">
+      <div className="flex h-dvh items-center justify-center bg-bg font-sans">
         <p className="text-text-4">Loading…</p>
       </div>
     );
@@ -73,7 +73,7 @@ export function ShareView({ token }: { token: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-bg font-sans text-text sv-root">
+    <div className="min-h-dvh bg-bg font-sans text-text sv-root">
       {/* A minimal print treatment (WORK 9.3): the dark shell inverts to
           paper, and each day starts a fresh page. The full per-day-map
           print view lives in the editor; a public reader gets the clean

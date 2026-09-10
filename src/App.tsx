@@ -70,7 +70,12 @@ function AppShell() {
   const inEditor = isLoggedIn && !!tripId;
 
   return (
-    <div className="flex h-screen flex-col bg-bg font-sans text-text">
+    // `dvh`, not `vh`: on a phone browser `100vh` is the *large* viewport —
+    // the height the page would have if the URL bar and tab strip were
+    // hidden — so the bottom ~180px of a fixed, unscrollable shell sits
+    // behind them permanently (author, 2026-09-10: the phone day drawer was
+    // cut in half). `dvh` tracks the toolbars as they come and go.
+    <div className="flex h-dvh flex-col bg-bg font-sans text-text">
       {!inEditor && isLoggedIn && (
         <header className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
           <span className="text-lg font-semibold">Etappe</span>

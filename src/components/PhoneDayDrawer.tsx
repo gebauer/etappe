@@ -150,7 +150,7 @@ export function PhoneDayDrawer({
       {!collapsed && overview && (
         // Capped rather than free-growing: the day list is a way back into a
         // day, not the view itself, so it must not push the map off screen.
-        <div className="max-h-[40vh] min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="max-h-[40dvh] min-h-0 overflow-y-auto overflow-x-hidden">
           <TripOverview
             trip={trip}
             days={days}

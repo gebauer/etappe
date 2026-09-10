@@ -161,6 +161,32 @@ async function main() {
       'the drawer is sized by its content, not a 58% pane',
     );
 
+    // Headless has no dynamic browser toolbar, so it cannot reproduce the
+    // clipping this guards (author, 2026-09-10: the drawer sat behind
+    // Vivaldi's URL bar). What it can do is catch the cause coming back —
+    // a shell measured against `100vh`, the height the page *would* have
+    // with the toolbars hidden.
+    console.log('--- the shell measures the visible viewport ---');
+    const shellUnits = await page.evaluate(() => {
+      const el = document.querySelector('#root > div');
+      return {
+        classes: el?.className ?? '',
+        height: el?.getBoundingClientRect().height ?? 0,
+        visible: window.innerHeight,
+      };
+    });
+    console.log(
+      `  shell ${Math.round(shellUnits.height)}px, window ${shellUnits.visible}px`,
+    );
+    expect(
+      /\bh-dvh\b/.test(shellUnits.classes),
+      'the app shell is sized in dvh, not vh',
+    );
+    expect(
+      Math.abs(shellUnits.height - shellUnits.visible) < 2,
+      'the shell fills the visible viewport exactly',
+    );
+
     console.log('--- the day dock is days only ---');
     const pill = page.locator('button[aria-label^="Day 1"]').first();
     const pillBox = await pill.boundingBox();

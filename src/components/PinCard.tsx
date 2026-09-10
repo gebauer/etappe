@@ -538,7 +538,7 @@ export function PinCard({
         // content-sized strip inset from the edges read as a fragment, and
         // the fixed height is what buys the scrollable body below — the
         // timings and description that used to have nowhere to go on phone.
-        className="absolute inset-x-0 bottom-0 z-30 flex h-[50vh] flex-col overflow-hidden rounded-t-2xl border-t border-border-strong bg-[oklch(0.215_0.012_250/0.98)] font-sans text-text shadow-phone-card backdrop-blur-[14px]"
+        className="absolute inset-x-0 bottom-0 z-30 flex h-[50dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border-strong bg-[oklch(0.215_0.012_250/0.98)] font-sans text-text shadow-phone-card backdrop-blur-[14px]"
       >
         <div className="flex flex-none items-center gap-[11px] px-[11px] py-2.5">
           <span
