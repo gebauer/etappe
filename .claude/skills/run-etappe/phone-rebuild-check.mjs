@@ -161,30 +161,45 @@ async function main() {
       'the drawer is sized by its content, not a 58% pane',
     );
 
-    // Headless has no dynamic browser toolbar, so it cannot reproduce the
-    // clipping this guards (author, 2026-09-10: the drawer sat behind
-    // Vivaldi's URL bar). What it can do is catch the cause coming back —
-    // a shell measured against `100vh`, the height the page *would* have
-    // with the toolbars hidden.
-    console.log('--- the shell measures the visible viewport ---');
-    const shellUnits = await page.evaluate(() => {
+    // Headless has no dynamic browser toolbar, so it cannot reproduce what
+    // this guards (author, 2026-09-10: the drawer first sat behind
+    // Vivaldi's URL bar, then, installed as a PWA, the shell spilled below
+    // the fold and scrolling revealed white). What it can check is that the
+    // editor is a fixed box the page cannot scroll, whatever the viewport
+    // turns out to be on the device.
+    console.log('--- the editor is pinned, and the page cannot scroll ---');
+    const shell = await page.evaluate(() => {
       const el = document.querySelector('#root > div');
+      const doc = document.documentElement;
       return {
-        classes: el?.className ?? '',
+        position: el ? getComputedStyle(el).position : '',
         height: el?.getBoundingClientRect().height ?? 0,
         visible: window.innerHeight,
+        scrollHeight: doc.scrollHeight,
+        clientHeight: doc.clientHeight,
+        bodyBg: getComputedStyle(document.body).backgroundColor,
       };
     });
     console.log(
-      `  shell ${Math.round(shellUnits.height)}px, window ${shellUnits.visible}px`,
+      `  shell ${Math.round(shell.height)}px ${shell.position}, window ` +
+        `${shell.visible}px, document ${shell.scrollHeight}px`,
     );
     expect(
-      /\bh-dvh\b/.test(shellUnits.classes),
-      'the app shell is sized in dvh, not vh',
+      shell.position === 'fixed',
+      'the editor shell is pinned to the viewport',
     );
     expect(
-      Math.abs(shellUnits.height - shellUnits.visible) < 2,
+      Math.abs(shell.height - shell.visible) < 2,
       'the shell fills the visible viewport exactly',
+    );
+    expect(
+      shell.scrollHeight <= shell.clientHeight,
+      'the editor page has nothing to scroll — no slab of white below it',
+    );
+    expect(
+      shell.bodyBg !== 'rgba(0, 0, 0, 0)' &&
+        shell.bodyBg !== 'rgb(255, 255, 255)',
+      'the page itself is painted, so no white can show through',
     );
 
     console.log('--- the day dock is days only ---');
@@ -311,6 +326,34 @@ async function main() {
       'Fit trip collapses the drawer and hands the map the screen',
     );
     await shot(page, 'after-fit-trip');
+
+    console.log('--- but the trip list is still a scrolling document ---');
+    await page.click('button:has-text("← Trips")');
+    await page.waitForSelector('text=Your trips', { timeout: 10000 });
+    await page.waitForTimeout(500);
+    const list = await page.evaluate(() => {
+      const el = document.querySelector('#root > div');
+      const doc = document.documentElement;
+      return {
+        position: el ? getComputedStyle(el).position : '',
+        overflow: el ? getComputedStyle(el).overflowY : '',
+        scrollable: doc.scrollHeight > doc.clientHeight,
+        scrollHeight: doc.scrollHeight,
+        clientHeight: doc.clientHeight,
+      };
+    });
+    console.log(
+      `  list shell ${list.position}/${list.overflow}, document ` +
+        `${list.scrollHeight}px in ${list.clientHeight}px`,
+    );
+    expect(
+      list.position === 'static',
+      'the trip list keeps flow layout — it has no scroller of its own',
+    );
+    expect(
+      list.overflow !== 'hidden',
+      'nothing clips the trip list off the bottom of the page',
+    );
 
     console.log('\nPASS');
   } catch (err) {

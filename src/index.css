@@ -9,3 +9,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* The page itself is never the app's background — every screen paints its
+     own. Setting it here anyway so nothing can flash or rubber-band to the
+     browser's white: on a phone that showed up as a slab of white under the
+     editor. `overscroll-behavior` also stops pull-to-refresh, which on a
+     map you reach for by accident. */
+  html,
+  body {
+    background: oklch(0.17 0.012 250);
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+}

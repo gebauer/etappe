@@ -70,12 +70,29 @@ function AppShell() {
   const inEditor = isLoggedIn && !!tripId;
 
   return (
-    // `dvh`, not `vh`: on a phone browser `100vh` is the *large* viewport —
-    // the height the page would have if the URL bar and tab strip were
-    // hidden — so the bottom ~180px of a fixed, unscrollable shell sits
-    // behind them permanently (author, 2026-09-10: the phone day drawer was
-    // cut in half). `dvh` tracks the toolbars as they come and go.
-    <div className="flex h-dvh flex-col bg-bg font-sans text-text">
+    // Two different shells, because the app is two different things.
+    //
+    // The editor is a fixed surface — map, dock, drawer, sheet, each with
+    // its own scrolling — so it is pinned to the viewport and clipped.
+    // `fixed inset-0` rather than any viewport unit on purpose: `100vh` is
+    // the height the page would have with the phone's toolbars *hidden*, so
+    // it hid the drawer behind them, and even `100dvh` left the shell free
+    // to spill below the fold and take the page's scrollbar with it —
+    // scrolling then revealed nothing but unpainted space under the app
+    // (author, 2026-09-10, installed as a PWA). A fixed box cannot do
+    // either: it is the viewport, whatever the viewport currently is.
+    //
+    // Sign-in and the trip list keep flow layout, unchanged: the sign-in
+    // photo screen wants a parent of known height, and `TripList` has no
+    // scroller of its own — a list longer than the box spills and the page
+    // scrolls it, which is the behaviour those two have always had.
+    <div
+      className={
+        inEditor
+          ? 'fixed inset-0 flex flex-col overflow-hidden bg-bg font-sans text-text'
+          : 'flex h-dvh flex-col bg-bg font-sans text-text'
+      }
+    >
       {!inEditor && isLoggedIn && (
         <header className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
           <span className="text-lg font-semibold">Etappe</span>
