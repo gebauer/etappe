@@ -32,6 +32,7 @@ import {
 import { clampIndex, stepIndex } from '../lib/stop-step';
 import { TripLockMenu } from './TripLockMenu';
 import { PhoneDayDrawer } from './PhoneDayDrawer';
+import { AddDayPrompt } from './AddDayPrompt';
 import {
   addStopAt,
   downgradeStopToWishlist,
@@ -226,6 +227,9 @@ export function TripEditor({
   } | null>(null);
   // The Delete/Backspace shortcut asks before it acts, and it recycles to the
   // wishlist rather than deleting (WORK 22).
+  /** Where a day would be inserted, once confirmed (author, 2026-09-10) —
+   * `days.length` for the trailing `+`. See `AddDayPrompt`. */
+  const [pendingDay, setPendingDay] = useState<number | null>(null);
   const [pendingRecycle, setPendingRecycle] = useState<StopsResponse[] | null>(
     null,
   );
@@ -259,29 +263,61 @@ export function TripEditor({
   // Neutral counterpart to actionError: something happened that the planner
   // should know about but nothing went wrong.
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | null>(null);
+
+  /**
+   * Show a line above the panes that stays until something replaces it —
+   * for progress, where the next update is the end of this one.
+   *
+   * Cancelling the pending timer is the point of both of these. Every
+   * notice used to schedule its own independent clear, so a second message
+   * raised inside the first one's window was wiped by the *first* one's
+   * timer: the trip-lock refusal could flash and vanish in well under a
+   * second (found 2026-09-13). A message that names the way out of a lock
+   * has to stay up long enough to read.
+   */
+  const holdNotice = useCallback((message: string) => {
+    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = null;
+    setNotice(message);
+  }, []);
+
+  /** The same, but it clears itself again after `ms`. */
+  const flashNotice = useCallback(
+    (message: string, ms = 5000) => {
+      holdNotice(message);
+      noticeTimer.current = window.setTimeout(() => {
+        noticeTimer.current = null;
+        setNotice(null);
+      }, ms);
+    },
+    [holdNotice],
+  );
   const linkOut = useLinkOut();
 
   /** Every `↗` click. Says once — ever, per browser — that the app the
    * links open is a setting, then gets out of the way. `truncated` is the
    * day export losing stops to Google's 9-waypoint cap; that one is worth
    * saying every time, since the route on screen is genuinely incomplete. */
-  const noteLinkOut = useCallback((truncated = 0) => {
-    const parts: string[] = [];
-    if (truncated > 0) {
-      parts.push(
-        `Only part of the day fits — ${truncated} stop${
-          truncated === 1 ? '' : 's'
-        } left out of the link.`,
-      );
-    }
-    if (shouldHintLinkOut()) {
-      markLinkOutHinted();
-      parts.push('You can change which map app ↗ opens under Account.');
-    }
-    if (parts.length === 0) return;
-    setNotice(parts.join(' '));
-    window.setTimeout(() => setNotice(null), 8000);
-  }, []);
+  const noteLinkOut = useCallback(
+    (truncated = 0) => {
+      const parts: string[] = [];
+      if (truncated > 0) {
+        parts.push(
+          `Only part of the day fits — ${truncated} stop${
+            truncated === 1 ? '' : 's'
+          } left out of the link.`,
+        );
+      }
+      if (shouldHintLinkOut()) {
+        markLinkOutHinted();
+        parts.push('You can change which map app ↗ opens under Account.');
+      }
+      if (parts.length === 0) return;
+      flashNotice(parts.join(' '), 8000);
+    },
+    [flashNotice],
+  );
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -446,8 +482,9 @@ export function TripEditor({
    * requests at the user (WORK 10.3). Read-only navigation is unaffected. */
   function blockedOffline(): boolean {
     if (!offline) return false;
-    setNotice('Offline — showing the last synced version. Editing is paused.');
-    window.setTimeout(() => setNotice(null), 5000);
+    flashNotice(
+      'Offline — showing the last synced version. Editing is paused.',
+    );
     return true;
   }
 
@@ -470,17 +507,15 @@ export function TripEditor({
         : // Day structure is an itinerary edit as far as roles go.
           canEditItinerary;
     if (!roleOk) {
-      setNotice(
+      flashNotice(
         scope === 'wishlist'
           ? 'This trip is shared with you read-only.'
           : 'You can add and edit wishlist places, but not the itinerary.',
       );
-      window.setTimeout(() => setNotice(null), 5000);
       return true;
     }
     if (lockBlocks(lock, scope)) {
-      setNotice(lockRefusalMessage(lock, scope));
-      window.setTimeout(() => setNotice(null), 5000);
+      flashNotice(lockRefusalMessage(lock, scope));
       return true;
     }
     return false;
@@ -1136,12 +1171,12 @@ export function TripEditor({
     a.click();
     URL.revokeObjectURL(url);
     const omitted = 'omitted_files' in doc ? (doc.omitted_files ?? 0) : 0;
-    setNotice(
+    flashNotice(
       omitted
         ? `Exported. ${omitted} uploaded file${omitted === 1 ? '' : 's'} could not travel in JSON — re-attach them after importing.`
         : 'Exported.',
+      6000,
     );
-    window.setTimeout(() => setNotice(null), 6000);
   }
 
   /** Insert a day at `atIndex` (WORK 16.2). The data layer reindexes the
@@ -1149,6 +1184,14 @@ export function TripEditor({
    * derived date moved as a result — a booking pinned to "day 4" is now a
    * day later, which the planner has to be told rather than discover. */
   function doInsertDay(atIndex: number) {
+    if (!records || blockedEdit('days')) return;
+    // Ask first. Every route in — the dock's `+`, the insert hairlines, the
+    // `d` shortcut — arrives here, so this is the one gate.
+    setPendingDay(atIndex);
+  }
+
+  function confirmInsertDay(atIndex: number) {
+    setPendingDay(null);
     if (!records || blockedEdit('days')) return;
     void run(async () => {
       const { changedBlocks } = await insertDay(pb, tripId, atIndex, {
@@ -1169,10 +1212,10 @@ export function TripEditor({
 
   function noteShiftedBlocks(changed: BlocksResponse[], lead: string) {
     if (changed.length === 0) return setNotice(null);
-    setNotice(
+    flashNotice(
       `${lead} ${changed.length} note${changed.length === 1 ? '' : 's'} onto a different date.`,
+      8000,
     );
-    window.setTimeout(() => setNotice(null), 8000);
   }
 
   /** Writes a plan's changes in one go, then reloads once. */
@@ -1338,6 +1381,7 @@ export function TripEditor({
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
       if (e.key === 'Escape' && pendingMove) return cancelMove();
+      if (e.key === 'Escape' && pendingDay !== null) return setPendingDay(null);
       if (e.key === 'Escape' && pendingRecycle) return setPendingRecycle(null);
       if (e.key === 'Escape' && mergeCheck) return setMergeCheck(null);
       if (e.key === 'Escape' && pendingPlacement)
@@ -1398,6 +1442,7 @@ export function TripEditor({
     timingConflict,
     pendingPlacement,
     mergeCheck,
+    pendingDay,
     pendingRecycle,
     pendingMove,
     wishCard,
@@ -2470,20 +2515,21 @@ export function TripEditor({
           // backend so nothing stale is reused (WORK 19.3).
           onEngineChanged={async () => {
             if (!records) return;
-            setNotice('Re-routing this trip with the new engine…');
+            holdNotice('Re-routing this trip with the new engine…');
             const { rerouted, failed } = await rerouteAllLegs(
               pb,
               createPocketBaseRouting(pb, tripId),
               records,
-              (done, total) => setNotice(`Re-routing legs — ${done}/${total}…`),
+              (done, total) =>
+                holdNotice(`Re-routing legs — ${done}/${total}…`),
             );
             await reload();
-            setNotice(
+            flashNotice(
               `Re-routed ${rerouted} leg${rerouted === 1 ? '' : 's'}` +
                 (failed ? `, ${failed} could not be routed` : '') +
                 '.',
+              6000,
             );
-            window.setTimeout(() => setNotice(null), 6000);
           }}
         />
       )}
@@ -2535,6 +2581,15 @@ export function TripEditor({
           titles={pendingRecycle.map((s) => s.title)}
           onConfirm={confirmRecycle}
           onDismiss={() => setPendingRecycle(null)}
+        />
+      )}
+      {pendingDay !== null && (
+        <AddDayPrompt
+          trip={trip}
+          atIndex={pendingDay}
+          dayCount={days.length}
+          onConfirm={() => confirmInsertDay(pendingDay)}
+          onDismiss={() => setPendingDay(null)}
         />
       )}
       {pendingMove && (

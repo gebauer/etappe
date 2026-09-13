@@ -290,7 +290,12 @@ export function DayPills({
               const active = day.id === activeDayId;
               return (
                 <Fragment key={day.id}>
-                  {canAddDay && !daysLocked && (
+                  {/* Not on phone: a control that only shows itself on
+                      hover is invisible to a thumb, and an 11px invisible
+                      button between every pill is exactly how days got
+                      added by accident (author, 2026-09-10). The dock's
+                      trailing `+` is the phone's way to add one. */}
+                  {canAddDay && !daysLocked && !phone && (
                     <button
                       onClick={() => onInsertDay(i)}
                       aria-label={`Insert a day before Day ${i + 1}`}

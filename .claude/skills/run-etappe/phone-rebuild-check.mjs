@@ -115,6 +115,8 @@ async function main() {
 
     console.log('--- a day, then two stops on it (at desktop width) ---');
     await addDay.click();
+    // Adding a day asks first since 2026-09-10 (`AddDayPrompt`).
+    await page.click('button:has-text("Add day")');
     await page.waitForSelector('button[aria-label^="Day 1"]', {
       timeout: 10000,
     });

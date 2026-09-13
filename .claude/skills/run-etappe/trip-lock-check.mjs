@@ -53,6 +53,14 @@ async function dayCount(page) {
   );
 }
 
+/** Adding a day asks first since 2026-09-10 (`AddDayPrompt`), so the dock's
+ * `+` is now two steps. */
+async function addDayConfirmed(page, addDay) {
+  await addDay.click();
+  await page.waitForSelector('button:has-text("Add day")', { timeout: 10000 });
+  await page.click('button:has-text("Add day")');
+}
+
 /** Adding a day is a server round-trip, so poll rather than sleep — an
  * 800ms wait was long enough locally to look like a lock. */
 async function waitForDayCount(page, n, timeout = 10000) {
@@ -129,7 +137,7 @@ async function main() {
     // A freshly created trip has no days at all; the dock's `+` makes the
     // first one.
     const daysBefore = await dayCount(page);
-    await addDay.click();
+    await addDayConfirmed(page, addDay);
     await waitForDayCount(page, daysBefore + 1);
     expect(
       true,
@@ -178,6 +186,10 @@ async function main() {
     await shot(page, 'days-locked-refusal');
     expect(bodyText.includes(REFUSAL), 'the refusal names the way out');
     expect(
+      !bodyText.includes('Add Day'),
+      'a locked trip refuses outright — it does not ask first',
+    );
+    expect(
       (await dayCount(page)) === daysLocked1,
       'no day was added while locked',
     );
@@ -200,7 +212,7 @@ async function main() {
       'the padlock is back to its open state',
     );
     const daysBeforeReopen = await dayCount(page);
-    await addDay.click();
+    await addDayConfirmed(page, addDay);
     await waitForDayCount(page, daysBeforeReopen + 1);
     expect(true, 'a day can be added again after unlocking');
     await shot(page, 'unlocked-again');
@@ -219,6 +231,10 @@ async function main() {
     await addDay.click();
     await page.waitForTimeout(600);
     const allText = await page.locator('body').innerText();
+    expect(
+      !allText.includes('Add Day'),
+      'the "all" lock also refuses before asking',
+    );
     expect(
       allText.includes(
         'This trip is locked. Click the 🔒 in the header to unlock.',
