@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { pb } from '../lib/pb';
+import { fetchOwnerTools } from '../lib/owner';
 import {
   ROUTING_ENGINES,
   LINK_OUT_APPS,
@@ -47,6 +48,20 @@ export function AccountPanel({
   const savedNick = (pb.authStore.record?.name as string | undefined) ?? '';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the server knows who the owner is (`OWNER_EMAIL`), so this is a
+  // question rather than something the client can decide. The panel mounts
+  // fresh every time it opens, so one ask per open.
+  const [adminUrl, setAdminUrl] = useState('');
+
+  useEffect(() => {
+    let live = true;
+    void fetchOwnerTools().then((tools) => {
+      if (live && tools.isOwner) setAdminUrl(tools.adminUrl);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   async function guard(fn: () => Promise<void>) {
     setBusy(true);
@@ -230,6 +245,27 @@ export function AccountPanel({
             </button>
           ))}
         </div>
+
+        {adminUrl && (
+          <>
+            <div className="mt-5 text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+              Backend
+            </div>
+            <p className="mt-1 text-[11.5px] leading-snug text-text-4">
+              The PocketBase dashboard — collections, records, logs, and the
+              accounts waiting on your approval. Yours only; it has its own
+              superuser login.
+            </p>
+            <a
+              href={adminUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2.5 inline-flex h-8 items-center rounded-lg border border-border-strong px-3 text-[12.5px] text-text-2 hover:bg-control hover:text-text"
+            >
+              Open the backend ↗
+            </a>
+          </>
+        )}
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
           <button
