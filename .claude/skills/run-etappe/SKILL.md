@@ -151,6 +151,30 @@ replacement for it.
   `phone-rebuild-check.mjs`.
 - **`innerText` applies `text-transform`**, so a Tailwind `uppercase` label
   comes back as `TAP TO OPEN`, not `tap to open`. Match case-insensitively.
+- **Registration is gated, so a check script cannot make its own account**
+  unless the gate is off. Local dev sets `ETAPPE_OPEN_REGISTRATION=true` in
+  `.env` (see `.env.example`); without it, every script that registers a
+  throwaway user gets a created-but-unusable account and fails at the first
+  `waitForSelector('text=New trip')`.
+
+  ### Testing the registration gate
+
+  The gate itself needs the opposite — the flag off and a mail server, since
+  it fails closed without one. Three terminals' worth:
+
+  ```
+  python3 .claude/skills/run-etappe/mail-sink.py &     # 127.0.0.1:2526
+  SMTP_HOST=127.0.0.1 SMTP_PORT=2526 \
+    SMTP_SENDER_ADDRESS=etappe@example.com \
+    OWNER_EMAIL=owner@gebauer.koeln \
+    APP_URL=http://127.0.0.1:8090 npm run pb          # with the flag unset
+  node .claude/skills/run-etappe/registration-gate-check.mjs
+  ```
+
+  The check refuses to run against an open backend rather than passing
+  vacuously. The sink writes each message to `/tmp/etappe-mail/*.txt`, which
+  is also how you read the approve/reject links by hand.
+
 - **A running PocketBase process only applies migrations at startup.** If
   the backend has been running since before a `git pull`/merge that added a
   migration, the live SQLite database silently lacks the new columns — the

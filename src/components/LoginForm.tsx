@@ -76,8 +76,21 @@ export function LoginForm() {
     setError(null);
     setNotice(null);
     try {
-      if (mode === 'login') await login(email, password);
-      else await register(email, password);
+      if (mode === 'login') {
+        await login(email, password);
+      } else {
+        const { signedIn } = await register(email, password);
+        if (!signedIn) {
+          // Created, but the gate holds it: say what has to happen rather
+          // than leaving a working-looking form that refuses to sign in.
+          setMode('login');
+          setNotice(
+            'Account created. Check your email for the confirmation link. ' +
+              "Addresses outside the owner's own domain also need the owner to " +
+              'approve the account before it can be used.',
+          );
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {

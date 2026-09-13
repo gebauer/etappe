@@ -54,6 +54,10 @@ proxies `/api` and `/_` through to PocketBase, so the app runs same-origin.
   the admin lands in the wrong database and login fails):
   `./bin/pocketbase superuser upsert <email> <password> --dir=pb_data`
 - Register a normal account on the app's own login screen — that flow creates
-  the owner trip_members row via `pb_hooks/membership.pb.js`.
+  the owner trip_members row via `pb_hooks/membership.pb.js`. This needs
+  `ETAPPE_OPEN_REGISTRATION=true` in `.env`: registration is gated (a
+  verification link, plus the owner's approval for outside addresses) and
+  fails closed without SMTP, which local dev has none of. See
+  `.env.example`, and the run-etappe skill for how to test the gate itself.
 - `pb_data/` is local and gitignored; delete it to reset all local data, then
   the servers re-run migrations on next start.

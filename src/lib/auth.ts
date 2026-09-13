@@ -9,20 +9,36 @@ export async function login(email: string, password: string): Promise<void> {
   await pb.collection('users').authWithPassword(email, password);
 }
 
-/** Register then sign in. Pending invites for this email are materialised into
- * memberships server-side (pb_hooks/membership.pb.js). */
+/**
+ * Register, then sign in if the server lets us.
+ *
+ * It usually will not, and that is the point (author, 2026-09-13): a new
+ * account has to confirm its address, and one outside the trusted domain
+ * also waits for the owner\'s approval — `pb_hooks/registration.pb.js`. The
+ * gate is the collection\'s auth rule, so the honest thing for a client to
+ * do is try and report what happened, rather than predict a policy it
+ * cannot see. `signedIn: false` means "created, now go and read your email".
+ *
+ * Pending invites for this email are materialised into memberships
+ * server-side (pb_hooks/membership.pb.js).
+ */
 export async function register(
   email: string,
   password: string,
   name = '',
-): Promise<void> {
+): Promise<{ signedIn: boolean }> {
   await pb.collection('users').create({
     email,
     password,
     passwordConfirm: password,
     name,
   });
-  await login(email, password);
+  try {
+    await login(email, password);
+    return { signedIn: true };
+  } catch {
+    return { signedIn: false };
+  }
 }
 
 export function logout(): void {
