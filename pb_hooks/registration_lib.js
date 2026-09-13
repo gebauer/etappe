@@ -24,7 +24,7 @@ function normalizeEmail(email) {
  * Is this address *at* the trusted domain — not merely containing it?
  *
  * The distinction is the whole point. A `~` "contains" test would welcome
- * `bot@gebauer.koeln.example.com` and `gebauer.koeln@spam.example`, which is
+ * `bot@trusted.example.net` and `trusted.example@spam.example`, which is
  * exactly what a bot farm tries. This compares the host after the last `@`
  * for equality.
  */
@@ -67,9 +67,16 @@ function gateIsOff() {
   );
 }
 
-/** The domain that needs no approval. Empty means nobody is trusted. */
+/**
+ * The domain that needs no approval, from `APPROVED_EMAIL_DOMAIN`.
+ *
+ * Defaults to nothing, so an install that has not been told trusts nobody
+ * and every registration waits for its owner. This repository is public: a
+ * default naming one deployment's domain would have every fork of it
+ * auto-approving addresses at someone else's.
+ */
 function trustedDomain() {
-  return String($os.getenv('APPROVED_EMAIL_DOMAIN') || 'gebauer.koeln').trim();
+  return String($os.getenv('APPROVED_EMAIL_DOMAIN') || '').trim();
 }
 
 /** Where "someone signed up" goes; the SMTP sender is the fallback, which in

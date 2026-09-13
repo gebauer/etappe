@@ -17,7 +17,7 @@ import path from 'node:path';
 
 const API = process.env.ETAPPE_API_URL ?? 'http://127.0.0.1:8090';
 const MAILDIR = process.env.ETAPPE_MAIL_DIR ?? '/tmp/etappe-mail';
-const DOMAIN = process.env.APPROVED_EMAIL_DOMAIN ?? 'gebauer.koeln';
+const DOMAIN = process.env.APPROVED_EMAIL_DOMAIN ?? 'trusted.example';
 const PASSWORD = 'TestPass123!';
 
 function expect(cond, message) {

@@ -5,39 +5,45 @@ const { isTrustedDomain, approvalFor, normalizeEmail } = lib;
 
 describe('isTrustedDomain', () => {
   it('accepts the domain itself, whatever the casing', () => {
-    expect(isTrustedDomain('jan@gebauer.koeln', 'gebauer.koeln')).toBe(true);
-    expect(isTrustedDomain('  Jan@Gebauer.Koeln ', 'gebauer.koeln')).toBe(true);
-    expect(isTrustedDomain('jan@gebauer.koeln', '@gebauer.koeln')).toBe(true);
+    expect(isTrustedDomain('owner@trusted.example', 'trusted.example')).toBe(
+      true,
+    );
+    expect(isTrustedDomain('  Owner@Trusted.Example ', 'trusted.example')).toBe(
+      true,
+    );
+    expect(isTrustedDomain('owner@trusted.example', '@trusted.example')).toBe(
+      true,
+    );
   });
 
   it('refuses a domain that merely contains it — the bot case', () => {
     expect(
-      isTrustedDomain('bot@gebauer.koeln.example.com', 'gebauer.koeln'),
+      isTrustedDomain('bot@trusted.example.example.com', 'trusted.example'),
     ).toBe(false);
-    expect(isTrustedDomain('gebauer.koeln@spam.example', 'gebauer.koeln')).toBe(
-      false,
-    );
-    expect(isTrustedDomain('bot@notgebauer.koeln', 'gebauer.koeln')).toBe(
+    expect(
+      isTrustedDomain('trusted.example@spam.example', 'trusted.example'),
+    ).toBe(false);
+    expect(isTrustedDomain('bot@nottrusted.example', 'trusted.example')).toBe(
       false,
     );
   });
 
   it('refuses anything that is not an address', () => {
-    expect(isTrustedDomain('gebauer.koeln', 'gebauer.koeln')).toBe(false);
-    expect(isTrustedDomain('@gebauer.koeln', 'gebauer.koeln')).toBe(false);
-    expect(isTrustedDomain('jan@', 'gebauer.koeln')).toBe(false);
-    expect(isTrustedDomain('', 'gebauer.koeln')).toBe(false);
-    expect(isTrustedDomain(null, 'gebauer.koeln')).toBe(false);
+    expect(isTrustedDomain('trusted.example', 'trusted.example')).toBe(false);
+    expect(isTrustedDomain('@trusted.example', 'trusted.example')).toBe(false);
+    expect(isTrustedDomain('owner@', 'trusted.example')).toBe(false);
+    expect(isTrustedDomain('', 'trusted.example')).toBe(false);
+    expect(isTrustedDomain(null, 'trusted.example')).toBe(false);
   });
 
   it('trusts nobody when no domain is configured', () => {
-    expect(isTrustedDomain('jan@gebauer.koeln', '')).toBe(false);
-    expect(isTrustedDomain('jan@gebauer.koeln', undefined)).toBe(false);
+    expect(isTrustedDomain('owner@trusted.example', '')).toBe(false);
+    expect(isTrustedDomain('owner@trusted.example', undefined)).toBe(false);
   });
 
   it('takes the last @, so a quoted local part cannot smuggle one in', () => {
     expect(
-      isTrustedDomain('"a@gebauer.koeln"@spam.example', 'gebauer.koeln'),
+      isTrustedDomain('"a@trusted.example"@spam.example', 'trusted.example'),
     ).toBe(false);
   });
 });
@@ -45,7 +51,10 @@ describe('isTrustedDomain', () => {
 describe('approvalFor', () => {
   it('lets the trusted domain in', () => {
     expect(
-      approvalFor({ email: 'jan@gebauer.koeln', domain: 'gebauer.koeln' }),
+      approvalFor({
+        email: 'owner@trusted.example',
+        domain: 'trusted.example',
+      }),
     ).toEqual({ approved: true, reason: 'domain' });
   });
 
@@ -53,7 +62,7 @@ describe('approvalFor', () => {
     expect(
       approvalFor({
         email: 'friend@example.com',
-        domain: 'gebauer.koeln',
+        domain: 'trusted.example',
         invited: true,
       }),
     ).toEqual({ approved: true, reason: 'invited' });
@@ -61,14 +70,16 @@ describe('approvalFor', () => {
 
   it('holds everyone else for a yes', () => {
     expect(
-      approvalFor({ email: 'bot@example.com', domain: 'gebauer.koeln' }),
+      approvalFor({ email: 'bot@example.com', domain: 'trusted.example' }),
     ).toEqual({ approved: false, reason: 'stranger' });
   });
 });
 
 describe('normalizeEmail', () => {
   it('trims and lowers', () => {
-    expect(normalizeEmail('  JAN@Gebauer.Koeln  ')).toBe('jan@gebauer.koeln');
+    expect(normalizeEmail('  OWNER@Trusted.Example  ')).toBe(
+      'owner@trusted.example',
+    );
     expect(normalizeEmail(undefined)).toBe('');
   });
 });

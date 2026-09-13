@@ -8,7 +8,7 @@
 //
 //   `verified`  — PocketBase's own. The address has to receive a link and
 //                 have it clicked. Without this the domain rule below is
-//                 worthless: anyone could claim `bot@gebauer.koeln` and be
+//                 worthless: anyone could claim an address at the trusted domain and be
 //                 waved through by a domain they do not own.
 //   `approved`  — ours. True for the trusted domain and for anyone holding
 //                 an invite; otherwise it waits for the owner to say yes

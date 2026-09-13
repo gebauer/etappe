@@ -166,7 +166,8 @@ replacement for it.
   python3 .claude/skills/run-etappe/mail-sink.py &     # 127.0.0.1:2526
   SMTP_HOST=127.0.0.1 SMTP_PORT=2526 \
     SMTP_SENDER_ADDRESS=etappe@example.com \
-    OWNER_EMAIL=owner@gebauer.koeln \
+    OWNER_EMAIL=owner@trusted.example \
+    APPROVED_EMAIL_DOMAIN=trusted.example \
     APP_URL=http://127.0.0.1:8090 npm run pb          # with the flag unset
   node .claude/skills/run-etappe/registration-gate-check.mjs
   ```
