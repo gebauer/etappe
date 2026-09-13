@@ -856,6 +856,18 @@ export function TripEditor({
     closeCard();
     setHoveredWishId(null);
     setBrowsing(true);
+    // Browsing places is a map activity (design handoff), and the carousel
+    // is suppressed while the phone drawer is open — so asking to browse
+    // hands the map the screen rather than doing nothing visible.
+    if (phone) setDayCollapsed(true);
+  }
+
+  /** Capture an idea by name or pasted link. The phone's only route to this
+   * — the header's search-and-place group is desktop-only (WORK 12.7) — so
+   * it is offered wherever the wishlist itself is (author, 2026-09-13). */
+  function openWishlistCapture() {
+    setShareQuery(null);
+    setSearchMode('wishlist');
   }
 
   /** Fold the phone day detail (WORK 17.2). Expanding it also dismisses the
@@ -2013,10 +2025,7 @@ export function TripEditor({
                 selectedId={wishCard?.id ?? null}
                 hoveredId={hoveredWishId}
                 onHover={setHoveredWishId}
-                onAdd={() => {
-                  setShareQuery(null);
-                  setSearchMode('wishlist');
-                }}
+                onAdd={openWishlistCapture}
                 onImport={() => setShowHighlightsImport(true)}
                 onPreview={showWishlistItem}
                 onBrowseAll={openBrowsing}
@@ -2026,28 +2035,66 @@ export function TripEditor({
             </div>
           )}
 
-          {/* Phone-only entry to the carousel (WORK 17.3): reachable only
-              once the day detail is folded away — browsing places is a map
-              activity, so it is offered exactly when the map has the
-              screen. Hidden the moment anything else claims the bottom
-              slot. */}
+          {/* The phone's whole wishlist, in one glass pill (WORK 17.3;
+              capture added 2026-09-13): the left half browses what is
+              saved, the right half saves something new. The header's
+              search-and-place group is desktop-only, so without the `+`
+              there was no way to capture a place on a phone at all —
+              which is the half of the wishlist you actually want while
+              standing in front of somewhere.
+
+              No longer gated on the drawer being folded: the drawer starts
+              open, so that rule left a fresh trip with no wishlist on
+              screen anywhere. Browsing still gives the map the screen —
+              `openBrowsing` folds the drawer itself. Hidden only when
+              something else claims the bottom slot. */}
           {phone &&
-            dayCollapsed &&
             !cardOpen &&
             !browsing &&
             !picking &&
             !placingWish &&
-            wishlist.length > 0 && (
-              <button
-                onClick={openBrowsing}
-                className="absolute bottom-2 left-2 z-20 flex h-[38px] items-center gap-1.5 rounded-[19px] border border-[oklch(0.34_0.012_250)] bg-[oklch(0.20_0.013_250/0.92)] px-3.5 text-[12.5px] text-text-2 backdrop-blur-[10px]"
-              >
-                <span className="text-wishlist">★</span>
-                <span className="whitespace-nowrap">
-                  Explore {wishlist.length}{' '}
-                  {wishlist.length === 1 ? 'place' : 'places'}
-                </span>
-              </button>
+            (wishlist.length > 0 || canEditWishlist) && (
+              // Clear of the attribution, not on top of it: at phone width
+              // MapLibre's bar spans nearly the full map and stands 46px
+              // off the bottom, and "© OpenStreetMap" is a licence term,
+              // not decoration. It used to overlap only while the drawer
+              // was folded; now that this is always on screen, it would
+              // always cover it.
+              <div className="absolute bottom-[56px] left-2 z-20 flex h-[38px] items-stretch overflow-hidden rounded-[19px] border border-[oklch(0.34_0.012_250)] bg-[oklch(0.20_0.013_250/0.92)] text-[12.5px] text-text-2 backdrop-blur-[10px]">
+                {wishlist.length > 0 && (
+                  <button
+                    onClick={openBrowsing}
+                    className="flex items-center gap-1.5 px-3.5"
+                  >
+                    <span className="text-wishlist">★</span>
+                    <span className="whitespace-nowrap">
+                      Explore {wishlist.length}{' '}
+                      {wishlist.length === 1 ? 'place' : 'places'}
+                    </span>
+                  </button>
+                )}
+                {canEditWishlist && (
+                  <>
+                    {wishlist.length > 0 && (
+                      <span className="w-px flex-none self-stretch bg-[oklch(0.34_0.012_250)]" />
+                    )}
+                    <button
+                      onClick={openWishlistCapture}
+                      aria-label="Add a place to the wishlist"
+                      className="flex items-center gap-1.5 px-3.5"
+                    >
+                      {/* The star belongs to the pill, not to each half —
+                          it is only repeated here when this is the pill. */}
+                      {wishlist.length === 0 && (
+                        <span className="text-wishlist">★</span>
+                      )}
+                      <span className="whitespace-nowrap text-[15px] leading-none">
+                        {wishlist.length > 0 ? '+' : '+ Idea'}
+                      </span>
+                    </button>
+                  </>
+                )}
+              </div>
             )}
 
           {browsing && !cardOpen && !picking && (!phone || dayCollapsed) && (
