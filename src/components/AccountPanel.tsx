@@ -8,6 +8,7 @@ import {
   saveUserSettings,
   saveRoutingKey,
 } from '../lib/user-settings';
+import { useHillshade } from '../hooks/useHillshade';
 
 const ENGINE_BY_ID = new Map(ROUTING_ENGINES.map((e) => [e.id, e]));
 
@@ -21,6 +22,10 @@ const ENGINE_BY_ID = new Map(ROUTING_ENGINES.map((e) => [e.id, e]));
  *   old engine's numbers.
  * - **Link-out app** only affects this user's own `↗` clicks, so it can
  *   differ between members of the same trip.
+ *
+ * Terrain shading (WORK 35) joined them as a third, narrower kind again:
+ * per *browser*, not per account, so it is the one setting here that never
+ * touches PocketBase.
  */
 export function AccountPanel({
   email,
@@ -41,6 +46,7 @@ export function AccountPanel({
     initial.routingProviders,
   );
   const [linkOut, setLinkOut] = useState(initial.linkOut);
+  const [hillshade, setHillshade] = useHillshade();
   const [keyDraft, setKeyDraft] = useState<Record<string, string>>({});
   const [nick, setNick] = useState(
     (pb.authStore.record?.name as string | undefined) ?? '',
@@ -242,6 +248,32 @@ export function AccountPanel({
               }`}
             >
               {a.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-5 text-[10.5px] uppercase tracking-[0.08em] text-text-4">
+          Terrain
+        </div>
+        <p className="mt-1 text-[11.5px] leading-snug text-text-4">
+          Shades the hills on the map. This browser only — leave it off on the
+          phone to save mobile data during a trip.
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {[
+            { on: true, label: 'Shaded' },
+            { on: false, label: 'Flat' },
+          ].map((o) => (
+            <button
+              key={o.label}
+              onClick={() => setHillshade(o.on)}
+              className={`h-8 rounded-lg border px-3 text-[12.5px] ${
+                hillshade === o.on
+                  ? 'border-accent bg-accent-surface text-text'
+                  : 'border-border-strong text-text-2 hover:bg-control'
+              }`}
+            >
+              {o.label}
             </button>
           ))}
         </div>

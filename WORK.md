@@ -3204,6 +3204,48 @@ schema accepts either; `readAmenities` cleans it on commit).
 
 ---
 
+## Phase 35 — Terrain shading on the map (2026-10-01, author request)
+
+A hillshade layer over the basemap, on by default, switchable from the
+Account panel.
+
+**Hillshade, not 3D.** MapLibre's `setTerrain` was considered and rejected:
+pitching the camera means pins float off their coordinates without
+`symbol-z-elevate`, `fitTrip`'s `fitBounds` behaves differently under pitch,
+and the map stops reading as the diagram the day pills and route colours
+assume. Hillshade keeps the overhead plan and only stops pretending Iceland
+is flat.
+
+**DEM.** The AWS Terrain Tiles open dataset — keyless, `terrarium` encoding,
+`Access-Control-Allow-Origin: *` (verified 2026-10-01). Capped at `maxzoom`
+13: hillshade overzooms gracefully, and past that you are looking at a road
+rather than a landscape, so the extra requests buy nothing.
+
+**Per-browser, not per-account.** `etappe.hillshade` in `localStorage`,
+exactly like `etappe.wishlistPinMode` — the same class of thing, a viewer's
+map-display preference rather than trip data. It also lets the desktop run
+shaded while the phone stays plain on mobile data during the trip. Default
+on.
+
+- `lib/map-config.ts` grew `applyHillshade(map, on)` plus the preference
+  store. The source and layer are **added only while the preference is on**,
+  so Off costs zero DEM requests and drops the elevation credit from the
+  attribution control.
+- Inserted before the style's first `symbol` layer: over the basemap's
+  labels, hillshade greys out place names. Etappe's own layers are added
+  with no `beforeId` and so stay on top regardless.
+- `hooks/useHillshade.ts` — `useSyncExternalStore` over that store, so the
+  `AccountPanel` instance that opens *inside* the editor updates the live
+  map without a prop threaded through `TripEditor`.
+- **Print maps deliberately untouched.** At 760×420 the shading mostly
+  muddies the day's route, and `print-map.ts` reads the canvas on `idle`,
+  which a DEM source can resolve before the terrain has drawn — a
+  half-shaded PNG. Plain stays plain.
+- Verified: `npm run check`.
+- Commit: `phase 35: terrain shading on the map`.
+
+---
+
 ## Noticed
 
 Append anything found along the way that is worth doing but is not in the

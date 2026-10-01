@@ -35,7 +35,8 @@ import { loadThumbnailUrl } from '../lib/wikimedia';
 import { pb } from '../lib/pb';
 import { blocksFor, firstPhotoUrl } from '../lib/pb-blocks';
 import { DayPills } from './DayPills';
-import { TILE_URL } from '../lib/map-config';
+import { TILE_URL, applyHillshade } from '../lib/map-config';
+import { useHillshade } from '../hooks/useHillshade';
 
 const STOP_LAYERS = ['stops', 'stops-dim'];
 
@@ -274,6 +275,13 @@ export function MapPane({
   // came up with fallback-coloured wishlist pins and no photos until the
   // next edit.
   const [mapReady, setMapReady] = useState(false);
+  // Terrain shading (WORK 35). Read here rather than passed in: it is a
+  // per-viewer display choice, so nothing above this component has an
+  // opinion on it. The ref is for the init effect, which runs once and
+  // would otherwise close over the first value forever.
+  const [hillshade] = useHillshade();
+  const hillshadeRef = useRef(hillshade);
+  hillshadeRef.current = hillshade;
   // The sprite atlas: the wishlist's "icon" pin mode (WORK 18.11) and every
   // photo-less stop/wishlist pin's kind-icon fallback both need it, so it
   // loads once, unconditionally, rather than only for the icon-mode toggle.
@@ -592,6 +600,8 @@ export function MapPane({
         },
       });
 
+      applyHillshade(map, hillshadeRef.current);
+
       loadedRef.current = true;
       setMapReady(true);
       maybeFit(map);
@@ -783,6 +793,15 @@ export function MapPane({
       mapRef.current = null;
     };
   }, []);
+
+  // Terrain shading toggled while the map is up (WORK 35) — the Account
+  // panel can be opened over the editor, so this has to take effect behind
+  // it rather than on the next mount.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    applyHillshade(map, hillshade);
+  }, [hillshade, mapReady]);
 
   // Push new data.
   useEffect(() => {
